@@ -23,9 +23,9 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { CheckinCard } from '@/components/CheckinCard'
-import { getAgentById } from '../../../shared/agents'
+import { getAgentById } from '@shared/agents'
 import { cn } from '@/lib/utils'
-import type { AgentFavorite, Conversation, CreativeWork } from '../../../shared/types'
+import type { AgentFavorite, Conversation, CreativeWork } from '@shared/types'
 
 // UserProfile 没有 created_at，但后端 /users/me 可能返回此字段（兼容扩展）
 interface ProfileWithMeta {

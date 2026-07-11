@@ -15,8 +15,8 @@ import { Textarea } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/utils'
-import type { AgentConfig } from '../../../shared/agents'
-import type { ForumPost, ForumTopic } from '../../../shared/types'
+import type { AgentConfig } from '@shared/agents'
+import type { ForumPost, ForumTopic } from '@shared/types'
 
 // 帖子类型：在 ForumPost 基础上扩展流式标记
 type TopicPost = ForumPost & {

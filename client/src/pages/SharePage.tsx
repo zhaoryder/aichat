@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
-import type { Message, SharedConversation } from '../../../shared/types'
+import type { Message, SharedConversation } from '@shared/types'
 
 type LoadStatus = 'loading' | 'ok' | 'error'
 

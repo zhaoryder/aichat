@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { cn } from '@/lib/utils'
-import type { AgentConfig } from '../../../shared/agents'
+import type { AgentConfig } from '@shared/agents'
 
 // 6 种预设头像渐变（与创建页保持一致）
 const GRADIENT_PRESETS: { label: string; value: string }[] = [

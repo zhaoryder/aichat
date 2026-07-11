@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { apiFetch } from '@/lib/api'
-import type { UserProfile } from '../../../shared/types'
+import type { UserProfile } from '@shared/types'
 
 /** Auth Context 提供的值 */
 interface AuthContextValue {

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
-import type { AgentConfig } from '../../../../shared/agents'
+import type { AgentConfig } from '@shared/agents'
 
 export const ScriptStudioPage = () => {
   // 表单状态

@@ -12,8 +12,8 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
-import type { AgentConfig } from '../../../shared/agents'
-import type { ForumTopic } from '../../../shared/types'
+import type { AgentConfig } from '@shared/agents'
+import type { ForumTopic } from '@shared/types'
 
 const PAGE_SIZE = 20
 

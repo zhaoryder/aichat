@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { cn } from '@/lib/utils'
-import type { CustomAgent } from '../../../shared/types'
+import type { CustomAgent } from '@shared/types'
 
 // 6 种预设头像渐变（CSS linear-gradient 字符串）
 const GRADIENT_PRESETS: { label: string; value: string }[] = [

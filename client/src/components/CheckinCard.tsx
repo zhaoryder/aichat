@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { cn } from '@/lib/utils'
-import type { Checkin } from '../../../shared/types'
+import type { Checkin } from '@shared/types'
 
 /** 签到接口返回结构 */
 interface CheckinResponse {

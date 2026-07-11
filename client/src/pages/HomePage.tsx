@@ -1,6 +1,6 @@
 // 主页：Hero 区 + 智能体卡片网格
 import { Link, useNavigate } from 'react-router-dom'
-import { agents, type AgentConfig } from '../../../shared/agents'
+import { agents, type AgentConfig } from '@shared/agents'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'

@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
-import type { CreativeWork } from '../../../shared/types'
+import type { CreativeWork } from '@shared/types'
 
 // 6 个功能入口配置：图标（inline SVG）+ 标题 + 描述 + 路由
 const STUDIO_ENTRIES: {

@@ -22,7 +22,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Spinner } from '@/components/ui/Spinner'
 import { cn } from '@/lib/utils'
-import type { Profile, Report, ReportStatus, ReportTargetType } from '../../../shared/types'
+import type { Profile, Report, ReportStatus, ReportTargetType } from '@shared/types'
 
 type Tab = 'users' | 'reports'
 

@@ -17,8 +17,8 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 import { Link } from 'react-router-dom'
 import { apiStream } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import type { AgentConfig } from '../../../../shared/agents'
-import type { Message } from '../../../../shared/types'
+import type { AgentConfig } from '@shared/agents'
+import type { Message } from '@shared/types'
 
 /** 扩展 Message：流式输出标记 */
 interface ChatMessage extends Message {

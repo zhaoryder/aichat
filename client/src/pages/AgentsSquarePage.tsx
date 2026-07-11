@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
-import type { AgentConfig } from '../../../shared/agents'
+import type { AgentConfig } from '@shared/agents'
 
 type Filter = 'all' | 'official' | 'custom'
 

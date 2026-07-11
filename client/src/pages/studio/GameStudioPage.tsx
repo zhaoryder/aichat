@@ -12,7 +12,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { Dialog } from '@/components/ui/Dialog'
-import type { GameSave } from '../../../../shared/types'
+import type { GameSave } from '@shared/types'
 
 // 游戏类型配置
 const GAME_TYPES: { key: string; label: string; desc: string; icon: React.ReactNode }[] = [

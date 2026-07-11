@@ -6,8 +6,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { ChatWindow } from '@/components/chat/ChatWindow'
-import type { AgentConfig } from '../../../shared/agents'
-import type { Message } from '../../../shared/types'
+import type { AgentConfig } from '@shared/agents'
+import type { Message } from '@shared/types'
 
 type LoadStatus = 'loading' | 'ok' | 'error'
 
