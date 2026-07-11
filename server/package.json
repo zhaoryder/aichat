@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=../.env.local src/index.ts",
-    "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --format=esm --external:@supabase/supabase-js --external:openai",
+    "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --format=esm --external:@supabase/supabase-js --external:openai --alias:@shared=./shared",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
@@ -19,6 +19,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^20.19.43",
+    "esbuild": "^0.23.0",
     "tsx": "^4.19.2",
     "typescript": "^5"
   }
