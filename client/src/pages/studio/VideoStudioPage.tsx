@@ -19,8 +19,8 @@ import { cn } from '@/lib/utils'
 // 视频状态：服务端 SUCCESS / FAIL / pending / processing 等
 type VideoPhase = 'idle' | 'submitting' | 'pending' | 'processing' | 'success' | 'failed' | 'timeout'
 
-const POLL_INTERVAL = 5000 // 5 秒
-const TIMEOUT_MS = 5 * 60 * 1000 // 5 分钟
+const POLL_INTERVAL = 10000 // 10 秒（减少请求次数避免 429）
+const TIMEOUT_MS = 10 * 60 * 1000 // 10 分钟（CogVideoX-3 生成 10 秒视频可能需 3-5 分钟）
 
 // 状态文案
 const PHASE_TEXT: Record<VideoPhase, string> = {
@@ -308,7 +308,7 @@ export const VideoStudioPage = () => {
                   )
                 })}
               </div>
-              <p className="text-xs text-gray-400">预计 1-2 分钟 · 每 5 秒自动刷新状态</p>
+              <p className="text-xs text-gray-400">预计 3-8 分钟 · 每 10 秒自动刷新 · 请耐心等待</p>
             </div>
           ) : phase === 'success' && videoUrl ? (
             <div className="flex flex-1 flex-col p-5">
@@ -347,7 +347,7 @@ export const VideoStudioPage = () => {
                 </svg>
               </div>
               <p className="text-sm font-medium text-gray-700">
-                {phase === 'timeout' ? '生成超时（超过 5 分钟）' : '生成失败'}
+                {phase === 'timeout' ? '生成超时（超过 10 分钟，AI 视频生成确实较慢）' : '生成失败'}
               </p>
               {error && <p className="max-w-sm text-xs text-gray-500">{error}</p>}
               <Button size="sm" onClick={handleRetry}>
