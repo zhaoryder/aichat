@@ -444,34 +444,70 @@ export async function generateImage(
 /**
  * 提交视频生成任务（智谱 CogVideoX，异步）
  * 返回任务 ID
+ * @param duration 视频时长（5 或 10 秒），默认 5
+ * 内置 429 自动重试（指数退避，最多 3 次）
  */
 export async function submitVideoTask(
-  prompt: string
+  prompt: string,
+  options?: { duration?: number }
 ): Promise<string> {
   const apiKey = AGNES_API_KEY
   const baseURL = AGNES_API_BASE
-  const response = await fetch(`${baseURL}/videos/generations`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'cogvideox-flash',
-      prompt,
-      with_audio: true,
-    }),
-  })
-  if (!response.ok) {
-    const text = await response.text()
-    throw new AIRequestError(
-      `视频生成任务提交失败（HTTP ${response.status}）：${text}`
-    )
+  // 智谱官方文档：duration 只支持 5 或 10
+  const duration = options?.duration === 10 ? 10 : 5
+
+  const MAX_RETRIES = 3
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(`${baseURL}/videos/generations`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'cogvideox',
+          prompt,
+          with_audio: true,
+          duration,
+        }),
+      })
+
+      if (response.status === 429) {
+        // 限流：指数退避重试
+        const waitMs = Math.min(2000 * Math.pow(2, attempt), 8000)
+        await new Promise((resolve) => setTimeout(resolve, waitMs))
+        lastError = new AIRequestError(
+          `视频生成服务繁忙（已自动重试 ${attempt + 1}/${MAX_RETRIES}）`
+        )
+        continue
+      }
+
+      if (!response.ok) {
+        const text = await response.text()
+        throw new AIRequestError(
+          `视频生成任务提交失败（HTTP ${response.status}）：${text}`
+        )
+      }
+
+      const data = (await response.json()) as { id?: string; task_id?: string }
+      const taskId = data.id ?? data.task_id
+      if (!taskId) throw new AIRequestError('视频生成任务提交失败：未返回任务 ID')
+      return taskId
+    } catch (err) {
+      // 非限流错误直接抛出
+      if (err instanceof AIRequestError && /繁忙/.test(err.message)) {
+        lastError = err
+        continue
+      }
+      throw err
+    }
   }
-  const data = (await response.json()) as { id?: string; task_id?: string }
-  const taskId = data.id ?? data.task_id
-  if (!taskId) throw new AIRequestError('视频生成任务提交失败：未返回任务 ID')
-  return taskId
+
+  // 重试耗尽
+  throw lastError ?? new AIRequestError('视频生成任务提交失败：重试耗尽')
 }
 
 /**

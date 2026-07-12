@@ -55,6 +55,7 @@ function phaseToStageIndex(phase: VideoPhase): number {
 export const VideoStudioPage = () => {
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState('')
+  const [duration, setDuration] = useState<5 | 10>(5)
 
   const [phase, setPhase] = useState<VideoPhase>('idle')
   const [videoUrl, setVideoUrl] = useState('')
@@ -128,7 +129,7 @@ export const VideoStudioPage = () => {
     try {
       const res = await apiFetch<{ taskId: string }>('/studio/video/create', {
         method: 'POST',
-        body: JSON.stringify({ prompt: trimmed, style: style.trim() }),
+        body: JSON.stringify({ prompt: trimmed, style: style.trim(), duration }),
       })
       const taskId = res.taskId
       if (!taskId) {
@@ -152,7 +153,7 @@ export const VideoStudioPage = () => {
       setError(friendly)
       setPhase('failed')
     }
-  }, [prompt, style, phase, clearPoll, pollOnce])
+  }, [prompt, style, duration, phase, clearPoll, pollOnce])
 
   // 重试：重新提交相同参数
   const handleRetry = useCallback(() => {
@@ -200,10 +201,35 @@ export const VideoStudioPage = () => {
             />
             <div>
               <span className="mb-1.5 block text-sm font-medium text-gray-700">时长</span>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">约 6 秒</Badge>
-                <span className="text-xs text-gray-400">由 AI 决定</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDuration(5)}
+                  disabled={isWorking}
+                  className={cn(
+                    'flex-1 rounded-lg border px-3 py-2 text-sm transition-all',
+                    duration === 5
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                  )}
+                >
+                  5 秒
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDuration(10)}
+                  disabled={isWorking}
+                  className={cn(
+                    'flex-1 rounded-lg border px-3 py-2 text-sm transition-all',
+                    duration === 10
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                  )}
+                >
+                  10 秒
+                </button>
               </div>
+              <p className="mt-1 text-xs text-gray-400">含 AI 音效，429 时自动重试</p>
             </div>
             <Button
               className="w-full transition-transform duration-300 ease-out hover:scale-[1.02]"

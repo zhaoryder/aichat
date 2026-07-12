@@ -408,6 +408,7 @@ studioRouter.post('/image', authMiddleware, async (req: Request, res: Response) 
 interface VideoCreateBody {
   prompt?: unknown
   style?: unknown
+  duration?: unknown
 }
 
 studioRouter.post(
@@ -420,6 +421,8 @@ studioRouter.post(
       const body = req.body as VideoCreateBody
       const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
       const style = typeof body.style === 'string' ? body.style.trim() : ''
+      // 智谱只支持 5 或 10 秒
+      const duration = body.duration === 10 ? 10 : 5
 
       if (!prompt) {
         res.status(400).json({ error: '缺少视频描述' })
@@ -427,13 +430,14 @@ studioRouter.post(
       }
 
       const fullPrompt = style ? `${prompt}，风格：${style}` : prompt
-      const taskId = await submitVideoTask(fullPrompt)
+      const taskId = await submitVideoTask(fullPrompt, { duration })
 
       // 保存为创意作品（pending 状态）
       try {
         const work = await createCreativeWork(user.id, 'video', prompt, {
           prompt,
           style,
+          duration,
           taskId,
         })
         await updateCreativeWork(work.id, { status: 'processing' })
