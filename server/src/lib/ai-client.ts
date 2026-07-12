@@ -468,7 +468,7 @@ export async function submitVideoTask(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'cogvideox',
+          model: 'cogvideox-3',
           prompt,
           with_audio: true,
           duration,
