@@ -2,8 +2,10 @@
   "$schema": "https://schema.railpack.com",
   "steps": {
     "install": {
-      "inputs": [{ "local": true, "include": ["."] }],
-      "commands": ["cd server && npm install"]
+      "commands": [
+        "COPY:server server",
+        "cd server && npm install"
+      ]
     },
     "build": {
       "inputs": [{ "step": "install" }],
