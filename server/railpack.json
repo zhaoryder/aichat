@@ -1,13 +1,15 @@
 {
-  "$schema": "https://railpack.com/railpack.schema.json",
-  "provider": "node",
-  "build": {
-    "steps": {
-      "install": "npm install",
-      "build": "npm run build"
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install": {
+      "commands": ["npm install"]
+    },
+    "build": {
+      "inputs": [{ "step": "install" }],
+      "commands": ["npm run build"]
     }
   },
   "deploy": {
-    "start": "npm start"
+    "startCommand": "node dist/index.js"
   }
 }
