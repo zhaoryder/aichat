@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui-legacy/EmptyState'
 import { Badge } from '@/components/ui-legacy/Badge'
 import { SelectWithCustom } from '@/components/SelectWithCustom'
 import { VIDEO_STYLES } from '@shared/presets'
+import { cn } from '@/lib/utils'
 
 // 视频状态：服务端 SUCCESS / FAIL / pending / processing 等
 type VideoPhase = 'idle' | 'submitting' | 'pending' | 'processing' | 'success' | 'failed' | 'timeout'
@@ -32,10 +33,28 @@ const PHASE_TEXT: Record<VideoPhase, string> = {
   timeout: '生成超时',
 }
 
+// 分阶段进度：提交中 → 排队中 → 生成中 → 完成
+const STAGES = ['提交中', '排队中', '生成中', '完成'] as const
+
+/** 把当前 phase 映射到 STAGES 的索引（-1 表示未进入流程，如 idle/failed/timeout） */
+function phaseToStageIndex(phase: VideoPhase): number {
+  switch (phase) {
+    case 'submitting':
+      return 0
+    case 'pending':
+      return 1
+    case 'processing':
+      return 2
+    case 'success':
+      return 3
+    default:
+      return -1
+  }
+}
+
 export const VideoStudioPage = () => {
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState('')
-  const [duration, setDuration] = useState(5)
 
   const [phase, setPhase] = useState<VideoPhase>('idle')
   const [videoUrl, setVideoUrl] = useState('')
@@ -109,7 +128,7 @@ export const VideoStudioPage = () => {
     try {
       const res = await apiFetch<{ taskId: string }>('/studio/video/create', {
         method: 'POST',
-        body: JSON.stringify({ prompt: trimmed, style: style.trim(), duration }),
+        body: JSON.stringify({ prompt: trimmed, style: style.trim() }),
       })
       const taskId = res.taskId
       if (!taskId) {
@@ -133,7 +152,7 @@ export const VideoStudioPage = () => {
       setError(friendly)
       setPhase('failed')
     }
-  }, [prompt, style, duration, phase, clearPoll, pollOnce])
+  }, [prompt, style, phase, clearPoll, pollOnce])
 
   // 重试：重新提交相同参数
   const handleRetry = useCallback(() => {
@@ -156,7 +175,7 @@ export const VideoStudioPage = () => {
         <p className="mt-1 text-sm text-gray-500">用 AI 生成一段搞笑短视频</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[320px_1fr] lg:grid-cols-[360px_1fr]">
         {/* 表单 */}
         <Card className="h-fit p-5">
           <div className="space-y-4">
@@ -180,17 +199,11 @@ export const VideoStudioPage = () => {
               disabled={isWorking}
             />
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                时长（秒）
-              </label>
-              <Input
-                type="number"
-                min={1}
-                max={60}
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value) || 5)}
-                disabled={isWorking}
-              />
+              <span className="mb-1.5 block text-sm font-medium text-gray-700">时长</span>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">约 6 秒</Badge>
+                <span className="text-xs text-gray-400">由 AI 决定</span>
+              </div>
             </div>
             <Button
               className="w-full transition-transform duration-300 ease-out hover:scale-[1.02]"
@@ -211,14 +224,65 @@ export const VideoStudioPage = () => {
               description="视频生成通常需要几分钟，请耐心等待"
             />
           ) : isWorking ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+            <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
               <Spinner className="h-10 w-10" />
               <p className="text-sm font-medium text-gray-700">{PHASE_TEXT[phase]}</p>
-              {/* indeterminate 进度条 */}
-              <div className="mt-2 h-2 w-full max-w-md overflow-hidden rounded-full bg-gray-200">
-                <div className="h-full w-1/3 rounded-full bg-primary shimmer-bar" />
+              {/* 分阶段进度条：提交中 → 排队中 → 生成中 → 完成 */}
+              <div className="flex w-full max-w-md items-start">
+                {STAGES.map((stage, i) => {
+                  const currentStage = phaseToStageIndex(phase)
+                  const reached = i <= currentStage
+                  const isCurrent = i === currentStage
+                  return (
+                    <div key={stage} className="flex flex-1 flex-col items-center">
+                      <div className="flex w-full items-center">
+                        {/* 左侧连线 */}
+                        <div
+                          className={cn(
+                            'h-0.5 flex-1',
+                            i === 0 ? 'bg-transparent' : reached ? 'bg-primary' : 'bg-gray-200',
+                          )}
+                        />
+                        {/* 圆点 */}
+                        <div
+                          className={cn(
+                            'h-3 w-3 shrink-0 rounded-full transition-colors',
+                            isCurrent
+                              ? 'animate-pulse bg-primary ring-4 ring-primary/20'
+                              : reached
+                                ? 'bg-green-500'
+                                : 'bg-gray-300',
+                          )}
+                        />
+                        {/* 右侧连线 */}
+                        <div
+                          className={cn(
+                            'h-0.5 flex-1',
+                            i === STAGES.length - 1
+                              ? 'bg-transparent'
+                              : i < currentStage
+                                ? 'bg-primary'
+                                : 'bg-gray-200',
+                          )}
+                        />
+                      </div>
+                      <span
+                        className={cn(
+                          'mt-2 whitespace-nowrap text-xs',
+                          isCurrent
+                            ? 'font-medium text-primary'
+                            : reached
+                              ? 'text-green-600'
+                              : 'text-gray-400',
+                        )}
+                      >
+                        {stage}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
-              <p className="text-xs text-gray-400">每 5 秒自动刷新状态</p>
+              <p className="text-xs text-gray-400">预计 1-2 分钟 · 每 5 秒自动刷新状态</p>
             </div>
           ) : phase === 'success' && videoUrl ? (
             <div className="flex flex-1 flex-col p-5">
@@ -267,17 +331,6 @@ export const VideoStudioPage = () => {
           )}
         </Card>
       </div>
-
-      {/* indeterminate 进度条动画样式 */}
-      <style>{`
-        .shimmer-bar {
-          animation: shimmer-slide 1.4s ease-in-out infinite;
-        }
-        @keyframes shimmer-slide {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(300%); }
-        }
-      `}</style>
     </div>
   )
 }

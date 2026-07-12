@@ -4,13 +4,14 @@
 // - 表情包字幕（Canvas 合成）：drawImage + fillText → toDataURL 下载
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, publishImageToGallery } from '@/lib/api'
 import { Card } from '@/components/ui-legacy/Card'
 import { Input, Textarea } from '@/components/ui-legacy/Input'
 import { Button } from '@/components/ui-legacy/Button'
 import { Spinner } from '@/components/ui-legacy/Spinner'
 import { EmptyState } from '@/components/ui-legacy/EmptyState'
 import { Dialog } from '@/components/ui-legacy/Dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { SelectWithCustom } from '@/components/SelectWithCustom'
 import { IMAGE_STYLES } from '@shared/presets'
@@ -34,6 +35,13 @@ export const ImageStudioPage = () => {
   // 字幕
   const [caption, setCaption] = useState('')
 
+  // 发布到广场
+  const [publishToGallery, setPublishToGallery] = useState(false)
+  const [publishMsg, setPublishMsg] = useState('')
+
+  // 图片加载状态：url → 是否已加载
+  const [loadedUrls, setLoadedUrls] = useState<Record<string, boolean>>({})
+
   async function handleGenerate() {
     const trimmed = prompt.trim()
     if (!trimmed || loading) return
@@ -41,13 +49,36 @@ export const ImageStudioPage = () => {
     setLoading(true)
     setError('')
     setImages([])
+    setLoadedUrls({})
+    setPublishMsg('')
 
     try {
       const res = await apiFetch<{ images: ImageItem[] }>('/studio/image', {
         method: 'POST',
         body: JSON.stringify({ prompt: trimmed, style: style.trim(), count }),
       })
-      setImages(res.images ?? [])
+      const imgs = res.images ?? []
+      setImages(imgs)
+
+      // 发布到广场：勾选时把生成的图片逐张发布
+      if (publishToGallery && imgs.length > 0) {
+        try {
+          await Promise.all(
+            imgs.map((img) =>
+              publishImageToGallery({
+                prompt: trimmed,
+                url: img.url,
+                title: style.trim() || undefined,
+              }),
+            ),
+          )
+          setPublishMsg(`已发布 ${imgs.length} 张到广场`)
+        } catch (e) {
+          setPublishMsg(
+            '发布到广场失败：' + (e instanceof Error ? e.message : '未知错误'),
+          )
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '图片生成失败')
     } finally {
@@ -150,7 +181,7 @@ export const ImageStudioPage = () => {
         <p className="mt-1 text-sm text-gray-500">CogView4 文生图，还能合成表情包字幕</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[320px_1fr] lg:grid-cols-[360px_1fr]">
         {/* 表单 */}
         <Card className="h-fit p-5">
           <div className="space-y-4">
@@ -208,6 +239,16 @@ export const ImageStudioPage = () => {
                 disabled={loading}
               />
             </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={publishToGallery}
+                onChange={(e) => setPublishToGallery(e.target.checked)}
+                disabled={loading}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              发布到广场
+            </label>
             <Button
               className="w-full transition-transform duration-300 ease-out hover:scale-[1.02]"
               onClick={handleGenerate}
@@ -230,6 +271,10 @@ export const ImageStudioPage = () => {
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
               <Spinner className="h-10 w-10" />
               <p className="text-sm font-medium text-gray-600">AI 正在绘画…</p>
+              {/* indeterminate shimmer 进度条 */}
+              <div className="mt-2 h-1 w-full max-w-md overflow-hidden rounded-full bg-gray-200">
+                <div className="h-full w-full animate-shimmer rounded-full bg-gradient-to-r from-transparent via-primary to-transparent bg-[length:200%_100%]" />
+              </div>
             </div>
           ) : images.length === 0 && !error ? (
             <EmptyState
@@ -239,6 +284,11 @@ export const ImageStudioPage = () => {
             />
           ) : (
             <div className="p-5">
+              {publishMsg && (
+                <div className="mb-3 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary">
+                  {publishMsg}
+                </div>
+              )}
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm text-gray-500">共 {images.length} 张</span>
                 {images.length > 0 && (
@@ -250,11 +300,20 @@ export const ImageStudioPage = () => {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {images.map((img, i) => (
                   <div key={i} className="group overflow-hidden rounded-lg ring-1 ring-gray-200">
-                    <div className="relative">
+                    <div className="relative aspect-square overflow-hidden bg-gray-50">
+                      {!loadedUrls[img.url] && (
+                        <Skeleton className="absolute inset-0" />
+                      )}
                       <img
                         src={img.url}
                         alt={`生成图 ${i + 1}`}
-                        className="w-full cursor-zoom-in bg-gray-50 transition-transform duration-300 group-hover:scale-[1.02]"
+                        onLoad={() =>
+                          setLoadedUrls((prev) => ({ ...prev, [img.url]: true }))
+                        }
+                        className={cn(
+                          'h-full w-full cursor-zoom-in object-contain transition-all duration-300 group-hover:scale-[1.02]',
+                          loadedUrls[img.url] ? 'opacity-100' : 'opacity-0',
+                        )}
                         onClick={() => setPreviewUrl(img.url)}
                       />
                     </div>

@@ -45,7 +45,12 @@ export const VoiceStudioPage = () => {
       })
       setAudioUrl(res.audioUrl)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '语音生成失败')
+      const raw = err instanceof Error ? err.message : '语音生成失败'
+      // 429 友好提示：免费额度有限
+      const friendly = /429|too many requests|繁忙|限流/i.test(raw)
+        ? '语音合成服务繁忙（免费额度有限），请稍后重试'
+        : raw
+      setError(friendly)
     } finally {
       setLoading(false)
     }
@@ -75,7 +80,7 @@ export const VoiceStudioPage = () => {
         <p className="mt-1 text-sm text-gray-500">把文字变成会说话的搞笑语音</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_360px]">
         {/* 表单 */}
         <Card className="p-5">
           <div className="space-y-4">
@@ -88,9 +93,10 @@ export const VoiceStudioPage = () => {
                 onChange={(e) => setText(e.target.value)}
                 placeholder="输入要合成语音的文字，越长越好，越搞怪越好…"
                 rows={10}
+                maxLength={500}
                 disabled={loading}
               />
-              <p className="mt-1 text-right text-xs text-gray-400">{charCount} 字</p>
+              <p className="mt-1 text-right text-xs text-gray-400">{charCount}/500</p>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">音色</label>
@@ -135,6 +141,10 @@ export const VoiceStudioPage = () => {
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
               <Spinner className="h-10 w-10" />
               <p className="text-sm font-medium text-gray-600">AI 正在合成语音…</p>
+              {/* indeterminate shimmer 进度条 */}
+              <div className="mt-2 h-1 w-full max-w-md overflow-hidden rounded-full bg-gray-200">
+                <div className="h-full w-full animate-shimmer rounded-full bg-gradient-to-r from-transparent via-primary to-transparent bg-[length:200%_100%]" />
+              </div>
             </div>
           ) : audioUrl ? (
             <div className="flex flex-1 flex-col p-5">

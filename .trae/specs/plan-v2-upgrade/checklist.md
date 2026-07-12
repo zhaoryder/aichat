@@ -24,10 +24,11 @@
 - [x] `getActiveMemePrompt` / `incrementMemeUsage` 等热梗函数已删除
 - [x] chat 路由中热梗注入逻辑已删除
 - [x] `shared/agents.ts` 17 个智能体添加"原创幽默指南"
-- [ ] 本地测试对话：GLM-4-Flash 回复搞笑度达标（待部署后验证）
-- [ ] AI 回复不含 2008 年过时梗（待部署后验证）
-- [ ] AI 回复含至少 1 个原创梗/反转/包袱（待部署后验证）
-- [ ] AI 回复保持智能体人格特征（待部署后验证）
+- [x] `/api/agents` 返回 18 个智能体（Railway 验证通过）
+- [ ] 本地测试对话：GLM-4-Flash 回复搞笑度达标（需浏览器实际对话验证）
+- [ ] AI 回复不含 2008 年过时梗（需浏览器实际对话验证）
+- [ ] AI 回复含至少 1 个原创梗/反转/包袱（需浏览器实际对话验证）
+- [ ] AI 回复保持智能体人格特征（需浏览器实际对话验证）
 
 ## 阶段三：视频生成（限流方案）
 - [x] 保留智谱 CogVideoX 代码
@@ -142,23 +143,32 @@
 - [x] 5 个 Realtime 表已配置（REPLICA IDENTITY FULL）
 - [x] 12 条默认成就数据已插入（ON CONFLICT DO NOTHING）
 - [x] 幂等设计（IF NOT EXISTS / DROP POLICY IF EXISTS）
-- [ ] migration 已在 Supabase SQL Editor 执行（待用户操作）
-- [ ] 所有新表创建成功验证（待执行后验证）
+- [x] migration 已执行（API 验证：所有新表存在且可查询）
+- [x] `/api/achievements` 返回 12 条成就数据（验证通过）
+- [x] `/api/gallery/images` 返回空列表（表存在）
+- [x] `/api/prompts` 返回空列表（表存在）
+- [x] `/api/ai-posts` 返回空列表（表存在）
+- [x] `/api/emo-wall` 返回空列表（表存在）
+- [x] `/api/vibe-code/explore` 返回空列表（表存在）
 
 ## 阶段九：部署与验证
-- [ ] Railway 环境变量确认（AGNES_API_KEY / SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY）
-- [ ] git push 后 Railway 自动部署成功
-- [ ] `/api/health` 返回 `{"status":"ok"}`
-- [ ] `/api/agents` 返回 18 个智能体
-- [ ] 新路由 `/api/gallery` / `/api/prompts` / `/api/achievements` / `/api/leaderboard` / `/api/ai-posts` / `/api/emo-wall` / `/api/vibe-code` 可访问
-- [ ] `client/shared/` 已同步（agents.ts / presets.ts / types.ts）
-- [ ] `vercel --prod` 部署成功
-- [ ] 首页加载无控制台错误
-- [ ] 7 个新页面路由可访问（/gallery, /prompts, /achievements, /leaderboard, /ai-feed, /emo-wall, /cards）
-- [ ] 对话功能：GLM-4-Flash 搞笑度达标
-- [ ] Vibe Coding：贪吃蛇/番茄钟能生成并运行
-- [ ] 新功能：语音/广场/卡牌/成就/排行榜/朋友圈/emo墙全部可用
-- [ ] 暗色模式可切换
-- [ ] 移动端体验流畅
-- [ ] 全站无控制台错误
-- [ ] 所有 Toast 反馈正常
+- [x] Railway 环境变量确认（AGNES_API_KEY / SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY）
+- [x] git push 后 Railway 自动部署成功
+- [x] `/api/health` 返回 `{"status":"ok"}`
+- [x] `/api/agents` 返回 18 个智能体
+- [x] 新路由全部可访问：`/api/gallery` / `/api/prompts` / `/api/achievements` / `/api/leaderboard` / `/api/ai-posts` / `/api/emo-wall` / `/api/vibe-code`
+- [x] `/api/leaderboard/agents` 返回智能体排行榜（孔子 6 次第一）
+- [x] `/api/leaderboard/users` 返回用户排行榜
+- [x] `/api/leaderboard/works` 返回作品列表
+- [x] `client/shared/` 已同步（agents.ts / presets.ts / types.ts）
+- [x] `vercel --prod` 部署成功
+- [x] 前端首页 HTTP 200
+- [x] 前端 7 个新页面路由可访问（/gallery, /prompts, /achievements, /leaderboard, /ai-feed, /emo-wall, /cards）
+- [x] 前端 /studio/vibe-code 路由可访问
+- [ ] 对话功能：GLM-4-Flash 搞笑度达标（需浏览器实际对话验证）
+- [ ] Vibe Coding：贪吃蛇/番茄钟能生成并运行（需浏览器实际生成验证）
+- [ ] 新功能：语音/广场/卡牌/成就/排行榜/朋友圈/emo墙全部可用（需浏览器交互验证）
+- [ ] 暗色模式可切换（需浏览器验证）
+- [ ] 移动端体验流畅（需浏览器验证）
+- [ ] 全站无控制台错误（需浏览器验证）
+- [ ] 所有 Toast 反馈正常（需浏览器验证）

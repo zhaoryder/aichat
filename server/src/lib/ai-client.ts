@@ -446,8 +446,7 @@ export async function generateImage(
  * 返回任务 ID
  */
 export async function submitVideoTask(
-  prompt: string,
-  options?: { duration?: number }
+  prompt: string
 ): Promise<string> {
   const apiKey = AGNES_API_KEY
   const baseURL = AGNES_API_BASE
@@ -460,7 +459,7 @@ export async function submitVideoTask(
     body: JSON.stringify({
       model: 'cogvideox-flash',
       prompt,
-      duration: options?.duration ?? 5,
+      with_audio: true,
     }),
   })
   if (!response.ok) {
@@ -517,7 +516,7 @@ export async function generateSpeech(
 ): Promise<string> {
   const apiKey = AGNES_API_KEY
   const baseURL = AGNES_API_BASE
-  const response = await fetch(`${baseURL}/audio/speeches`, {
+  const response = await fetch(`${baseURL}/audio/speech`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -544,4 +543,114 @@ export async function generateSpeech(
   // 直接返回音频，转 base64 data URI
   const buffer = await response.arrayBuffer()
   return `data:audio/mpeg;base64,${Buffer.from(buffer).toString('base64')}`
+}
+
+// ----------------------------------------------------------------------
+// Tool Calling 对话函数（用于 Agent 循环）
+// ----------------------------------------------------------------------
+
+/** 工具定义（兼容 OpenAI SDK 格式） */
+export interface ToolDefinition {
+  type: 'function'
+  function: {
+    name: string
+    description: string
+    parameters: Record<string, unknown>
+  }
+}
+
+/** AI 返回的工具调用 */
+export interface ToolCall {
+  id: string
+  name: string
+  arguments: string
+}
+
+/**
+ * 带 tool calling 的对话（非流式，用于 agent 循环）。
+ *
+ * @param messages 对话历史（含 system 消息）
+ * @param tools 可用工具定义
+ * @param options.signal 外部取消信号
+ * @returns AI 回复：content 文本 + toolCalls 工具调用列表
+ */
+export async function chatWithTools(
+  messages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string }>,
+  tools?: ToolDefinition[],
+  options?: { signal?: AbortSignal }
+): Promise<{
+  content: string
+  toolCalls?: ToolCall[]
+}> {
+  const timeoutController = new AbortController()
+  let internalTimedOut = false
+  const timeoutTimer = setTimeout(() => {
+    internalTimedOut = true
+    timeoutController.abort(new Error('__AI_CLIENT_INTERNAL_TIMEOUT__'))
+  }, DEFAULT_TIMEOUT_MS)
+
+  const externalSignal = options?.signal
+  const onExternalAbort = () => {
+    if (!timeoutController.signal.aborted) {
+      timeoutController.abort(externalSignal?.reason ?? new Error('用户取消'))
+    }
+  }
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      onExternalAbort()
+    } else {
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+    }
+  }
+
+  const finalSignal = timeoutController.signal
+
+  try {
+    const client = getClient()
+    const response = await client.chat.completions.create(
+      {
+        model: AGNES_MODEL,
+        messages: messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
+        })) as never,
+        ...(tools && tools.length > 0
+          ? { tools: tools as never, tool_choice: 'auto' as never }
+          : {}),
+      },
+      { signal: finalSignal }
+    )
+
+    const message = response.choices?.[0]?.message as {
+      content?: string | null
+      tool_calls?: Array<{
+        id: string
+        function?: { name?: string; arguments?: string }
+      }>
+    }
+    const content = message?.content ?? ''
+    const rawToolCalls = message?.tool_calls
+
+    let toolCalls: ToolCall[] | undefined
+    if (rawToolCalls && rawToolCalls.length > 0) {
+      toolCalls = rawToolCalls.map((tc) => ({
+        id: tc.id,
+        name: tc.function?.name ?? '',
+        arguments: tc.function?.arguments ?? '{}',
+      }))
+    }
+
+    return { content, toolCalls }
+  } catch (err) {
+    throw classifyError(err, {
+      internalTimedOut,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+    })
+  } finally {
+    clearTimeout(timeoutTimer)
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort)
+    }
+  }
 }

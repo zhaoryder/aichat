@@ -220,3 +220,56 @@ export async function streamVibeFix(
 ): Promise<void> {
   return consumeVibeSSE('/vibe-code/fix', { code, error }, callbacks)
 }
+
+// ---------------------------------------------------------------------
+// Agent 多轮对话（Tool Calling，非流式）
+// ---------------------------------------------------------------------
+
+/** vibe-code/chat 响应类型 */
+export type VibeChatResponse =
+  | { type: 'code'; code: string; explanation: string }
+  | { type: 'text'; content: string }
+  | { type: 'done' }
+
+/**
+ * Agent 多轮对话端点（POST /vibe-code/chat，非流式，Tool Calling）。
+ * - messages：完整对话历史（user + assistant）
+ * - error：可选，运行时错误信息（AI 会自动修复代码）
+ */
+export async function vibeChat(
+  messages: Array<{ role: string; content: string }>,
+  error?: string,
+): Promise<VibeChatResponse> {
+  return apiFetch<VibeChatResponse>('/vibe-code/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages, error }),
+  })
+}
+
+// =====================================================================
+// Gallery 广场 API
+// =====================================================================
+
+/** 广场图片记录 */
+export interface GalleryImage {
+  id: string
+  user_id: string
+  prompt: string
+  url: string
+  title: string
+  is_public: boolean
+  likes: number
+  created_at: string
+}
+
+/** 发布图片到广场（POST /gallery/images） */
+export async function publishImageToGallery(data: {
+  prompt: string
+  url: string
+  title?: string
+}): Promise<{ image: GalleryImage }> {
+  return apiFetch<{ image: GalleryImage }>('/gallery/images', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}

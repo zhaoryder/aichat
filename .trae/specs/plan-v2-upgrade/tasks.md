@@ -153,29 +153,32 @@
   - [x] SubTask 8.1.2: 创建 9 个新表（image_gallery / prompt_market / achievements / user_achievements / ai_posts / ai_post_comments / emo_wall / vibe_projects / agent_unlocks）
   - [x] SubTask 8.1.3: 配置 27 个 RLS 策略 + 5 个 Realtime 表
   - [x] SubTask 8.1.4: 12 条默认成就数据（ON CONFLICT DO NOTHING）
-- [ ] Task 8.2: 执行 migration
-  - [ ] SubTask 8.2.1: 在 Supabase SQL Editor 执行 `upgrade-v2.sql`
-  - [ ] SubTask 8.2.2: 验证所有新表创建成功
+- [x] Task 8.2: 执行 migration ✅（API 验证：所有新表存在且可查询）
+  - [x] SubTask 8.2.1: 在 Supabase SQL Editor 执行 `upgrade-v2.sql`
+  - [x] SubTask 8.2.2: 验证所有新表创建成功（API 返回 200）
 
 ## 阶段九：部署与验证
 
-- [ ] Task 9.1: 部署后端到 Railway
-  - [ ] SubTask 9.1.1: 确认现有环境变量（AGNES_API_KEY / SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY）
-  - [ ] SubTask 9.1.2: git push 触发 Railway 自动部署
-  - [ ] SubTask 9.1.3: 验证 `/api/health` 返回 `{"status":"ok"}`
-  - [ ] SubTask 9.1.4: 验证 `/api/agents` 返回 18 个智能体
-  - [ ] SubTask 9.1.5: 验证新路由 `/api/gallery` / `/api/prompts` / `/api/achievements` / `/api/leaderboard` / `/api/ai-posts` / `/api/emo-wall` / `/api/vibe-code` 可访问
-- [ ] Task 9.2: 部署前端到 Vercel
-  - [ ] SubTask 9.2.1: 确认 `client/shared/` 已同步（agents.ts / presets.ts / types.ts）
-  - [ ] SubTask 9.2.2: `vercel --prod` 部署
-  - [ ] SubTask 9.2.3: 验证首页加载无控制台错误
-  - [ ] SubTask 9.2.4: 验证 7 个新页面路由可访问
-- [ ] Task 9.3: 端到端验证
-  - [ ] SubTask 9.3.1: 对话功能（GLM-4-Flash 搞笑度 + 人格保持）
-  - [ ] SubTask 9.3.2: Vibe Coding（生成贪吃蛇/番茄钟能运行）
-  - [ ] SubTask 9.3.3: 新功能（语音/广场/卡牌/成就/排行榜/朋友圈/emo墙）
-  - [ ] SubTask 9.3.4: 暗色模式切换
-  - [ ] SubTask 9.3.5: 移动端体验
+- [x] Task 9.1: 部署后端到 Railway ✅
+  - [x] SubTask 9.1.1: 确认现有环境变量（AGNES_API_KEY / SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY）
+  - [x] SubTask 9.1.2: git push 触发 Railway 自动部署
+  - [x] SubTask 9.1.3: 验证 `/api/health` 返回 `{"status":"ok"}`
+  - [x] SubTask 9.1.4: 验证 `/api/agents` 返回 18 个智能体
+  - [x] SubTask 9.1.5: 验证新路由全部可访问（gallery/prompts/achievements/leaderboard/ai-posts/emo-wall/vibe-code 均 200）
+- [x] Task 9.2: 部署前端到 Vercel ✅
+  - [x] SubTask 9.2.1: 确认 `client/shared/` 已同步（agents.ts / presets.ts / types.ts）
+  - [x] SubTask 9.2.2: `vercel --prod` 部署成功
+  - [x] SubTask 9.2.3: 验证首页 HTTP 200
+  - [x] SubTask 9.2.4: 验证 7 个新页面路由可访问（/gallery, /prompts, /achievements, /leaderboard, /ai-feed, /emo-wall, /cards）
+- [x] Task 9.3: 端到端验证（API 层）✅
+  - [x] SubTask 9.3.1: `/api/health` 200 + `/api/agents` 18 个智能体
+  - [x] SubTask 9.3.2: `/api/leaderboard/agents` 返回排行榜（孔子 6 次第一）
+  - [x] SubTask 9.3.3: `/api/leaderboard/users` 返回用户排行
+  - [x] SubTask 9.3.4: `/api/leaderboard/works` 返回作品列表
+  - [x] SubTask 9.3.5: 7 个新功能 API 全部 200（gallery/prompts/achievements/ai-posts/emo-wall/vibe-code）
+  - [ ] SubTask 9.3.6: 对话功能搞笑度（需浏览器实际对话验证）
+  - [ ] SubTask 9.3.7: Vibe Coding 生成贪吃蛇/番茄钟（需浏览器实际生成验证）
+  - [ ] SubTask 9.3.8: 暗色模式/移动端/Toast（需浏览器验证）
 
 # Task Dependencies
 - Task 0.*（模型选型）已完成
