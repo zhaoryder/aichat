@@ -3,7 +3,7 @@
   "steps": {
     "install": {
       "commands": [
-        "COPY:server server",
+        { "src": "server", "dest": "server" },
         "cd server && npm install"
       ]
     },
