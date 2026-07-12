@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { useAuth } from '@/hooks/useAuth'
 import { apiFetch } from '@/lib/api'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Card, CardBody, CardHeader } from '@/components/ui/Card'
+import { Button } from '@/components/ui-legacy/Button'
+import { Input } from '@/components/ui-legacy/Input'
+import { Card, CardBody, CardHeader } from '@/components/ui-legacy/Card'
 
 // 注册表单校验 schema
 const registerSchema = z.object({

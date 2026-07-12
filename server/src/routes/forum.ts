@@ -161,7 +161,7 @@ forumRouter.post('/create', authMiddleware, async (req: Request, res: Response) 
         const messages: ChatMessage[] = [
           {
             role: 'user',
-            content: `话题标题：${title}\n话题内容：${content}\n请以你的人格特色回复这个话题，融入热梗，60-150字`,
+            content: `话题标题：${title}\n话题内容：${content}\n请以你的人格特色回复这个话题，用原创幽默，60-150字`,
           },
         ]
 
@@ -399,7 +399,7 @@ async function streamAgentReply(
     const messages: ChatMessage[] = [
       {
         role: 'user',
-        content: `${context}\n\n用户刚回复：${userContent}\n请以你的人格特色接梗回应，融入热梗，60-150字。话题是「${topic.title}」。`,
+        content: `${context}\n\n用户刚回复：${userContent}\n请以你的人格特色接梗回应，用原创幽默，60-150字。话题是「${topic.title}」。`,
       },
     ]
 

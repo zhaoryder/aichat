@@ -129,16 +129,6 @@ export interface ModerationKeyword {
   created_at: string
 }
 
-/** trending_memes 表：每日热梗 */
-export interface TrendingMeme {
-  id: string
-  content: string
-  source: string | null
-  fetched_at: string
-  is_active: boolean
-  used_count: number
-}
-
 /** custom_agents 表：用户创建的自定义智能体 */
 export interface CustomAgent {
   id: string

@@ -7,10 +7,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { apiFetch } from '@/lib/api'
-import { Button } from '@/components/ui/Button'
-import { Input, Textarea } from '@/components/ui/Input'
-import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui-legacy/Button'
+import { Input, Textarea } from '@/components/ui-legacy/Input'
+import { Spinner } from '@/components/ui-legacy/Spinner'
 import { cn } from '@/lib/utils'
+import { SelectWithCustom } from '@/components/SelectWithCustom'
+import { PERSONALITIES } from '@shared/presets'
 import type { CustomAgent } from '@shared/types'
 
 // 6 种预设头像渐变（CSS linear-gradient 字符串）
@@ -168,11 +170,11 @@ export const CreateAgentPage = () => {
           hint="角色性格关键词，会显示在头衔位置"
           error={errors.personality}
         >
-          <Input
+          <SelectWithCustom
+            options={PERSONALITIES}
             value={form.personality}
-            onChange={(e) => update('personality', e.target.value)}
-            placeholder="比如：毒舌 / 傲娇 / 暴躁"
-            maxLength={200}
+            onChange={(v) => update('personality', v)}
+            placeholder="选择性格"
             disabled={submitting}
           />
         </Field>

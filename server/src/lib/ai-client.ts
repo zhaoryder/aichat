@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------
 // 从 lib/ai-client.ts 迁移，适配 Express 后端。
 // 通过 OpenAI 兼容协议调用 Agnes 模型。
-// 保留：流式对话、图片/视频/语音生成、错误分类、热梗注入、强制搞笑基准。
+// 保留：流式对话、图片/视频/语音生成、错误分类、强制搞笑基准。
 // =====================================================================
 
 import OpenAI, {
@@ -13,7 +13,6 @@ import OpenAI, {
   APIError as OpenAIAPIError,
 } from 'openai'
 import { getAgentById } from '../../shared/agents'
-import { supabase } from './supabase'
 import {
   AIRequestError,
   AIRequestTimeoutError,
@@ -63,96 +62,6 @@ function getClient(): OpenAI {
 }
 
 // ----------------------------------------------------------------------
-// 热梗注入
-// ----------------------------------------------------------------------
-
-/** 单次最多注入的活跃热梗条数（防止 prompt 过长） */
-const MAX_MEMES_INJECTED = 15
-
-/**
- * 从 Supabase 拉取当前活跃热梗（is_active=true），拼接成可追加到 system prompt 的提示文本。
- *
- * @returns { prompt, memeIds }
- *   - prompt: 拼好的提示文本（含引导语）；若没有活跃热梗则返回空字符串
- *   - memeIds: 被引用的热梗 ID 列表，供调用成功后递增 used_count 使用
- *
- * 失败时静默返回空 prompt + 空 ids（不抛错，避免影响主流程）。
- */
-export async function getActiveMemePrompt(): Promise<{
-  prompt: string
-  memeIds: string[]
-}> {
-  try {
-    const { data, error } = await supabase
-      .from('trending_memes')
-      .select('id, content')
-      .eq('is_active', true)
-      .order('fetched_at', { ascending: false })
-      .limit(MAX_MEMES_INJECTED)
-
-    if (error) {
-      console.error('[ai-client] 拉取活跃热梗失败：', error.message)
-      return { prompt: '', memeIds: [] }
-    }
-    if (!data || data.length === 0) {
-      return { prompt: '', memeIds: [] }
-    }
-
-    const memeIds = data.map((m: { id: string; content: string }) => m.id)
-    const bulletList = data
-      .map((m: { id: string; content: string }) => `- ${String(m.content).trim()}`)
-      .join('\n')
-
-    const prompt =
-      `\n\n【当下网络热梗参考，可自然融入（不要堆砌，每条回复最多用1-2个）】：\n` +
-      bulletList
-
-    return { prompt, memeIds }
-  } catch (err) {
-    console.error(
-      '[ai-client] getActiveMemePrompt 异常（已静默降级）：',
-      err instanceof Error ? err.message : err
-    )
-    return { prompt: '', memeIds: [] }
-  }
-}
-
-/**
- * 递增被引用热梗的 used_count。
- * 失败时静默记录日志（不抛错，避免影响主对话流程）。
- * 优先尝试 RPC 函数（原子自增，schema 中已通过 SQL 函数实现）。
- *
- * @param memeIds 被引用的热梗 ID 列表
- */
-export async function incrementMemeUsage(memeIds: string[]): Promise<void> {
-  if (!memeIds || memeIds.length === 0) return
-
-  try {
-    const rpcResults = await Promise.all(
-      memeIds.map((id) =>
-        supabase.rpc('increment_meme_used_count', { meme_id: id })
-      )
-    )
-    const failed = rpcResults.filter(
-      (r: { error: { message?: string } | null }) => r.error
-    )
-    if (failed.length > 0) {
-      console.error(
-        `[ai-client] rpc(increment_meme_used_count) 部分失败：`,
-        failed
-          .map((r: { error: { message?: string } | null }) => r.error?.message)
-          .join('; ')
-      )
-    }
-  } catch (err) {
-    console.error(
-      '[ai-client] incrementMemeUsage 异常（已静默降级，热梗 used_count 未递增）：',
-      err instanceof Error ? err.message : err
-    )
-  }
-}
-
-// ----------------------------------------------------------------------
 // 主对话函数
 // ----------------------------------------------------------------------
 
@@ -179,12 +88,10 @@ export async function chatCompletion(
     throw new AIRequestError(`未找到智能体配置：agentId=${agentId}`)
   }
 
-  // 2. 拉取活跃热梗并拼接 system prompt（含强制搞笑基准指令）
-  const { prompt: memePrompt, memeIds } = await getActiveMemePrompt()
+  // 2. 拼接 system prompt（含强制搞笑基准指令，不依赖外部热梗，靠 prompt engineering 自发产出幽默）
   const systemPrompt =
     agent.systemPrompt +
-    memePrompt +
-    '\n\n【平台通用搞笑基准】你是搞笑AI平台的智能体，核心使命是让用户笑。无论什么场景，都要保持幽默。'
+    '\n\n【平台通用搞笑基准】你是搞笑AI平台的智能体，核心使命是让用户笑。无论什么场景，都要保持幽默。不要引用过时的网络热梗或网络流行语，所有幽默必须是原创的。'
 
   // 3. 构造超时控制（合并外部 signal 与内部 30s 超时 signal）
   const timeoutController = new AbortController()
@@ -239,11 +146,6 @@ export async function chatCompletion(
       )
     }
 
-    // 5. 异步递增 used_count（不阻塞主流程返回）
-    if (memeIds.length > 0) {
-      void incrementMemeUsage(memeIds)
-    }
-
     return content
   } catch (err) {
     throw classifyError(err, {
@@ -286,12 +188,10 @@ export async function* chatCompletionStream(
   const agent = getAgentById(agentId)
   if (!agent) throw new AIRequestError(`未找到智能体配置：agentId=${agentId}`)
 
-  // 2. 拉取活跃热梗并拼接 system prompt（含强制搞笑基准指令）
-  const { prompt: memePrompt, memeIds } = await getActiveMemePrompt()
+  // 2. 拼接 system prompt（含强制搞笑基准指令，不依赖外部热梗，靠 prompt engineering 自发产出幽默）
   const systemPrompt =
     agent.systemPrompt +
-    memePrompt +
-    '\n\n【平台通用搞笑基准】你是搞笑AI平台的智能体，核心使命是让用户笑。无论什么场景，都要保持幽默。'
+    '\n\n【平台通用搞笑基准】你是搞笑AI平台的智能体，核心使命是让用户笑。无论什么场景，都要保持幽默。不要引用过时的网络热梗或网络流行语，所有幽默必须是原创的。'
 
   // 3. 构造超时控制（同 chatCompletion 的逻辑）
   const timeoutController = new AbortController()
@@ -332,9 +232,72 @@ export async function* chatCompletionStream(
       if (delta) yield delta
     }
 
-    // 流结束后递增热梗使用计数
-    if (memeIds.length > 0) {
-      void incrementMemeUsage(memeIds)
+  } catch (err) {
+    throw classifyError(err, { internalTimedOut, timeoutMs: DEFAULT_TIMEOUT_MS })
+  } finally {
+    clearTimeout(timeoutTimer)
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort)
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
+// 流式对话（自定义 system prompt）
+// ----------------------------------------------------------------------
+
+/**
+ * 调用 Agnes 模型生成回复（流式），使用显式传入的 system prompt。
+ *
+ * 与 chatCompletionStream 不同，本函数不依赖某个 agentId，也不注入搞笑基准，
+ * 适用于 vibe coding 等需要纯净系统提示词的场景。
+ *
+ * @param messages 用户与助手的对话历史（不含 system 消息，system 由本函数注入）
+ * @param systemPrompt 显式指定的系统提示词
+ * @param options.signal 可选的外部取消信号
+ * @yields 模型输出的文本增量（delta）
+ */
+export async function* chatCompletionStreamWithSystemPrompt(
+  messages: ChatMessage[],
+  systemPrompt: string,
+  options?: { signal?: AbortSignal }
+): AsyncGenerator<string, void, unknown> {
+  const timeoutController = new AbortController()
+  let internalTimedOut = false
+  const timeoutTimer = setTimeout(() => {
+    internalTimedOut = true
+    timeoutController.abort(new Error('__AI_CLIENT_INTERNAL_TIMEOUT__'))
+  }, DEFAULT_TIMEOUT_MS)
+
+  const externalSignal = options?.signal
+  const onExternalAbort = () => {
+    if (!timeoutController.signal.aborted) {
+      timeoutController.abort(externalSignal?.reason ?? new Error('用户取消'))
+    }
+  }
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort()
+    else externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+  }
+  const finalSignal = timeoutController.signal
+
+  try {
+    const client = getClient()
+    const stream = await client.chat.completions.create(
+      {
+        model: AGNES_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+        stream: true,
+      },
+      { signal: finalSignal }
+    )
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices?.[0]?.delta?.content
+      if (delta) yield delta
     }
   } catch (err) {
     throw classifyError(err, { internalTimedOut, timeoutMs: DEFAULT_TIMEOUT_MS })

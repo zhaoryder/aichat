@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Card, CardBody, CardHeader } from '@/components/ui/Card'
+import { Button } from '@/components/ui-legacy/Button'
+import { Input } from '@/components/ui-legacy/Input'
+import { Card, CardBody, CardHeader } from '@/components/ui-legacy/Card'
 
 // 登录失败时的友好提示
 const LOGIN_FAIL_HINT = '登录失败，可能原因：① 邮箱未点确认链接 ② 邮箱或密码错误。请先去邮箱点确认链接。'

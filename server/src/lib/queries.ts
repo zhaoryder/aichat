@@ -4,7 +4,7 @@
 // 从 lib/supabase/queries.ts 迁移，适配 Express 后端。
 // 所有函数使用 service_role 客户端（绕过 RLS）。
 // 函数命名按任务要求：createForumTopic / createForumPost / listForumTopics /
-// listForumPosts / getActiveMemes 等。新增 checkin / listCheckins / createShare /
+// listForumPosts 等。新增 checkin / listCheckins / createShare /
 // getShare / listUsers / listReports / createReport / updateReportStatus /
 // getResolvedAgent。
 // =====================================================================
@@ -28,7 +28,6 @@ import type {
   ReportStatus,
   ReportTargetType,
   SharedConversation,
-  TrendingMeme,
   Checkin,
 } from '../../shared/types'
 
@@ -323,52 +322,6 @@ export async function listModerationKeywords(): Promise<ModerationKeyword[]> {
     throw new Error(`列出审核关键词失败: ${error.message}`)
   }
   return (data as ModerationKeyword[]) ?? []
-}
-
-// ---------------------------------------------------------------------
-// 热梗相关
-// ---------------------------------------------------------------------
-
-/** 拉取当前所有活跃热梗（is_active=true） */
-export async function getActiveMemes(): Promise<TrendingMeme[]> {
-  const { data, error } = await supabase
-    .from('trending_memes')
-    .select('*')
-    .eq('is_active', true)
-    .order('fetched_at', { ascending: false })
-
-  if (error) {
-    throw new Error(`列出热梗失败: ${error.message}`)
-  }
-  return (data as TrendingMeme[]) ?? []
-}
-
-/**
- * 批量递增热梗的 used_count。
- * 优先尝试 RPC 函数（原子自增），失败时静默记录日志。
- */
-export async function incrementMemeUsage(memeIds: string[]): Promise<void> {
-  if (!memeIds || memeIds.length === 0) return
-
-  try {
-    const rpcResults = await Promise.all(
-      memeIds.map((id) =>
-        supabase.rpc('increment_meme_used_count', { meme_id: id })
-      )
-    )
-    const failed = rpcResults.filter((r) => r.error)
-    if (failed.length > 0) {
-      console.error(
-        `[queries] rpc(increment_meme_used_count) 部分失败：`,
-        failed.map((r) => r.error?.message).join('; ')
-      )
-    }
-  } catch (err) {
-    console.error(
-      '[queries] incrementMemeUsage 异常（已静默降级，热梗 used_count 未递增）：',
-      err instanceof Error ? err.message : err
-    )
-  }
 }
 
 // ---------------------------------------------------------------------

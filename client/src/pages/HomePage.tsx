@@ -1,10 +1,12 @@
 // 主页：Hero 区 + 智能体卡片网格
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { agents, type AgentConfig } from '@shared/agents'
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui-legacy/Button'
+import { Card } from '@/components/ui-legacy/Card'
+import { Badge } from '@/components/ui-legacy/Badge'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // 智能体头像：用 CSS 渐变背景渲染圆形头像 + 首字母
 // AgentConfig.avatarGradient 是 CSS linear-gradient 字符串，需内联 style 渲染，
@@ -29,6 +31,12 @@ function AgentAvatar({ agent, size = 'md' }: { agent: AgentConfig; size?: 'sm' |
 export const HomePage = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  // 首次加载骨架屏（仅在首屏短暂显示，避免后续 refetch 闪烁）
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLoading(false), 300)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   // CTA：已登录跳第一个智能体对话，未登录跳广场
   function handleStart() {
@@ -63,32 +71,59 @@ export const HomePage = () => {
       {/* 智能体卡片网格 */}
       <section className="mx-auto max-w-7xl px-4 pb-20">
         <h2 className="mb-6 text-lg font-semibold text-gray-800">选择一位智能体开始对话</h2>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {agents.map((agent) => (
-            <Link key={agent.id} to={`/chat/${agent.id}`} className="group block">
-              <Card hoverScale className="h-full p-5">
+        {loading ? (
+          // 首次加载骨架屏
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="flex items-start gap-4">
-                  <AgentAvatar agent={agent} size="md" />
-                  <div className="min-w-0 flex-1">
+                  <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
+                  <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center gap-2">
-                      <h3 className="truncate font-bold text-gray-900">{agent.name}</h3>
-                      <Badge variant="default" className="shrink-0">{agent.era}</Badge>
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-5 w-12 rounded-full" />
                     </div>
-                    <p className="mt-0.5 text-xs text-gray-500">{agent.title}</p>
+                    <Skeleton className="h-3 w-32" />
                   </div>
                 </div>
-                <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">
-                  &ldquo;{agent.tagline}&rdquo;
-                </p>
-                <div className="mt-4 flex items-center justify-end">
-                  <span className="text-xs font-medium text-primary transition-transform duration-300 ease-out group-hover:translate-x-1">
-                    {user ? '开始对话 →' : '去登录 →'}
-                  </span>
+                <div className="mt-3 space-y-1.5">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-4/5" />
                 </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                <div className="mt-4 flex justify-end">
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {agents.map((agent) => (
+              <Link key={agent.id} to={`/chat/${agent.id}`} className="group block">
+                <Card hoverScale className="h-full p-5">
+                  <div className="flex items-start gap-4">
+                    <AgentAvatar agent={agent} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate font-bold text-gray-900">{agent.name}</h3>
+                        <Badge variant="default" className="shrink-0">{agent.era}</Badge>
+                      </div>
+                      <p className="mt-0.5 text-xs text-gray-500">{agent.title}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">
+                    &ldquo;{agent.tagline}&rdquo;
+                  </p>
+                  <div className="mt-4 flex items-center justify-end">
+                    <span className="text-xs font-medium text-primary transition-transform duration-300 ease-out group-hover:translate-x-1">
+                      {user ? '开始对话 →' : '去登录 →'}
+                    </span>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )

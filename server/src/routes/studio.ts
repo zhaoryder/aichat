@@ -13,18 +13,15 @@
 //   POST   /api/studio/video/create    提交视频生成任务
 //   GET    /api/studio/video/status/:id 查询视频任务状态
 //   POST   /api/studio/article         流式生成文章（SSE）
-//   POST   /api/studio/game/start      游戏开场
-//   POST   /api/studio/game/choice     游戏选择
 //   POST   /api/studio/voice           语音合成
-// 游戏存档：
+// 游戏存档（仅查看/删除，文字冒险入口已迁移至 vibe-code）：
 //   GET    /api/studio/game/saves      列出存档
-//   POST   /api/studio/game/saves      创建存档
+//   DELETE /api/studio/game/saves/:id  删除存档
 // =====================================================================
 
 import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
 import {
-  chatCompletion,
   chatCompletionStream,
   generateImage,
   generateSpeech,
@@ -34,7 +31,6 @@ import {
 import { setSSEHeaders, sendEvent } from '../lib/sse'
 import {
   createCreativeWork,
-  createGameSave,
   deleteGameSave,
   getCreativeWorkById,
   listCreativeWorksByCreator,
@@ -286,7 +282,7 @@ studioRouter.post('/script', authMiddleware, async (req: Request, res: Response)
       `要求：\n` +
       `1. 每个角色保持鲜明性格，台词要融入各自口头禅\n` +
       `2. 对白格式：角色名：台词\n` +
-      `3. 融入当下网络热梗\n` +
+      `3. 用原创幽默，不要引用网络热梗\n` +
       `4. 有反转和笑点\n` +
       `5. 场景描述用【方括号】标注`
 
@@ -513,7 +509,7 @@ studioRouter.post(
         `主题：${topic}\n` +
         `风格：${style || '幽默风趣'}\n` +
         `要求：\n` +
-        `1. 融入当下网络热梗\n` +
+        `1. 用原创幽默，不要引用网络热梗\n` +
         `2. 有观点、有反转、有笑点\n` +
         `3. 结构清晰，段落分明\n` +
         `4. 标题用 # 开头`
@@ -575,105 +571,6 @@ studioRouter.post(
 )
 
 // ---------------------------------------------------------------------
-// POST /api/studio/game/start —— 游戏开场
-// ---------------------------------------------------------------------
-
-interface GameStartBody {
-  gameType?: unknown
-}
-
-studioRouter.post(
-  '/game/start',
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    const user = req.user!
-
-    try {
-      const body = req.body as GameStartBody
-      const gameType = typeof body.gameType === 'string' ? body.gameType.trim() : '冒险'
-
-      const prompt =
-        `请作为游戏主持人开启一局「${gameType}」类型的文字冒险游戏。\n` +
-        `要求以 JSON 格式返回：\n` +
-        `{ "story": "开场剧情描述（200字左右，有悬念）", "options": ["选项1", "选项2", "选项3", "选项4"] }\n` +
-        `只返回 JSON，不要其他内容。`
-
-      const messages: ChatMessage[] = [{ role: 'user', content: prompt }]
-      const reply = await chatCompletion(messages, DEFAULT_STUDIO_AGENT)
-
-      // 尝试解析 JSON
-      const parsed = tryParseGameResponse(reply)
-
-      // 保存为创意作品
-      try {
-        const work = await createCreativeWork(user.id, 'game', `${gameType}存档`, {
-          gameType,
-          ...parsed,
-        })
-        await updateCreativeWork(work.id, { status: 'done' })
-      } catch {
-        // 保存失败不影响返回
-      }
-
-      res.json(parsed)
-    } catch (err) {
-      console.error('[api/studio/game/start] 异常：', err)
-      res.status(500).json({
-        error: err instanceof Error ? err.message : '游戏开场生成失败',
-      })
-    }
-  }
-)
-
-// ---------------------------------------------------------------------
-// POST /api/studio/game/choice —— 游戏选择
-// ---------------------------------------------------------------------
-
-interface GameChoiceBody {
-  gameType?: unknown
-  story?: unknown
-  choice?: unknown
-}
-
-studioRouter.post(
-  '/game/choice',
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const body = req.body as GameChoiceBody
-      const gameType = typeof body.gameType === 'string' ? body.gameType.trim() : '冒险'
-      const story = typeof body.story === 'string' ? body.story : ''
-      const choice = typeof body.choice === 'string' ? body.choice : ''
-
-      if (!choice) {
-        res.status(400).json({ error: '缺少选择内容' })
-        return
-      }
-
-      const prompt =
-        `「${gameType}」文字冒险游戏继续。\n` +
-        `当前剧情：${story}\n` +
-        `玩家选择了：${choice}\n` +
-        `请根据选择推进剧情。以 JSON 格式返回：\n` +
-        `{ "story": "剧情发展（200字左右）", "options": ["新选项1", "新选项2", "新选项3"], "ending": null }\n` +
-        `若剧情已到结局，options 返回空数组，ending 返回结局描述字符串。\n` +
-        `只返回 JSON，不要其他内容。`
-
-      const messages: ChatMessage[] = [{ role: 'user', content: prompt }]
-      const reply = await chatCompletion(messages, DEFAULT_STUDIO_AGENT)
-
-      const parsed = tryParseGameResponse(reply)
-      res.json(parsed)
-    } catch (err) {
-      console.error('[api/studio/game/choice] 异常：', err)
-      res.status(500).json({
-        error: err instanceof Error ? err.message : '游戏推进失败',
-      })
-    }
-  }
-)
-
-// ---------------------------------------------------------------------
 // POST /api/studio/voice —— 语音合成
 // ---------------------------------------------------------------------
 
@@ -721,7 +618,7 @@ studioRouter.post('/voice', authMiddleware, async (req: Request, res: Response) 
 })
 
 // ---------------------------------------------------------------------
-// 游戏存档 CRUD
+// 游戏存档（仅查看/删除，文字冒险入口已迁移至 vibe-code）
 // ---------------------------------------------------------------------
 
 // GET /api/studio/game/saves —— 列出存档
@@ -736,43 +633,6 @@ studioRouter.get(
     } catch (err) {
       console.error('[api/studio/game/saves GET] 异常：', err)
       res.status(500).json({ error: '服务器开小差了' })
-    }
-  }
-)
-
-// POST /api/studio/game/saves —— 创建存档
-interface CreateSaveBody {
-  gameType?: unknown
-  title?: unknown
-  state?: unknown
-}
-
-studioRouter.post(
-  '/game/saves',
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    const user = req.user!
-    try {
-      const body = req.body as CreateSaveBody
-      const gameType = typeof body.gameType === 'string' ? body.gameType.trim() : ''
-      const title = typeof body.title === 'string' ? body.title.trim() : ''
-      const state =
-        body.state && typeof body.state === 'object'
-          ? (body.state as Record<string, unknown>)
-          : {}
-
-      if (!gameType) {
-        res.status(400).json({ error: '缺少游戏类型' })
-        return
-      }
-
-      const save = await createGameSave(user.id, gameType, title, state)
-      res.json({ save })
-    } catch (err) {
-      console.error('[api/studio/game/saves POST] 异常：', err)
-      res.status(500).json({
-        error: err instanceof Error ? err.message : '保存存档失败',
-      })
     }
   }
 )
@@ -794,34 +654,3 @@ studioRouter.delete(
     }
   }
 )
-
-// ---------------------------------------------------------------------
-// 辅助函数
-// ---------------------------------------------------------------------
-
-/**
- * 尝试从 AI 回复中解析游戏 JSON（story + options + ending?）。
- * 解析失败时回退为简单结构。
- */
-function tryParseGameResponse(reply: string): {
-  story: string
-  options: string[]
-  ending?: string
-} {
-  try {
-    // 尝试提取 JSON 块（可能被 ```json 包裹）
-    const jsonMatch = reply.match(/```(?:json)?\s*([\s\S]*?)```/)
-    const jsonStr = jsonMatch ? jsonMatch[1].trim() : reply.trim()
-    const parsed = JSON.parse(jsonStr)
-    return {
-      story: typeof parsed.story === 'string' ? parsed.story : reply,
-      options: Array.isArray(parsed.options)
-        ? parsed.options.filter((o: unknown) => typeof o === 'string')
-        : [],
-      ending: typeof parsed.ending === 'string' ? parsed.ending : undefined,
-    }
-  } catch {
-    // JSON 解析失败：直接返回原文作为 story
-    return { story: reply, options: [] }
-  }
-}

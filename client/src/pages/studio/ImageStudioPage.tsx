@@ -5,15 +5,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
-import { Card } from '@/components/ui/Card'
-import { Input, Textarea } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { Dialog } from '@/components/ui/Dialog'
+import { Card } from '@/components/ui-legacy/Card'
+import { Input, Textarea } from '@/components/ui-legacy/Input'
+import { Button } from '@/components/ui-legacy/Button'
+import { Spinner } from '@/components/ui-legacy/Spinner'
+import { EmptyState } from '@/components/ui-legacy/EmptyState'
+import { Dialog } from '@/components/ui-legacy/Dialog'
 import { cn } from '@/lib/utils'
-
-const STYLES = ['动漫', '写实', '油画', '水彩', '像素风'] as const
+import { SelectWithCustom } from '@/components/SelectWithCustom'
+import { IMAGE_STYLES } from '@shared/presets'
 
 interface ImageItem {
   url: string
@@ -166,29 +166,14 @@ export const ImageStudioPage = () => {
                 disabled={loading}
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                风格 <span className="text-gray-400">（可选）</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {STYLES.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setStyle(style === s ? '' : s)}
-                    disabled={loading}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-sm transition-colors',
-                      style === s
-                        ? 'border-primary bg-primary/15 text-primary'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300',
-                    )}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <SelectWithCustom
+              label="风格"
+              options={IMAGE_STYLES}
+              value={style}
+              onChange={setStyle}
+              placeholder="选择风格（可选）"
+              disabled={loading}
+            />
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">
                 数量

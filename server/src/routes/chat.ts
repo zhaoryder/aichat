@@ -26,6 +26,7 @@ import {
   isUserBanned,
   listMessages,
 } from '../lib/queries'
+import { checkAndGrantAchievement } from './achievements'
 import type { ChatMessage } from '../../shared/types'
 
 export const chatRouter = Router()
@@ -134,6 +135,11 @@ chatRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
 
       // 15. 推送 done 事件
       sendEvent(res, 'done', { conversationId })
+
+      // 16. 对话成功后检查并发放成就
+      await checkAndGrantAchievement(user.id, 'first_chat')
+      await checkAndGrantAchievement(user.id, 'chat_10')
+      await checkAndGrantAchievement(user.id, 'chat_100')
     } catch (err) {
       // 保存已生成的部分回复（若有）
       if (fullReply.length > 0) {

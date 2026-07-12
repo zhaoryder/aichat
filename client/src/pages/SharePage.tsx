@@ -13,9 +13,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
-import { Button } from '@/components/ui/Button'
-import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { Button } from '@/components/ui-legacy/Button'
+import { Spinner } from '@/components/ui-legacy/Spinner'
+import { EmptyState } from '@/components/ui-legacy/EmptyState'
 import { cn } from '@/lib/utils'
 import type { Message, SharedConversation } from '@shared/types'
 

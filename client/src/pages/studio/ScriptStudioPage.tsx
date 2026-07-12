@@ -5,18 +5,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch, apiStream } from '@/lib/api'
-import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { Card } from '@/components/ui-legacy/Card'
+import { Input } from '@/components/ui-legacy/Input'
+import { Button } from '@/components/ui-legacy/Button'
+import { Spinner } from '@/components/ui-legacy/Spinner'
+import { EmptyState } from '@/components/ui-legacy/EmptyState'
 import { cn } from '@/lib/utils'
+import { SelectWithCustom } from '@/components/SelectWithCustom'
+import { SCRIPT_GENRES } from '@shared/presets'
 import type { AgentConfig } from '@shared/agents'
 
 export const ScriptStudioPage = () => {
   // 表单状态
   const [topic, setTopic] = useState('')
   const [scene, setScene] = useState('')
+  const [genre, setGenre] = useState('')
   const [duration, setDuration] = useState(5)
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
 
@@ -93,7 +96,7 @@ export const ScriptStudioPage = () => {
     try {
       const response = await apiStream(
         '/studio/script',
-        { topic: trimmed, scene: scene.trim(), agentIds: selectedAgents, duration },
+        { topic: trimmed, scene: scene.trim(), genre: genre.trim(), agentIds: selectedAgents, duration },
         { signal: controller.signal },
       )
 
@@ -223,6 +226,15 @@ export const ScriptStudioPage = () => {
                 disabled={streaming}
               />
             </div>
+
+            <SelectWithCustom
+              label="文体"
+              options={SCRIPT_GENRES}
+              value={genre}
+              onChange={setGenre}
+              placeholder="选择文体（可选）"
+              disabled={streaming}
+            />
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">

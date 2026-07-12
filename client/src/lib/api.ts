@@ -88,3 +88,135 @@ export async function apiStream(
 
   return res
 }
+
+// =====================================================================
+// Vibe Code API
+// =====================================================================
+
+/** vibe_projects 表：用户用自然语言生成的可运行 HTML 项目 */
+export interface VibeProject {
+  id: string
+  user_id: string
+  title: string
+  code: string
+  description: string
+  prompt: string
+  is_public: boolean
+  likes: number | null
+  created_at: string
+}
+
+/** 保存 vibe 项目 */
+export async function saveVibeProject(data: {
+  title: string
+  code: string
+  description?: string
+  prompt?: string
+  is_public?: boolean
+}): Promise<{ project: VibeProject }> {
+  return apiFetch<{ project: VibeProject }>('/vibe-code/save', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+/** 列出当前用户的 vibe 项目 */
+export async function listVibeProjects(): Promise<{ projects: VibeProject[] }> {
+  return apiFetch<{ projects: VibeProject[] }>('/vibe-code/projects')
+}
+
+/** 获取单个 vibe 项目详情 */
+export async function getVibeProject(id: string): Promise<{ project: VibeProject }> {
+  return apiFetch<{ project: VibeProject }>(`/vibe-code/projects/${id}`)
+}
+
+/** 获取公开广场的 vibe 项目 */
+export async function exploreVibeProjects(): Promise<{ projects: VibeProject[] }> {
+  return apiFetch<{ projects: VibeProject[] }>('/vibe-code/explore')
+}
+
+/** SSE 流式回调（generate 与 fix 共用） */
+export interface VibeStreamCallbacks {
+  onToken: (token: string) => void
+  onDone: (code: string) => void
+  onError: (err: string) => void
+  signal?: AbortSignal
+}
+
+/**
+ * 通用 vibe SSE 消费：POST 到指定端点，解析 token/done/error 事件。
+ * - token 事件：{ token: string }
+ * - done 事件：{ code: string }
+ * - error 事件：{ error: string }
+ */
+async function consumeVibeSSE(
+  path: string,
+  body: unknown,
+  callbacks: VibeStreamCallbacks,
+): Promise<void> {
+  const response = await apiStream(path, body, { signal: callbacks.signal })
+  if (!response.body) {
+    callbacks.onError('未收到响应流')
+    return
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let currentEvent = ''
+
+  try {
+    while (true) {
+      if (callbacks.signal?.aborted) break
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim()
+        } else if (line.startsWith('data: ')) {
+          let data: { token?: string; code?: string; error?: string }
+          try {
+            data = JSON.parse(line.slice(6))
+          } catch {
+            continue
+          }
+          if (currentEvent === 'token' && data.token) {
+            callbacks.onToken(data.token)
+          } else if (currentEvent === 'done' && typeof data.code === 'string') {
+            callbacks.onDone(data.code)
+            return
+          } else if (currentEvent === 'error') {
+            callbacks.onError(data.error || '生成失败')
+            return
+          }
+        }
+      }
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return
+    }
+    callbacks.onError(err instanceof Error ? err.message : '流式请求失败')
+  }
+}
+
+/** SSE 流式生成代码（POST /vibe-code/generate） */
+export async function streamVibeCode(
+  prompt: string,
+  callbacks: VibeStreamCallbacks,
+): Promise<void> {
+  return consumeVibeSSE('/vibe-code/generate', { prompt }, callbacks)
+}
+
+/** SSE 流式修复代码（POST /vibe-code/fix） */
+export async function streamVibeFix(
+  code: string,
+  error: string,
+  callbacks: VibeStreamCallbacks,
+): Promise<void> {
+  return consumeVibeSSE('/vibe-code/fix', { code, error }, callbacks)
+}

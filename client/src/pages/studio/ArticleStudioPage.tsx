@@ -6,13 +6,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch, apiStream } from '@/lib/api'
-import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { Card } from '@/components/ui-legacy/Card'
+import { Input } from '@/components/ui-legacy/Input'
+import { Button } from '@/components/ui-legacy/Button'
+import { EmptyState } from '@/components/ui-legacy/EmptyState'
 import { cn } from '@/lib/utils'
+import { SelectWithCustom } from '@/components/SelectWithCustom'
+import { ARTICLE_STYLES } from '@shared/presets'
 
-const ARTICLE_STYLES = ['杂文', '段子', '吐槽', '科普', '鸡汤'] as const
 const WORD_COUNTS = [400, 800, 1200] as const
 
 export const ArticleStudioPage = () => {
@@ -195,27 +196,14 @@ export const ArticleStudioPage = () => {
                 disabled={streaming}
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">文体</label>
-              <div className="flex flex-wrap gap-2">
-                {ARTICLE_STYLES.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setStyle(s)}
-                    disabled={streaming}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-sm transition-colors',
-                      style === s
-                        ? 'border-primary bg-primary/15 text-primary'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300',
-                    )}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <SelectWithCustom
+              label="文体"
+              options={ARTICLE_STYLES}
+              value={style}
+              onChange={setStyle}
+              placeholder="选择文体"
+              disabled={streaming}
+            />
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">字数</label>
               <div className="flex gap-2">

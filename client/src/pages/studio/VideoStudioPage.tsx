@@ -6,12 +6,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
-import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { Badge } from '@/components/ui/Badge'
+import { Card } from '@/components/ui-legacy/Card'
+import { Input } from '@/components/ui-legacy/Input'
+import { Button } from '@/components/ui-legacy/Button'
+import { Spinner } from '@/components/ui-legacy/Spinner'
+import { EmptyState } from '@/components/ui-legacy/EmptyState'
+import { Badge } from '@/components/ui-legacy/Badge'
+import { SelectWithCustom } from '@/components/SelectWithCustom'
+import { VIDEO_STYLES } from '@shared/presets'
 
 // 视频状态：服务端 SUCCESS / FAIL / pending / processing 等
 type VideoPhase = 'idle' | 'submitting' | 'pending' | 'processing' | 'success' | 'failed' | 'timeout'
@@ -122,7 +124,13 @@ export const VideoStudioPage = () => {
       // 启动定时轮询
       timerRef.current = setInterval(() => pollOnce(taskId), POLL_INTERVAL)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '提交任务失败')
+      const raw = err instanceof Error ? err.message : '提交任务失败'
+      // 429 友好提示：智谱 CogVideoX 免费额度有限
+      const friendly =
+        /429|too many requests|繁忙|限流/i.test(raw)
+          ? '视频生成服务繁忙（免费额度有限），请稍后重试'
+          : raw
+      setError(friendly)
       setPhase('failed')
     }
   }, [prompt, style, duration, phase, clearPoll, pollOnce])
@@ -163,17 +171,14 @@ export const VideoStudioPage = () => {
                 disabled={isWorking}
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                风格 <span className="text-gray-400">（可选）</span>
-              </label>
-              <Input
-                value={style}
-                onChange={(e) => setStyle(e.target.value)}
-                placeholder="例如：荒诞 / 黑白默片"
-                disabled={isWorking}
-              />
-            </div>
+            <SelectWithCustom
+              label="风格"
+              options={VIDEO_STYLES}
+              value={style}
+              onChange={setStyle}
+              placeholder="选择风格（可选）"
+              disabled={isWorking}
+            />
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">
                 时长（秒）

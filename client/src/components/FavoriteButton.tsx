@@ -9,8 +9,9 @@
 // =====================================================================
 
 import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
-import { Spinner } from '@/components/ui/Spinner'
+import { Spinner } from '@/components/ui-legacy/Spinner'
 import { cn } from '@/lib/utils'
 
 export interface FavoriteButtonProps {
@@ -36,7 +37,6 @@ export function FavoriteButton({
     initialFavorited === undefined ? null : initialFavorited,
   )
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
 
   // 挂载时若 initialFavorited 未传，拉取一次初始状态
   useEffect(() => {
@@ -66,19 +66,17 @@ export function FavoriteButton({
     // 乐观更新：立即切换图标
     setFavorited(!prev)
     setSubmitting(true)
-    setError('')
     try {
       await apiFetch<{ favorited: boolean }>('/favorite', {
         method: 'POST',
         body: JSON.stringify({ agentId, agentType }),
       })
       // 不依赖返回值，保持乐观结果
+      toast.success(!prev ? '收藏成功！' : '已取消收藏')
     } catch (err) {
       // 回滚
       setFavorited(prev)
-      setError(err instanceof Error ? err.message : '操作失败')
-      // 2 秒后清错误
-      window.setTimeout(() => setError(''), 2000)
+      toast.error(err instanceof Error ? err.message : '操作失败，请重试')
     } finally {
       setSubmitting(false)
     }
@@ -94,7 +92,7 @@ export function FavoriteButton({
       disabled={favorited === null || submitting}
       aria-label={favorited ? '取消收藏' : '收藏智能体'}
       aria-pressed={favorited === true}
-      title={error || (favorited ? '已收藏' : '收藏')}
+      title={favorited ? '已收藏' : '收藏'}
       className={cn(
         'inline-flex items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed',
         sizeClass,

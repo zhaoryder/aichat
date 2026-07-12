@@ -10,11 +10,12 @@
 // =====================================================================
 
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui-legacy/Button'
+import { Card } from '@/components/ui-legacy/Card'
+import { Spinner } from '@/components/ui-legacy/Spinner'
 import { cn } from '@/lib/utils'
 import type { Checkin } from '@shared/types'
 
@@ -51,7 +52,6 @@ export function CheckinCard() {
   const [checkins, setCheckins] = useState<Checkin[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [toast, setToast] = useState<string>('')
   const [error, setError] = useState('')
 
   // mount 后计算 today，并拉取签到列表
@@ -98,16 +98,14 @@ export function CheckinCard() {
       // 刷新本地签到列表（插入新签到记录）
       setCheckins((prev) => [res.checkin, ...prev])
       if (res.alreadyCheckedIn) {
-        setToast('今日已签到 ✓')
+        toast.info('今日已签到 ✓')
       } else {
-        setToast(`签到成功！获得 ${res.checkin.points_earned} 积分`)
+        toast.success(`签到成功！获得 ${res.checkin.points_earned} 积分`)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '签到失败')
+      toast.error(err instanceof Error ? err.message : '签到失败，请重试')
     } finally {
       setSubmitting(false)
-      // 2 秒后清除 toast
-      window.setTimeout(() => setToast(''), 2000)
     }
   }
 
@@ -174,12 +172,7 @@ export function CheckinCard() {
       </div>
 
       {/* toast / error 提示 */}
-      {toast && (
-        <p className="mt-3 rounded-lg bg-primary/15 px-3 py-2 text-center text-sm text-primary">
-          {toast}
-        </p>
-      )}
-      {error && !toast && (
+      {error && (
         <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-center text-sm text-red-600">
           {error}
         </p>

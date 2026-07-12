@@ -5,11 +5,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
-import { Card } from '@/components/ui/Card'
-import { Textarea } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { Card } from '@/components/ui-legacy/Card'
+import { Textarea } from '@/components/ui-legacy/Input'
+import { Button } from '@/components/ui-legacy/Button'
+import { Spinner } from '@/components/ui-legacy/Spinner'
+import { EmptyState } from '@/components/ui-legacy/EmptyState'
 import { cn } from '@/lib/utils'
 
 // 预设音色：value 传给后端 voice 字段

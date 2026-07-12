@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
-import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
-import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui-legacy/Card'
+import { Badge } from '@/components/ui-legacy/Badge'
+import { Spinner } from '@/components/ui-legacy/Spinner'
+import { EmptyState } from '@/components/ui-legacy/EmptyState'
+import { Button } from '@/components/ui-legacy/Button'
 import type { CreativeWork } from '@shared/types'
 
 // 6 个功能入口配置：图标（inline SVG）+ 标题 + 描述 + 路由
@@ -64,13 +64,12 @@ const STUDIO_ENTRIES: {
     ),
   },
   {
-    to: '/studio/game',
-    title: '搞笑游戏',
-    desc: '文字冒险',
+    to: '/studio/vibe-code',
+    title: 'Vibe 编程',
+    desc: '自然语言生成代码',
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="2" y="7" width="20" height="11" rx="3" strokeLinejoin="round" />
-        <path d="M7 12h3M8.5 10.5v3M15 11h.01M18 13h.01" strokeLinecap="round" />
+        <path d="M8 9l-3 3 3 3M16 9l3 3-3 3M13 5l-2 14" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },

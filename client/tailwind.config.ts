@@ -1,22 +1,58 @@
 import type { Config } from 'tailwindcss'
+import animate from 'tailwindcss-animate'
+import typography from '@tailwindcss/typography'
 
-// Tailwind 配置：金黄主题 + 自定义动画 + 路径扫描
+// Tailwind 配置：shadcn/ui 语义令牌 + 金黄主题 + 自定义动画 + 暗色模式
 export default {
+  darkMode: ['class'],
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
+    container: {
+      center: true,
+      padding: '2rem',
+      screens: { '2xl': '1400px' },
+    },
     extend: {
       colors: {
+        // shadcn 语义令牌（HSL CSS 变量，支持暗色模式切换）
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: '#F5B400',
-          foreground: '#000000',
-          hover: '#E5A300',
-          light: '#FFF8E1',
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
         },
         muted: {
-          DEFAULT: '#F3F4F6',
-          foreground: '#6B7280',
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
         },
-        input: '#E5E7EB',
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
@@ -49,5 +85,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [animate, typography],
 } satisfies Config

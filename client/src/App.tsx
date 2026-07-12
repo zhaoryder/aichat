@@ -1,5 +1,5 @@
 import './styles/globals.css'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './hooks/useAuth'
 import { Layout } from './components/layout/Layout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
@@ -17,11 +17,18 @@ import { ScriptStudioPage } from './pages/studio/ScriptStudioPage'
 import { VideoStudioPage } from './pages/studio/VideoStudioPage'
 import { ImageStudioPage } from './pages/studio/ImageStudioPage'
 import { ArticleStudioPage } from './pages/studio/ArticleStudioPage'
-import { GameStudioPage } from './pages/studio/GameStudioPage'
+import { VibeCodePage } from './pages/studio/VibeCodePage'
 import { VoiceStudioPage } from './pages/studio/VoiceStudioPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SharePage } from './pages/SharePage'
 import { AdminPage } from './pages/AdminPage'
+import { GalleryPage } from './pages/GalleryPage'
+import { PromptMarketPage } from './pages/PromptMarketPage'
+import { AchievementsPage } from './pages/AchievementsPage'
+import { LeaderboardPage } from './pages/LeaderboardPage'
+import { AIFeedPage } from './pages/AIFeedPage'
+import { EmoWallPage } from './pages/EmoWallPage'
+import { CardsPage } from './pages/CardsPage'
 
 // 应用根组件：AuthProvider 包裹在 BrowserRouter 外层
 export default function App() {
@@ -60,6 +67,14 @@ export default function App() {
             <Route path="/forum" element={<ForumPage />} />
             <Route path="/forum/topic/:id" element={<ForumTopicPage />} />
             <Route path="/studio" element={<StudioPage />} />
+            {/* 2.0 新功能页面 */}
+            <Route path="/gallery" element={<GalleryPage />} />
+            <Route path="/prompts" element={<PromptMarketPage />} />
+            <Route path="/achievements" element={<AchievementsPage />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/ai-feed" element={<AIFeedPage />} />
+            <Route path="/emo-wall" element={<EmoWallPage />} />
+            <Route path="/cards" element={<CardsPage />} />
             <Route
               path="/studio/script"
               element={
@@ -93,12 +108,16 @@ export default function App() {
               }
             />
             <Route
-              path="/studio/game"
+              path="/studio/vibe-code"
               element={
                 <ProtectedRoute>
-                  <GameStudioPage />
+                  <VibeCodePage />
                 </ProtectedRoute>
               }
+            />
+            <Route
+              path="/studio/game"
+              element={<Navigate to="/studio/vibe-code" replace />}
             />
             <Route
               path="/studio/voice"

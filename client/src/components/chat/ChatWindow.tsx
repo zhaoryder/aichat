@@ -15,8 +15,14 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react'
+import { toast } from 'sonner'
 import { apiStream } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { Markdown } from '@/components/Markdown'
+import { Button } from '@/components/ui/button'
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
+import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis'
 import type { AgentConfig } from '@shared/agents'
 import type { Message } from '@shared/types'
 
@@ -74,6 +80,26 @@ export function ChatWindow({
   const abortControllerRef = useRef<AbortController | null>(null)
   /** conversationId 最新值，避免闭包陈旧（用于 start 事件回写 URL 判断） */
   const conversationIdRef = useRef(initialConversationId)
+  /** 已朗读的最后一条 AI 消息 ID，避免重复朗读 */
+  const lastSpokenIdRef = useRef<string | null>(null)
+
+  // 语音识别 / 合成
+  const {
+    transcript: voiceTranscript,
+    interimTranscript,
+    isListening,
+    isSupported: voiceSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useSpeechRecognition()
+  const {
+    speak,
+    stop: stopSpeaking,
+    isSpeaking,
+    isSupported: ttsSupported,
+  } = useSpeechSynthesis()
+  const [autoSpeak, setAutoSpeak] = useState(false)
 
   useEffect(() => {
     conversationIdRef.current = conversationId
@@ -116,6 +142,29 @@ export function ChatWindow({
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }, [input])
+
+  // 语音识别结果（final）实时同步到输入框
+  useEffect(() => {
+    if (voiceTranscript) {
+      setInput((prev) => prev + voiceTranscript)
+      resetTranscript()
+    }
+  }, [voiceTranscript, resetTranscript])
+
+  // AI 回复完成后自动朗读（autoSpeak 开启时）
+  useEffect(() => {
+    if (!autoSpeak) return
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.role === 'assistant') {
+        if (!m.isStreaming && m.content && lastSpokenIdRef.current !== m.id) {
+          lastSpokenIdRef.current = m.id
+          speak(m.content)
+        }
+        break
+      }
+    }
+  }, [messages, autoSpeak, speak])
 
   const handleSend = useCallback(async () => {
     const text = input.trim()
@@ -272,14 +321,17 @@ export function ChatWindow({
     //   await navigator.clipboard.writeText(url)
     setShareCopied(true)
     window.setTimeout(() => setShareCopied(false), 2000)
+    toast.success('分享链接已复制！')
   }, [])
 
   // 收藏按钮（UI 就绪；/api/favorite 由后端 Task 25-27 实现）
   const handleFavorite = useCallback(() => {
     // TODO: 后端 /api/favorite 就绪后启用：
     //   await apiFetch('/favorite', { method: 'POST', body: JSON.stringify({ agentId: agent.id }) })
-    setFavorited((v) => !v)
-  }, [agent.id])
+    const next = !favorited
+    setFavorited(next)
+    toast.success(next ? '收藏成功！' : '已取消收藏')
+  }, [agent.id, favorited])
 
   const canSend = input.trim().length > 0 && !isLoading
 
@@ -365,6 +417,38 @@ export function ChatWindow({
       <footer className="shrink-0 border-t border-gray-200 bg-white/90 backdrop-blur">
         <div className="mx-auto max-w-3xl px-4 py-3">
           <div className="flex items-end gap-2">
+            {/* 语音输入 / 朗读开关 */}
+            <div className="flex shrink-0 items-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={isListening ? stopListening : startListening}
+                disabled={!voiceSupported}
+                title={voiceSupported ? '语音输入' : '浏览器不支持语音识别'}
+                aria-label={isListening ? '停止语音输入' : '开始语音输入'}
+                className="h-11 w-11"
+              >
+                {isListening ? <MicOff className="h-5 w-5 text-red-500" /> : <Mic className="h-5 w-5" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (isSpeaking) {
+                    stopSpeaking()
+                  } else {
+                    setAutoSpeak((v) => !v)
+                    toast.success(autoSpeak ? '已关闭自动朗读' : '已开启自动朗读')
+                  }
+                }}
+                disabled={!ttsSupported}
+                title={ttsSupported ? '语音朗读' : '浏览器不支持语音合成'}
+                aria-label={isSpeaking ? '停止朗读' : '自动朗读'}
+                className="h-11 w-11"
+              >
+                {isSpeaking || autoSpeak ? <Volume2 className="h-5 w-5 text-primary" /> : <VolumeX className="h-5 w-5" />}
+              </Button>
+            </div>
             <textarea
               ref={textareaRef}
               value={input}
@@ -389,7 +473,14 @@ export function ChatWindow({
               <span className="hidden sm:inline">发送</span>
             </button>
           </div>
-          <p className="mt-1.5 text-center text-xs text-gray-400">按 Enter 发送 · Shift + Enter 换行</p>
+          {isListening ? (
+            <p className="mt-1.5 text-center text-xs text-primary">
+              正在聆听…
+              {interimTranscript && <span className="ml-1 text-gray-500">{interimTranscript}</span>}
+            </p>
+          ) : (
+            <p className="mt-1.5 text-center text-xs text-gray-400">按 Enter 发送 · Shift + Enter 换行</p>
+          )}
         </div>
       </footer>
     </div>
@@ -434,9 +525,9 @@ function MessageBubble({ message, agent }: { message: ChatMessage; agent: AgentC
       <div className={cn('flex max-w-[78%] flex-col', isUser ? 'items-end' : 'items-start')}>
         <div
           className={cn(
-            'whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+            'break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
             isUser
-              ? 'bg-primary text-black'
+              ? 'whitespace-pre-wrap bg-primary text-black'
               : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100',
           )}
         >
@@ -450,9 +541,11 @@ function MessageBubble({ message, agent }: { message: ChatMessage; agent: AgentC
                 />
               ))}
             </div>
+          ) : isUser ? (
+            message.content
           ) : (
             <>
-              {message.content}
+              <Markdown content={message.content} />
               {isStreaming && <span className="animate-pulse-cursor ml-0.5">▋</span>}
             </>
           )}
