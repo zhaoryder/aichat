@@ -516,7 +516,7 @@ export async function submitVideoTask(
  */
 export async function getVideoTaskResult(
   taskId: string
-): Promise<{ status: 'processing' | 'SUCCESS' | 'FAIL'; videoUrl?: string }> {
+): Promise<{ status: 'processing' | 'SUCCESS' | 'FAIL'; videoUrl?: string; coverUrl?: string }> {
   const apiKey = AGNES_API_KEY
   const baseURL = AGNES_API_BASE
   const response = await fetch(`${baseURL}/async-result/${taskId}`, {
@@ -529,14 +529,15 @@ export async function getVideoTaskResult(
   const data = (await response.json()) as {
     task_status?: string
     status?: string
-    video_result?: Array<{ url?: string }>
+    video_result?: Array<{ url?: string; cover_image_url?: string }>
     video_url?: string
     url?: string
   }
   const status = data.task_status ?? data.status ?? 'processing'
   if (status === 'SUCCESS') {
     const videoUrl = data.video_result?.[0]?.url ?? data.video_url ?? data.url
-    return { status: 'SUCCESS', videoUrl }
+    const coverUrl = data.video_result?.[0]?.cover_image_url
+    return { status: 'SUCCESS', videoUrl, coverUrl }
   }
   if (status === 'FAIL') return { status: 'FAIL' }
   return { status: 'processing' }

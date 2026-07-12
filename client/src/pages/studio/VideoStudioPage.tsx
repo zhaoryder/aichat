@@ -59,10 +59,12 @@ export const VideoStudioPage = () => {
 
   const [phase, setPhase] = useState<VideoPhase>('idle')
   const [videoUrl, setVideoUrl] = useState('')
+  const [coverUrl, setCoverUrl] = useState('')
   const [error, setError] = useState('')
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef(0)
+  const [elapsedSec, setElapsedSec] = useState(0)
 
   // 清理轮询定时器
   const clearPoll = useCallback(() => {
@@ -77,6 +79,18 @@ export const VideoStudioPage = () => {
     return () => clearPoll()
   }, [clearPoll])
 
+  // 计时器：显示已等待秒数
+  useEffect(() => {
+    if (phase !== 'pending' && phase !== 'processing') {
+      setElapsedSec(0)
+      return
+    }
+    const t = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [phase])
+
   // 轮询单次状态查询
   const pollOnce = useCallback(
     async (taskId: string) => {
@@ -87,13 +101,14 @@ export const VideoStudioPage = () => {
         return
       }
       try {
-        const res = await apiFetch<{ status: string; videoUrl?: string; error?: string }>(
+        const res = await apiFetch<{ status: string; videoUrl?: string; coverUrl?: string; error?: string }>(
           `/studio/video/status/${taskId}`,
         )
         const status = (res.status || '').toUpperCase()
         if (status === 'SUCCESS' && res.videoUrl) {
           clearPoll()
           setVideoUrl(res.videoUrl)
+          if (res.coverUrl) setCoverUrl(res.coverUrl)
           setPhase('success')
         } else if (status === 'FAIL' || status === 'FAILED') {
           clearPoll()
@@ -308,7 +323,9 @@ export const VideoStudioPage = () => {
                   )
                 })}
               </div>
-              <p className="text-xs text-gray-400">预计 3-8 分钟 · 每 10 秒自动刷新 · 请耐心等待</p>
+              <p className="text-xs text-gray-400">
+                已等待 {Math.floor(elapsedSec / 60)}分{elapsedSec % 60}秒 · 通常 3-5 分钟 · 每 10 秒自动刷新
+              </p>
             </div>
           ) : phase === 'success' && videoUrl ? (
             <div className="flex flex-1 flex-col p-5">
@@ -318,7 +335,9 @@ export const VideoStudioPage = () => {
               </div>
               <video
                 src={videoUrl}
+                poster={coverUrl || undefined}
                 controls
+                autoPlay
                 className="w-full rounded-lg bg-black"
                 style={{ maxHeight: '60vh' }}
               />
