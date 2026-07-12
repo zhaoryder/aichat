@@ -26,7 +26,7 @@ import {
   isUserBanned,
   listMessages,
 } from '../lib/queries'
-import type { ChatMessage } from '@shared/types'
+import type { ChatMessage } from '../../shared/types'
 
 export const chatRouter = Router()
 

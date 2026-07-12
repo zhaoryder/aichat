@@ -41,8 +41,8 @@ import {
   listGameSaves,
   updateCreativeWork,
 } from '../lib/queries'
-import { getAgentById } from '@shared/agents'
-import type { ChatMessage, CreativeWork } from '@shared/types'
+import { getAgentById } from '../../shared/agents'
+import type { ChatMessage, CreativeWork } from '../../shared/types'
 
 export const studioRouter = Router()
 

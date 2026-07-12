@@ -12,7 +12,7 @@
 // =====================================================================
 
 import { listModerationKeywords } from './queries'
-import type { ModerationKeyword } from '@shared/types'
+import type { ModerationKeyword } from '../../shared/types'
 
 /** 关键词缓存 TTL（毫秒），5 分钟 */
 const KEYWORD_CACHE_TTL_MS = 5 * 60 * 1000

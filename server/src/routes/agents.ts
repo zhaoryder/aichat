@@ -10,8 +10,8 @@
 
 import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
-import { agents, getAgentById, type AgentConfig } from '@shared/agents'
-import type { CustomAgent } from '@shared/types'
+import { agents, getAgentById, type AgentConfig } from '../../shared/agents'
+import type { CustomAgent } from '../../shared/types'
 import {
   createCustomAgent,
   deleteCustomAgent,

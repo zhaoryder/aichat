@@ -18,7 +18,7 @@ import {
   listReports,
   updateReportStatus,
 } from '../lib/queries'
-import type { ReportStatus } from '@shared/types'
+import type { ReportStatus } from '../../shared/types'
 
 export const adminRouter = Router()
 

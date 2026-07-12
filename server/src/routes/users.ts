@@ -13,7 +13,7 @@ import {
   updateUserProfile,
   getUserConversations,
 } from '../lib/queries'
-import type { Profile, UserProfile } from '@shared/types'
+import type { Profile, UserProfile } from '../../shared/types'
 
 export const usersRouter = Router()
 

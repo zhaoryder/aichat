@@ -21,7 +21,7 @@ import {
   listForumPosts,
   listForumTopics,
 } from '../lib/queries'
-import type { ChatMessage, ForumPost, ForumTopic } from '@shared/types'
+import type { ChatMessage, ForumPost, ForumTopic } from '../../shared/types'
 
 export const forumRouter = Router()
 

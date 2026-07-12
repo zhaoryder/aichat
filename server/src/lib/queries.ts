@@ -10,7 +10,7 @@
 // =====================================================================
 
 import { supabase } from './supabase'
-import { getAgentById, type AgentConfig } from '@shared/agents'
+import { getAgentById, type AgentConfig } from '../../shared/agents'
 import type {
   Agent,
   AgentFavorite,
@@ -30,7 +30,7 @@ import type {
   SharedConversation,
   TrendingMeme,
   Checkin,
-} from '@shared/types'
+} from '../../shared/types'
 
 // ---------------------------------------------------------------------
 // 对话相关

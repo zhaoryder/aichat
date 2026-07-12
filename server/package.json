@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=../.env.local src/index.ts",
-    "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --format=esm --external:@supabase/supabase-js --external:openai --alias:@shared=./shared",
+    "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --format=esm --external:@supabase/supabase-js --external:openai",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },

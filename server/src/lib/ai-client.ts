@@ -12,14 +12,14 @@ import OpenAI, {
   RateLimitError,
   APIError as OpenAIAPIError,
 } from 'openai'
-import { getAgentById } from '@shared/agents'
+import { getAgentById } from '../../shared/agents'
 import { supabase } from './supabase'
 import {
   AIRequestError,
   AIRequestTimeoutError,
   AIRateLimitError,
 } from './ai-types'
-import type { ChatMessage } from '@shared/types'
+import type { ChatMessage } from '../../shared/types'
 
 // ----------------------------------------------------------------------
 // 客户端与配置
