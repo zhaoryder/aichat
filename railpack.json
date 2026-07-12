@@ -13,6 +13,7 @@
     }
   },
   "deploy": {
+    "inputs": [{ "step": "build", "include": ["."] }],
     "startCommand": "node server/dist/index.js"
   }
 }
