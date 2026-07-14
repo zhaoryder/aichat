@@ -1,6 +1,8 @@
 import './styles/globals.css'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './hooks/useAuth'
+import { FavoritesProvider } from './hooks/useFavorites'
+import { ThemeProvider } from './hooks/useTheme'
 import { Layout } from './components/layout/Layout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import LoginPage from './pages/auth/LoginPage'
@@ -19,7 +21,15 @@ import { ImageStudioPage } from './pages/studio/ImageStudioPage'
 import { ArticleStudioPage } from './pages/studio/ArticleStudioPage'
 import { VibeCodePage } from './pages/studio/VibeCodePage'
 import { VoiceStudioPage } from './pages/studio/VoiceStudioPage'
-import { ProfilePage } from './pages/ProfilePage'
+import { PosterStudioPage } from './pages/studio/PosterStudioPage'
+import { MemeStudioPage } from './pages/studio/MemeStudioPage'
+import { PipelineStudioPage } from './pages/studio/PipelineStudioPage'
+import { MediaLibraryPage } from './pages/MediaLibraryPage'
+import { TeamsPage } from './pages/TeamsPage'
+import { RoomsListPage } from './pages/RoomsListPage'
+import { RoomPage } from './pages/RoomPage'
+import { SettingsPage } from './pages/SettingsPage'
+import { ProfilePageV3 } from './pages/ProfilePageV3'
 import { SharePage } from './pages/SharePage'
 import { AdminPage } from './pages/AdminPage'
 import { GalleryPage } from './pages/GalleryPage'
@@ -34,123 +44,165 @@ import { CardsPage } from './pages/CardsPage'
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* 带主布局的页面 */}
-          <Route element={<Layout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route
-              path="/chat/:agentId"
-              element={
-                <ProtectedRoute>
-                  <ChatPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/agents" element={<AgentsSquarePage />} />
-            <Route
-              path="/agents/create"
-              element={
-                <ProtectedRoute>
-                  <CreateAgentPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agents/:id/edit"
-              element={
-                <ProtectedRoute>
-                  <EditAgentPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/forum" element={<ForumPage />} />
-            <Route path="/forum/topic/:id" element={<ForumTopicPage />} />
-            <Route path="/studio" element={<StudioPage />} />
-            {/* 2.0 新功能页面 */}
-            <Route path="/gallery" element={<GalleryPage />} />
-            <Route path="/prompts" element={<PromptMarketPage />} />
-            <Route path="/achievements" element={<AchievementsPage />} />
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/ai-feed" element={<AIFeedPage />} />
-            <Route path="/emo-wall" element={<EmoWallPage />} />
-            <Route path="/cards" element={<CardsPage />} />
-            <Route
-              path="/studio/script"
-              element={
-                <ProtectedRoute>
-                  <ScriptStudioPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/studio/video"
-              element={
-                <ProtectedRoute>
-                  <VideoStudioPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/studio/image"
-              element={
-                <ProtectedRoute>
-                  <ImageStudioPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/studio/article"
-              element={
-                <ProtectedRoute>
-                  <ArticleStudioPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/studio/vibe-code"
-              element={
-                <ProtectedRoute>
-                  <VibeCodePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/studio/game"
-              element={<Navigate to="/studio/vibe-code" replace />}
-            />
-            <Route
-              path="/studio/voice"
-              element={
-                <ProtectedRoute>
-                  <VoiceStudioPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute admin>
-                  <AdminPage />
-                </ProtectedRoute>
-              }
-            />
-          </Route>
+      <ThemeProvider>
+        <FavoritesProvider>
+          <BrowserRouter>
+            <Routes>
+            {/* 带主布局的页面 */}
+            <Route element={<Layout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route
+                path="/chat/:agentId"
+                element={
+                  <ProtectedRoute>
+                    <ChatPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/agents" element={<AgentsSquarePage />} />
+              <Route
+                path="/agents/create"
+                element={
+                  <ProtectedRoute>
+                    <CreateAgentPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/agents/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <EditAgentPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/forum" element={<ForumPage />} />
+              <Route path="/forum/topic/:id" element={<ForumTopicPage />} />
+              <Route path="/studio" element={<StudioPage />} />
+              {/* 2.0 新功能页面 */}
+              <Route path="/gallery" element={<GalleryPage />} />
+              <Route path="/prompts" element={<PromptMarketPage />} />
+              <Route path="/achievements" element={<AchievementsPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/ai-feed" element={<AIFeedPage />} />
+              <Route path="/emo-wall" element={<EmoWallPage />} />
+              <Route path="/cards" element={<CardsPage />} />
+              {/* 3.0 新功能页面 */}
+              <Route path="/teams" element={<ProtectedRoute><TeamsPage /></ProtectedRoute>} />
+              <Route path="/rooms" element={<ProtectedRoute><RoomsListPage /></ProtectedRoute>} />
+              <Route path="/rooms/:id" element={<ProtectedRoute><RoomPage /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route
+                path="/studio/script"
+                element={
+                  <ProtectedRoute>
+                    <ScriptStudioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/studio/video"
+                element={
+                  <ProtectedRoute>
+                    <VideoStudioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/studio/image"
+                element={
+                  <ProtectedRoute>
+                    <ImageStudioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/studio/article"
+                element={
+                  <ProtectedRoute>
+                    <ArticleStudioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/studio/vibe-code"
+                element={
+                  <ProtectedRoute>
+                    <VibeCodePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/studio/game"
+                element={<Navigate to="/studio/vibe-code" replace />}
+              />
+              <Route
+                path="/studio/voice"
+                element={
+                  <ProtectedRoute>
+                    <VoiceStudioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/studio/poster"
+                element={
+                  <ProtectedRoute>
+                    <PosterStudioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/studio/meme"
+                element={
+                  <ProtectedRoute>
+                    <MemeStudioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/studio/pipeline"
+                element={
+                  <ProtectedRoute>
+                    <PipelineStudioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/media"
+                element={
+                  <ProtectedRoute>
+                    <MediaLibraryPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePageV3 />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/profile/:userId" element={<ProfilePageV3 />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute admin>
+                    <AdminPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
 
-          {/* 独立页面（不带主布局） */}
-          <Route path="/share/:slug" element={<SharePage />} />
-          <Route path="/auth/login" element={<LoginPage />} />
-          <Route path="/auth/register" element={<RegisterPage />} />
-        </Routes>
-      </BrowserRouter>
+            {/* 独立页面（不带主布局） */}
+            <Route path="/share/:slug" element={<SharePage />} />
+            <Route path="/auth/login" element={<LoginPage />} />
+            <Route path="/auth/register" element={<RegisterPage />} />
+          </Routes>
+          </BrowserRouter>
+        </FavoritesProvider>
+      </ThemeProvider>
     </AuthProvider>
   )
 }

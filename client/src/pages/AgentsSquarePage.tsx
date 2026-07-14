@@ -1,19 +1,21 @@
-// 智能体广场：官方 + 公开自定义智能体的网格展示
-// - 顶部：搜索框 + 筛选 tab（全部/官方/自定义）+ 创建按钮
+// 智能体广场：官方 + 公开自定义智能体的网格展示（spec §5.4）
+// - 顶部：搜索框（debounce 300ms）+ 筛选 tab（全部/官方/自定义）+ 创建按钮
+// - 分类标签栏：10 大类 + "全部"
 // - 卡片网格：头像（avatarGradient 内联）、名字、title/tagline、topics、era badge
+// - 分页器：上一页/下一页 + 页码
 // - 点击卡片跳 /chat/:id
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui-legacy/Button'
-import { Card } from '@/components/ui-legacy/Card'
-import { Input } from '@/components/ui-legacy/Input'
-import { Badge } from '@/components/ui-legacy/Badge'
-import { Spinner } from '@/components/ui-legacy/Spinner'
-import { EmptyState } from '@/components/ui-legacy/EmptyState'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
-import type { AgentConfig } from '@shared/agents'
+import type { AgentConfig, AgentCategory } from '@shared/agents'
 
 type Filter = 'all' | 'official' | 'custom'
 
@@ -23,27 +25,73 @@ const FILTER_TABS: { key: Filter; label: string }[] = [
   { key: 'custom', label: '自定义' },
 ]
 
+// 10 大分类 + "全部"（spec §5.4）
+const CATEGORY_TABS: { key: AgentCategory | 'all'; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'history', label: '历史' },
+  { key: 'literature', label: '文学' },
+  { key: 'science', label: '科学' },
+  { key: 'art', label: '艺术' },
+  { key: 'anime-game', label: '动漫游戏' },
+  { key: 'worklife', label: '职场生活' },
+  { key: 'fun', label: '趣味' },
+  { key: 'sports', label: '运动' },
+  { key: 'music', label: '音乐' },
+  { key: 'movie-tv', label: '影视' },
+]
+
+const PAGE_SIZE = 20
+
+interface AgentsResponse {
+  agents: AgentConfig[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export const AgentsSquarePage = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
 
   const [agents, setAgents] = useState<AgentConfig[]>([])
+  const [total, setTotal] = useState(0)
   const [filter, setFilter] = useState<Filter>('all')
+  const [category, setCategory] = useState<AgentCategory | 'all'>('all')
   const [searchInput, setSearchInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // debounce 搜索（300ms，spec §5.4）
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setAppliedSearch(searchInput.trim())
+      setPage(1) // 搜索时回到第 1 页
+    }, 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [searchInput])
 
   useEffect(() => {
     let active = true
     setLoading(true)
     setError('')
-    const params = new URLSearchParams({ filter })
+    const params = new URLSearchParams({
+      filter,
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+    })
+    if (category !== 'all') params.set('category', category)
     if (appliedSearch) params.set('search', appliedSearch)
-    apiFetch<{ agents: AgentConfig[] }>(`/agents?${params.toString()}`)
+    apiFetch<AgentsResponse>(`/agents?${params.toString()}`)
       .then((res) => {
         if (!active) return
         setAgents(res.agents ?? [])
+        setTotal(res.total ?? 0)
       })
       .catch((err: Error) => {
         if (!active) return
@@ -55,11 +103,32 @@ export const AgentsSquarePage = () => {
     return () => {
       active = false
     }
-  }, [filter, appliedSearch])
+  }, [filter, category, appliedSearch, page])
+
+  const handleCategoryChange = useCallback((c: AgentCategory | 'all') => {
+    setCategory(c)
+    setPage(1)
+  }, [])
+
+  const handleFilterChange = useCallback((f: Filter) => {
+    setFilter(f)
+    setPage(1)
+  }, [])
 
   const handleSearch = useCallback(() => {
     setAppliedSearch(searchInput.trim())
+    setPage(1)
   }, [searchInput])
+
+  // 分页计算
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const canPrev = page > 1
+  const canNext = page < totalPages
+  // 页码按钮：显示当前页前后各 2 页，至少 1 页
+  const pageNumbers: number[] = []
+  const startPage = Math.max(1, page - 2)
+  const endPage = Math.min(totalPages, startPage + 4)
+  for (let i = startPage; i <= endPage; i++) pageNumbers.push(i)
 
   return (
     <div className="animate-fade-in mx-auto max-w-7xl px-4 py-8">
@@ -95,8 +164,8 @@ export const AgentsSquarePage = () => {
         )}
       </header>
 
-      {/* 搜索 + 筛选 */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* 搜索 + 来源筛选 */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Input
             value={searchInput}
@@ -104,8 +173,8 @@ export const AgentsSquarePage = () => {
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSearch()
             }}
-            placeholder="搜索名字 / 标语 / 头衔…"
-            className="sm:w-72"
+            placeholder="搜索名字 / 标语 / 头衔…（自动搜索）"
+            className="sm:w-80"
           />
           <Button variant="outline" onClick={handleSearch}>
             搜索
@@ -116,7 +185,7 @@ export const AgentsSquarePage = () => {
             <button
               key={tab.key}
               type="button"
-              onClick={() => setFilter(tab.key)}
+              onClick={() => handleFilterChange(tab.key)}
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
                 filter === tab.key
@@ -130,10 +199,59 @@ export const AgentsSquarePage = () => {
         </div>
       </div>
 
+      {/* 分类标签栏（10 大类 + "全部"，spec §5.4） */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {CATEGORY_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => handleCategoryChange(tab.key)}
+            className={cn(
+              'rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-300 ease-out',
+              category === tab.key
+                ? 'border-primary bg-primary text-white shadow-sm'
+                : 'border-gray-200 bg-white text-gray-600 hover:border-primary/40 hover:text-primary',
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 总数显示 */}
+      {!loading && !error && agents.length > 0 && (
+        <p className="mb-4 text-xs text-gray-500">
+          共 {total} 个智能体，第 {page} / {totalPages} 页
+        </p>
+      )}
+
       {/* 列表 */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Spinner size="lg" />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={i}
+              className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"
+            >
+              <div className="flex items-start gap-4">
+                <Skeleton className="size-12 shrink-0 rounded-full" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Skeleton className="h-3 w-16" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : error ? (
         <EmptyState title="加载失败" description={error} />
@@ -143,10 +261,49 @@ export const AgentsSquarePage = () => {
           description="换个关键词或筛选条件试试"
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {agents.map((agent) => (
             <AgentCard key={agent.id} agent={agent} />
           ))}
+        </div>
+      )}
+
+      {/* 分页器（上一页/下一页 + 页码，spec §5.4） */}
+      {!loading && !error && total > PAGE_SIZE && (
+        <div className="mt-10 flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!canPrev}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="transition-transform duration-300 ease-out hover:scale-[1.02] disabled:opacity-50"
+          >
+            上一页
+          </Button>
+          {pageNumbers.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setPage(n)}
+              className={cn(
+                'min-w-[2rem] rounded-md px-2 py-1 text-sm font-medium transition-all duration-300 ease-out',
+                n === page
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-white text-gray-600 hover:bg-muted',
+              )}
+            >
+              {n}
+            </button>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!canNext}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className="transition-transform duration-300 ease-out hover:scale-[1.02] disabled:opacity-50"
+          >
+            下一页
+          </Button>
         </div>
       )}
     </div>
@@ -155,11 +312,10 @@ export const AgentsSquarePage = () => {
 
 // 智能体卡片
 function AgentCard({ agent }: { agent: AgentConfig }) {
-  const isCustom = agent.era === '自定义'
   const initial = agent.name.trim().charAt(0).toUpperCase() || '?'
   return (
     <Link to={`/chat/${agent.id}`} className="group block">
-      <Card hoverScale className="h-full p-5">
+      <Card className="hover-lift h-full p-5">
         <div className="flex items-start gap-4">
           <span
             className="flex size-12 shrink-0 items-center justify-center rounded-full text-base font-bold text-white"
@@ -172,16 +328,11 @@ function AgentCard({ agent }: { agent: AgentConfig }) {
               <h3 className="truncate font-bold text-gray-900 group-hover:text-primary">
                 {agent.name}
               </h3>
-              <Badge
-                variant={isCustom ? 'primary' : 'default'}
-                className="shrink-0"
-              >
+              <Badge variant="default" className="shrink-0">
                 {agent.era}
               </Badge>
             </div>
-            <p className="mt-0.5 truncate text-xs text-gray-500">
-              {agent.title}
-            </p>
+            <p className="mt-0.5 truncate text-xs text-gray-500">{agent.title}</p>
           </div>
         </div>
         <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">

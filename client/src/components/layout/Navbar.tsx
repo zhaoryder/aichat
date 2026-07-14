@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Menu, X, User, LogOut, ChevronDown, Image, Sparkles, Trophy, BarChart3, MessageCircle, Moon, Layers, FileText } from 'lucide-react'
+import { Menu, X, User, LogOut, ChevronDown, Image, Sparkles, Trophy, BarChart3, MessageCircle, Moon, Layers, FileText, FolderOpen, Users, Palette } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -26,12 +26,16 @@ const navItems = [
 // 2.0 新功能导航项（放入"探索"下拉菜单）
 const exploreItems = [
   { to: '/gallery', label: 'AI 绘画广场', icon: Image },
+  { to: '/media', label: '我的素材库', icon: FolderOpen },
+  { to: '/teams', label: '多智能体协作', icon: Users },
+  { to: '/rooms', label: '联机房间', icon: MessageCircle },
   { to: '/prompts', label: '提示词市场', icon: FileText },
   { to: '/cards', label: '角色卡牌', icon: Layers },
   { to: '/ai-feed', label: 'AI 朋友圈', icon: MessageCircle },
   { to: '/achievements', label: '成就系统', icon: Trophy },
   { to: '/leaderboard', label: '排行榜', icon: BarChart3 },
   { to: '/emo-wall', label: '深夜 emo 墙', icon: Moon },
+  { to: '/settings', label: '个性化装扮', icon: Palette },
 ]
 
 // 顶部导航栏

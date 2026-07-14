@@ -39,6 +39,7 @@ import {
 } from '../lib/queries'
 import { getAgentById } from '../../shared/agents'
 import type { ChatMessage, CreativeWork } from '../../shared/types'
+import { addMediaAsset } from '../lib/media-asset'
 
 export const studioRouter = Router()
 
@@ -392,6 +393,18 @@ studioRouter.post('/image', authMiddleware, async (req: Request, res: Response) 
       // 保存失败不影响返回
     }
 
+    // 同步入库到素材库（每张图都入库）
+    for (const url of images) {
+      await addMediaAsset({
+        userId: user.id,
+        type: 'image',
+        url,
+        prompt: fullPrompt,
+        title: prompt.slice(0, 50),
+        metadata: { style, source: 'studio/image' },
+      })
+    }
+
     res.json({ images: images.map((url) => ({ url })) })
   } catch (err) {
     console.error('[api/studio/image] 异常：', err)
@@ -463,9 +476,27 @@ studioRouter.get(
   '/video/status/:id',
   authMiddleware,
   async (req: Request, res: Response) => {
+    const user = req.user!
     try {
       const id = req.params.id as string
       const result = await getVideoTaskResult(id)
+
+      // 视频生成成功时自动入库到素材库
+      if (result.status === 'SUCCESS' && result.videoUrl) {
+        await addMediaAsset({
+          userId: user.id,
+          type: 'video',
+          url: result.videoUrl,
+          prompt: id,
+          title: `视频任务 ${id.slice(0, 8)}`,
+          metadata: {
+            taskId: id,
+            coverUrl: result.coverUrl ?? null,
+            source: 'studio/video',
+          },
+        })
+      }
+
       res.json(result)
     } catch (err) {
       console.error('[api/studio/video/status] 异常：', err)
@@ -607,6 +638,16 @@ studioRouter.post('/voice', authMiddleware, async (req: Request, res: Response) 
     } catch {
       // 保存失败不影响返回
     }
+
+    // 同步入库到素材库
+    await addMediaAsset({
+      userId: user.id,
+      type: 'audio',
+      url: audioUrl,
+      prompt: text,
+      title: text.slice(0, 50),
+      metadata: { voice: voice ?? null, source: 'studio/voice' },
+    })
 
     res.json({ audioUrl })
   } catch (err) {

@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui-legacy/Button'
-import { Input } from '@/components/ui-legacy/Input'
-import { Card, CardBody, CardHeader } from '@/components/ui-legacy/Card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 // 登录失败时的友好提示
 const LOGIN_FAIL_HINT = '登录失败，可能原因：① 邮箱未点确认链接 ② 邮箱或密码错误。请先去邮箱点确认链接。'
@@ -57,7 +57,7 @@ export default function LoginPage() {
           </h1>
           <p className="mt-2 text-sm text-gray-500">AI 搞笑工坊，等你来玩</p>
         </CardHeader>
-        <CardBody>
+        <CardContent>
           {registered && (
             <div className="mb-4 rounded-lg bg-primary/15 px-3 py-2 text-sm text-primary">
               注册成功！请去邮箱点击确认链接，确认后再登录。
@@ -113,7 +113,7 @@ export default function LoginPage() {
               去注册
             </Link>
           </p>
-        </CardBody>
+        </CardContent>
       </Card>
     </div>
   )

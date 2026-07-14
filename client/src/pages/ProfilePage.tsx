@@ -2,27 +2,25 @@
 // 个人中心
 // ---------------------------------------------------------------------
 // 区块：
-//   1. 用户信息卡片：头像、昵称、邮箱、积分、角色 badge、注册时间
-//   2. 签到卡片：<CheckinCard />
-//   3. 我的收藏列表（GET /favorite/list）
-//   4. 对话历史（GET /users/me/conversations）
-//   5. 我的作品（GET /studio/works）
-//   6. 登出按钮
+//   1. 用户信息卡片：头像、昵称、邮箱、角色 badge、注册时间
+//   2. 我的收藏列表（GET /favorite/list）
+//   3. 对话历史（GET /users/me/conversations）
+//   4. 我的作品（GET /studio/works）
+//   5. 登出按钮
 // =====================================================================
 
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
-import { Avatar } from '@/components/ui-legacy/Avatar'
-import { Badge } from '@/components/ui-legacy/Badge'
-import { Button } from '@/components/ui-legacy/Button'
-import { Card } from '@/components/ui-legacy/Card'
-import { Dialog } from '@/components/ui-legacy/Dialog'
-import { EmptyState } from '@/components/ui-legacy/EmptyState'
-import { Input } from '@/components/ui-legacy/Input'
-import { Spinner } from '@/components/ui-legacy/Spinner'
-import { CheckinCard } from '@/components/CheckinCard'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import { getAgentById } from '@shared/agents'
 import { cn } from '@/lib/utils'
 import type { AgentFavorite, Conversation, CreativeWork } from '@shared/types'
@@ -195,22 +193,24 @@ export function ProfilePage() {
       <h1 className="mb-6 text-2xl font-bold text-gray-900">个人中心</h1>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* 左列：用户信息 + 签到卡片 */}
+        {/* 左列：用户信息 */}
         <div className="space-y-6 lg:col-span-1">
           {/* 用户信息卡片 */}
           <Card className="p-6">
             <div className="flex flex-col items-center text-center">
               <Avatar
-                name={profile.nickname || user.email || 'U'}
-                size="lg"
-                gradient="from-primary to-amber-500"
-              />
+                className="h-16 w-16 bg-gradient-to-br from-primary to-amber-500"
+              >
+                <AvatarFallback className="bg-transparent text-lg font-bold text-white">
+                  {(profile.nickname || user.email || 'U').charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
               <h2 className="mt-3 text-lg font-bold text-gray-900">
                 {profile.nickname || '未设置昵称'}
               </h2>
               <p className="mt-0.5 text-sm text-gray-500">{user.email}</p>
               <div className="mt-3 flex items-center gap-2">
-                <Badge variant={profile.role === 'admin' ? 'primary' : 'default'}>
+                <Badge variant={profile.role === 'admin' ? 'default' : 'default'}>
                   {profile.role === 'admin' ? '管理员' : '普通用户'}
                 </Badge>
                 {profile.banned && <Badge variant="secondary">已封禁</Badge>}
@@ -218,10 +218,6 @@ export function ProfilePage() {
             </div>
 
             <div className="mt-5 space-y-2 border-t border-gray-100 pt-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">积分</span>
-                <span className="font-semibold text-primary">{profile.points ?? 0}</span>
-              </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">注册时间</span>
                 <span className="text-gray-700">
@@ -249,9 +245,6 @@ export function ProfilePage() {
               </Button>
             </div>
           </Card>
-
-          {/* 签到卡片 */}
-          <CheckinCard />
         </div>
 
         {/* 右列：收藏 / 对话 / 作品 */}
@@ -354,32 +347,36 @@ export function ProfilePage() {
       {/* 修改昵称 Dialog */}
       <Dialog
         open={editOpen}
-        onClose={() => setEditOpen(false)}
-        title="修改昵称"
-        footer={
-          <>
+        onOpenChange={(v) => {
+          if (!v) setEditOpen(false)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>修改昵称</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              value={nicknameInput}
+              onChange={(e) => setNicknameInput(e.target.value)}
+              placeholder="输入新昵称"
+              maxLength={32}
+              disabled={savingNickname}
+              autoFocus
+            />
+            {nicknameError && (
+              <p className="text-sm text-red-600">{nicknameError}</p>
+            )}
+          </div>
+          <DialogFooter>
             <Button variant="ghost" onClick={() => setEditOpen(false)} disabled={savingNickname}>
               取消
             </Button>
             <Button onClick={handleSaveNickname} disabled={savingNickname}>
               {savingNickname ? '保存中…' : '保存'}
             </Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <Input
-            value={nicknameInput}
-            onChange={(e) => setNicknameInput(e.target.value)}
-            placeholder="输入新昵称"
-            maxLength={32}
-            disabled={savingNickname}
-            autoFocus
-          />
-          {nicknameError && (
-            <p className="text-sm text-red-600">{nicknameError}</p>
-          )}
-        </div>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   )
@@ -414,7 +411,7 @@ function FavoriteItem({ favorite }: { favorite: AgentFavorite }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-sm font-medium text-gray-900">{name}</h3>
-            <Badge variant={isOfficial ? 'primary' : 'default'}>
+            <Badge variant={isOfficial ? 'default' : 'default'}>
               {isOfficial ? '官方' : '自定义'}
             </Badge>
           </div>
@@ -462,7 +459,7 @@ function WorkItem({ work }: { work: CreativeWork }) {
     <div className={cn('flex items-center justify-between gap-3 rounded-lg px-3 py-2.5')}>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Badge variant="primary">{WORK_TYPE_LABEL[work.type]}</Badge>
+          <Badge variant="default">{WORK_TYPE_LABEL[work.type]}</Badge>
           <span className="truncate text-sm font-medium text-gray-900">
             {work.title || '未命名作品'}
           </span>
@@ -474,7 +471,7 @@ function WorkItem({ work }: { work: CreativeWork }) {
       <Badge
         variant={
           work.status === 'done'
-            ? 'primary'
+            ? 'default'
             : work.status === 'failed'
               ? 'secondary'
               : 'default'

@@ -87,6 +87,12 @@ export interface ForumTopic {
   content: string
   mentioned_agents: string[]
   views: number
+  /** 项目包（用于 Vibe Code 一键复刻）：code + assets 引用 */
+  project_payload?: {
+    code?: string
+    title?: string
+    assets?: string[]
+  } | null
   created_at: string
 }
 
@@ -194,5 +200,110 @@ export interface SharedConversation {
   creator_id: string
   /** 分享短链接标识 */
   slug: string
+  created_at: string
+}
+
+/** agent_teams 表：多智能体并行协作团队 */
+export interface AgentTeam {
+  id: string
+  user_id: string
+  name: string
+  /** 团队包含的智能体 ID 数组 */
+  agent_ids: string[]
+  /** 团队配置（工具权限等） */
+  config: {
+    /** 每个 agent 的工具权限：{ [agentId]: { search, imageGen, videoGen, fileOp } } */
+    toolPermissions?: Record<string, {
+      search?: boolean
+      imageGen?: boolean
+      videoGen?: boolean
+      fileOp?: boolean
+    }>
+    [k: string]: unknown
+  }
+  created_at: string
+}
+
+/** chat_rooms 表：联机共聊房间 */
+export interface ChatRoom {
+  id: string
+  host_id: string
+  name: string
+  agent_id: string
+  /** 房间状态：active / closed */
+  status: 'active' | 'closed'
+  created_at: string
+}
+
+/** room_participants 表：房间参与者 */
+export interface RoomParticipant {
+  room_id: string
+  user_id: string
+  joined_at: string
+}
+
+/** room_messages 表：房间消息 */
+export interface RoomMessage {
+  id: string
+  room_id: string
+  user_id: string | null
+  role: 'user' | 'assistant'
+  content: string
+  agent_id: string | null
+  created_at: string
+}
+
+/** media_assets 表：用户私有素材库（图片/视频/音频） */
+export interface MediaAsset {
+  id: string
+  user_id: string
+  type: 'image' | 'video' | 'audio'
+  url: string
+  prompt: string | null
+  title: string | null
+  project_id: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+/** project_snapshots 表：Vibe Code 项目快照 */
+export interface ProjectSnapshot {
+  id: string
+  project_id: string
+  user_id: string
+  code: string
+  label: string | null
+  /** 父快照 ID（用于 diff 和分支） */
+  parent_id: string | null
+  /** 分支名（main / remix） */
+  branch: string
+  created_at: string
+}
+
+/** user_themes 表：个性化装扮 */
+export interface UserTheme {
+  user_id: string
+  /** 内置主题 ID：default / doubao / sunset / ocean / forest / sakura */
+  theme_id: string
+  /** 自定义颜色覆盖 */
+  custom_colors: {
+    primary?: string
+    background?: string
+    [k: string]: unknown
+  }
+  /** 气泡样式：default / rounded / sharp / bubble */
+  bubble_style: string
+  /** 加载动画：default / pulse / bounce / spin */
+  loading_anim: string
+  updated_at: string
+}
+
+/** forum_ratings 表：论坛话题评分 */
+export interface ForumRating {
+  id: string
+  topic_id: string
+  user_id: string
+  /** 1-5 星 */
+  rating: number
   created_at: string
 }

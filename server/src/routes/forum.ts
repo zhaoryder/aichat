@@ -13,13 +13,17 @@ import { chatCompletionStream } from '../lib/ai-client'
 import { moderateContent } from '../lib/moderation'
 import { setSSEHeaders, sendEvent } from '../lib/sse'
 import {
+  createCreativeWork,
   createForumPost,
   createForumTopic,
+  createOrUpdateRating,
   getTopicById,
+  getUserRating,
   incrementTopicViews,
   isUserBanned,
   listForumPosts,
   listForumTopics,
+  listRatingsByTopic,
 } from '../lib/queries'
 import type { ChatMessage, ForumPost, ForumTopic } from '../../shared/types'
 
@@ -86,6 +90,7 @@ interface CreateTopicBody {
   title?: unknown
   content?: unknown
   agentIds?: unknown
+  projectPayload?: unknown
 }
 
 forumRouter.post('/create', authMiddleware, async (req: Request, res: Response) => {
@@ -106,6 +111,31 @@ forumRouter.post('/create', authMiddleware, async (req: Request, res: Response) 
     const agentIds = Array.isArray(body.agentIds)
       ? body.agentIds.filter((a): a is string => typeof a === 'string')
       : []
+
+    // 可选项目包（用于一键复刻）
+    const projectPayloadRaw = body.projectPayload
+    const projectPayload =
+      projectPayloadRaw !== null &&
+      typeof projectPayloadRaw === 'object' &&
+      !Array.isArray(projectPayloadRaw)
+        ? (() => {
+            const obj = projectPayloadRaw as Record<string, unknown>
+            const payload: {
+              code?: string
+              title?: string
+              assets?: string[]
+            } = {}
+            if (typeof obj.code === 'string') payload.code = obj.code
+            if (typeof obj.title === 'string') payload.title = obj.title
+            if (
+              Array.isArray(obj.assets) &&
+              obj.assets.every((a) => typeof a === 'string')
+            ) {
+              payload.assets = obj.assets as string[]
+            }
+            return Object.keys(payload).length > 0 ? payload : null
+          })()
+        : null
 
     if (title.length < 5 || title.length > 100) {
       res.status(400).json({ error: '标题需 5-100 个字符' })
@@ -129,7 +159,13 @@ forumRouter.post('/create', authMiddleware, async (req: Request, res: Response) 
     }
 
     // 创建话题
-    const topic = await createForumTopic(user.id, title, content, agentIds)
+    const topic = await createForumTopic(
+      user.id,
+      title,
+      content,
+      agentIds,
+      projectPayload
+    )
 
     // 保存用户帖（话题内容作为首条 user 帖）
     await createForumPost(topic.id, user.id, 'user', content)
@@ -309,9 +345,6 @@ forumRouter.post(
           primaryAgentId
         )
         primarySavedId = saved.id
-        sendEvent(res, 'done', { agentId: primaryAgentId, postId: saved.id })
-      } else {
-        sendEvent(res, 'done', { agentId: primaryAgentId, postId: null })
       }
 
       // --- AI 自发讨论（交叉接梗）：2+ AI 时 50% 概率 ---
@@ -350,20 +383,19 @@ forumRouter.post(
           )
 
           if (crossContent) {
-            const saved = await createForumPost(
+            await createForumPost(
               topicId,
               null,
               'agent',
               crossContent,
               crossAgentId
             )
-            sendEvent(res, 'done', { agentId: crossAgentId, postId: saved.id })
-          } else {
-            sendEvent(res, 'done', { agentId: crossAgentId, postId: null })
           }
         }
       }
 
+      // 所有 AI 回复结束，发送最终 done 事件
+      sendEvent(res, 'done', {})
       res.end()
     } catch (err) {
       console.error('[api/forum/reply-stream] 异常：', err)
@@ -375,6 +407,127 @@ forumRouter.post(
       } else {
         res.status(500).json({ error: '服务器开小差了' })
       }
+    }
+  }
+)
+
+// ---------------------------------------------------------------------
+// POST /api/forum/clone/:topicId —— 一键复刻话题的项目包到创意作品
+// ---------------------------------------------------------------------
+
+forumRouter.post(
+  '/clone/:topicId',
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    const user = req.user!
+    try {
+      const topicId = req.params.topicId as string
+      const topic = await getTopicById(topicId)
+      if (!topic) {
+        res.status(404).json({ error: '话题不存在' })
+        return
+      }
+      const payload = topic.project_payload
+      if (!payload) {
+        res.status(400).json({ error: '该话题没有可复刻的项目包' })
+        return
+      }
+
+      const title =
+        (typeof payload.title === 'string' && payload.title) || '复刻项目'
+
+      const work = await createCreativeWork(user.id, 'game', title, {
+        code: payload.code,
+        assets: payload.assets,
+        source: topicId,
+      })
+
+      res.json({ work })
+    } catch (err) {
+      console.error('[api/forum/clone] 异常：', err)
+      res.status(500).json({ error: '服务器开小差了' })
+    }
+  }
+)
+
+// ---------------------------------------------------------------------
+// POST /api/forum/rate —— 创建 / 更新当前用户对某话题的评分
+// ---------------------------------------------------------------------
+
+interface RateBody {
+  topicId?: unknown
+  rating?: unknown
+}
+
+forumRouter.post(
+  '/rate',
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    const user = req.user!
+    try {
+      const body = req.body as RateBody
+      const topicId =
+        typeof body.topicId === 'string' ? body.topicId.trim() : ''
+      const ratingNum =
+        typeof body.rating === 'number'
+          ? body.rating
+          : Number(body.rating)
+
+      if (!topicId) {
+        res.status(400).json({ error: '缺少话题 ID' })
+        return
+      }
+      if (
+        !Number.isFinite(ratingNum) ||
+        ratingNum < 1 ||
+        ratingNum > 5
+      ) {
+        res.status(400).json({ error: '评分必须在 1-5 之间' })
+        return
+      }
+
+      const topic = await getTopicById(topicId)
+      if (!topic) {
+        res.status(404).json({ error: '话题不存在' })
+        return
+      }
+
+      const rating = await createOrUpdateRating(
+        topicId,
+        user.id,
+        Math.round(ratingNum)
+      )
+      res.json({ rating })
+    } catch (err) {
+      console.error('[api/forum/rate] 异常：', err)
+      res.status(500).json({ error: '服务器开小差了' })
+    }
+  }
+)
+
+// ---------------------------------------------------------------------
+// GET /api/forum/ratings/:topicId —— 获取话题评分列表 + 当前用户评分
+// ---------------------------------------------------------------------
+
+forumRouter.get(
+  '/ratings/:topicId',
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    const user = req.user!
+    try {
+      const topicId = req.params.topicId as string
+      const topic = await getTopicById(topicId)
+      if (!topic) {
+        res.status(404).json({ error: '话题不存在' })
+        return
+      }
+
+      const { ratings, average, count } = await listRatingsByTopic(topicId)
+      const myRating = await getUserRating(topicId, user.id)
+      res.json({ ratings, average, count, myRating })
+    } catch (err) {
+      console.error('[api/forum/ratings] 异常：', err)
+      res.status(500).json({ error: '服务器开小差了' })
     }
   }
 )
@@ -396,6 +549,9 @@ async function streamAgentReply(
   signal: AbortSignal
 ): Promise<string | null> {
   try {
+    // 通知前端创建流式占位帖
+    sendEvent(res, 'agent_start', { agentId })
+
     const messages: ChatMessage[] = [
       {
         role: 'user',
@@ -409,6 +565,9 @@ async function streamAgentReply(
       sendEvent(res, 'token', { c: delta, agentId })
     }
 
+    // 通知前端该 AI 流式结束
+    sendEvent(res, 'agent_done', { agentId })
+
     if (!full.trim()) return null
     return full
   } catch (err) {
@@ -416,6 +575,8 @@ async function streamAgentReply(
       `[forum/reply-stream] AI ${agentId} 流式生成失败：`,
       err instanceof Error ? err.message : err
     )
+    // 失败也需通知前端停止占位
+    sendEvent(res, 'agent_done', { agentId })
     return null
   }
 }

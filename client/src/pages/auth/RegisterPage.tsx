@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { useAuth } from '@/hooks/useAuth'
 import { apiFetch } from '@/lib/api'
-import { Button } from '@/components/ui-legacy/Button'
-import { Input } from '@/components/ui-legacy/Input'
-import { Card, CardBody, CardHeader } from '@/components/ui-legacy/Card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 // 注册表单校验 schema
 const registerSchema = z.object({
@@ -87,7 +87,7 @@ export default function RegisterPage() {
           </h1>
           <p className="mt-2 text-sm text-gray-500">加入 AI 搞笑工坊，开启创意之旅</p>
         </CardHeader>
-        <CardBody>
+        <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -154,7 +154,7 @@ export default function RegisterPage() {
               去登录
             </Link>
           </p>
-        </CardBody>
+        </CardContent>
       </Card>
     </div>
   )

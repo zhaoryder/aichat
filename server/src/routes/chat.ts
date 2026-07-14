@@ -4,15 +4,17 @@
 // POST /api/chat
 //   请求体：{ conversationId?: string, agentId: string, message: string }
 //   响应：text/event-stream
-//     event: start  data: { conversationId }
-//     event: token  data: { c: "<增量文本>" }
-//     event: done   data: { conversationId }
-//     event: error  data: { message }
+//     event: start       data: { conversationId }
+//     event: tool_call   data: { id, name, args }        // 工具调用开始
+//     event: tool_result data: { id, name, result }      // 工具调用结果
+//     event: token       data: { c: "<增量文本>" }
+//     event: done        data: { conversationId }
+//     event: error       data: { message }
 // =====================================================================
 
 import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
-import { chatCompletionStream } from '../lib/ai-client'
+import { chatCompletionStream, chatWithTools, getAgentById } from '../lib/ai-client'
 import {
   AIRequestError,
   AIRequestTimeoutError,
@@ -27,6 +29,7 @@ import {
   listMessages,
 } from '../lib/queries'
 import { checkAndGrantAchievement } from './achievements'
+import { chatToolDefinitions, executeChatTool, chatToolsSystemPromptSuffix } from '../lib/vibe-tools'
 import type { ChatMessage } from '../../shared/types'
 
 export const chatRouter = Router()
@@ -119,13 +122,76 @@ chatRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
 
     let fullReply = ''
     try {
-      const gen = chatCompletionStream(history, agentId, {
+      // === 轻度 Agent：先尝试工具调用 ===
+      const agent = getAgentById(agentId)
+      const systemPrompt = agent
+        ? agent.systemPrompt +
+          '\n\n【平台通用搞笑基准】你是搞笑AI平台的智能体，核心使命是让用户笑。无论什么场景，都要保持幽默。不要引用过时的网络热梗或网络流行语，所有幽默必须是原创的。' +
+          chatToolsSystemPromptSuffix
+        : chatToolsSystemPromptSuffix
+
+      const toolMessages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...history.map((m) => ({ role: m.role, content: m.content })),
+      ]
+
+      const toolResult = await chatWithTools(toolMessages, chatToolDefinitions, {
         signal: abortController.signal,
       })
-      for await (const token of gen) {
-        fullReply += token
-        // 12. 每块推送 token 事件
-        sendEvent(res, 'token', { c: token })
+
+      let streamHistory = history
+
+      if (toolResult.toolCalls && toolResult.toolCalls.length > 0) {
+        // AI 决定调用工具
+        for (const tc of toolResult.toolCalls) {
+          // 推送 tool_call 事件
+          sendEvent(res, 'tool_call', {
+            id: tc.id,
+            name: tc.name,
+            args: tc.arguments,
+          })
+
+          // 执行工具
+          const execResult = await executeChatTool(tc.name, tc.arguments)
+
+          // 推送 tool_result 事件
+          sendEvent(res, 'tool_result', {
+            id: tc.id,
+            name: tc.name,
+            result: execResult.success ? execResult.result : { error: execResult.error },
+          })
+        }
+
+        // 将工具结果加入历史，让 AI 生成最终回复
+        streamHistory = [
+          ...history,
+          { role: 'assistant' as const, content: toolResult.content || '正在为您处理...' },
+          {
+            role: 'user' as const,
+            content: `工具调用已完成，请根据上述工具返回的结果，用你的人格特色给用户一个完整的回复。`,
+          },
+        ]
+
+        // 流式生成最终回复
+        const gen = chatCompletionStream(streamHistory, agentId, {
+          signal: abortController.signal,
+        })
+        for await (const token of gen) {
+          fullReply += token
+          sendEvent(res, 'token', { c: token })
+        }
+      } else {
+        // 无工具调用，直接发送 AI 的文本回复（分块模拟流式）
+        const content = toolResult.content || ''
+        if (content) {
+          // 分块发送（每 20 字一块），模拟流式体验
+          const chunkSize = 20
+          for (let i = 0; i < content.length; i += chunkSize) {
+            const chunk = content.slice(i, i + chunkSize)
+            fullReply += chunk
+            sendEvent(res, 'token', { c: chunk })
+          }
+        }
       }
 
       // 14. 流结束后保存完整 AI 回复

@@ -2,16 +2,20 @@
 // Vibe Coding Agent API
 // ---------------------------------------------------------------------
 // 用户用自然语言描述需求 → AI 生成可运行 HTML 代码 → 浏览器内即时预览。
-//   POST /api/vibe-code/generate      SSE 流式生成代码
+//   POST /api/vibe-code/generate      SSE 流式生成代码（@deprecated，保留兼容）
 //   POST /api/vibe-code/fix           SSE 流式修复代码
+//   POST /api/vibe-code/stream       Vercel AI SDK streamText + 工具调用（新，spec §6.2）
 //   GET  /api/vibe-code/projects      列出用户项目
 //   GET  /api/vibe-code/projects/:id  获取项目详情
 //   POST /api/vibe-code/save          保存项目
 //   GET  /api/vibe-code/explore       公开广场
+//   POST /api/vibe-code/chat          Agent 多轮对话（非流式 Tool Calling）
 // =====================================================================
 
 import { Router, Request, Response } from 'express'
 import { createClient } from '@supabase/supabase-js'
+import { streamText, isStepCount } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { authMiddleware } from '../middleware/auth'
 import {
   chatCompletionStreamWithSystemPrompt,
@@ -19,6 +23,8 @@ import {
   type ToolDefinition,
 } from '../lib/ai-client'
 import { setSSEHeaders, sendEvent } from '../lib/sse'
+import { vibeCodeTools, setVibeContext } from '../lib/vibe-tools'
+import { createSnapshot } from '../lib/queries'
 import type { ChatMessage } from '../../shared/types'
 
 export const vibeCodeRouter = Router()
@@ -53,6 +59,7 @@ function cleanCode(raw: string): string {
 
 // ---------------------------------------------------------------------
 // POST /api/vibe-code/generate —— SSE 流式生成代码
+// @deprecated 由 POST /api/vibe-code/stream 替代，保留兼容旧客户端
 // ---------------------------------------------------------------------
 
 interface GenerateBody {
@@ -451,6 +458,245 @@ vibeCodeRouter.post(
       res.status(500).json({
         error: err instanceof Error ? err.message : 'Agent 对话失败',
       })
+    }
+  }
+)
+
+// =====================================================================
+// POST /api/vibe-code/stream —— Vercel AI SDK streamText + 工具调用（spec §6.2）
+// ---------------------------------------------------------------------
+// 使用 Vercel AI SDK v7 的 streamText 实现：
+//   - 流式 token 输出（实时显示在 assistant-ui Thread 中）
+//   - 自动多轮工具调用（stopWhen: isStepCount(10)，Agent 可循环调用工具直到完成）
+//   - 工具集：writeFile / readFile / executeCode / webSearch / generateImage / generateVideo
+//
+// 请求 body: { messages: Array<{role, content}>, projectId?: string }
+// 响应：简单 SSE 事件流（与 /chat 端点格式一致，便于客户端 useExternalStoreRuntime 消费）
+//   - event: start   data: {}
+//   - event: token   data: { c: string }                —— 文本增量
+//   - event: tool_call   data: { id, name, args }       —— 工具调用开始
+//   - event: tool_result data: { id, name, result }     —— 工具调用结果
+//   - event: done     data: {}
+//   - event: error    data: { error: string }
+//
+// 注：不使用 pipeUIMessageStreamToResponse，因为 @assistant-ui/react-ai-sdk@1.3.40
+//     依赖 ai@6，与项目 ai@7 不兼容。改用与 /chat 一致的 SSE 格式 +
+//     useExternalStoreRuntime 手动消费，完全绕过版本冲突。
+// =====================================================================
+
+/** Vibe Code Agent 系统提示词（强调工具使用 + 多轮对话） */
+const STREAM_SYSTEM_PROMPT = `你是一个强大的 Vibe Coding Agent，通过 Vercel AI SDK 的 Tool Calling 帮用户生成和迭代 HTML 应用。
+
+工作方式：
+- 用户描述需求 → 你调用 writeFile 工具写入完整 HTML 文件到 index.html
+- 用户追问修改 → 你再次调用 writeFile 更新 index.html
+- 用户需要联网信息 → 你调用 webSearch 工具
+- 用户需要图片 → 你调用 generateImage 工具
+- 用户需要视频 → 你调用 generateVideo 工具
+- 用户需要纯计算（如算式、转换） → 你调用 executeCode 工具
+
+代码要求：
+1. 完整 HTML 文件（<!DOCTYPE html> 到 </html>）
+2. CSS 在 <style>，JS 在 <script>，不用外部 CDN
+3. 现代美观设计，有动画和交互
+4. 功能完整可用
+
+重要：
+- 始终通过 writeFile 工具输出代码（path 设为 "index.html"）
+- 输出代码后用文字简短说明本次改动
+- 不要在普通回复中直接粘贴大段代码`
+
+interface StreamMessage {
+  role?: unknown
+  content?: unknown
+}
+
+interface StreamBody {
+  messages?: unknown
+  projectId?: unknown
+}
+
+vibeCodeRouter.post(
+  '/stream',
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    const body = req.body as StreamBody
+    const user = req.user!
+
+    // 校验 messages：接受简单 { role, content }[] 格式
+    const rawMessages = Array.isArray(body.messages) ? body.messages : []
+    const simpleMessages: StreamMessage[] = []
+    for (const m of rawMessages) {
+      if (typeof m !== 'object' || m === null) continue
+      const role = (m as { role?: string }).role
+      const content = (m as { content?: string }).content
+      if (role !== 'user' && role !== 'assistant') continue
+      if (typeof content !== 'string' || !content) continue
+      simpleMessages.push({ role, content })
+    }
+
+    if (simpleMessages.length === 0) {
+      res.status(400).json({ error: 'messages 字段必须包含至少一条有效消息' })
+      return
+    }
+
+    const projectId =
+      typeof body.projectId === 'string' ? body.projectId : undefined
+
+    // 设置 Vibe 上下文（writeFile/readFile 工具会用到）
+    setVibeContext(user.id, projectId)
+
+    // 构造 OpenAI 兼容 client（指向 Agnes API）
+    const openai = createOpenAI({
+      apiKey: process.env.AGNES_API_KEY!,
+      baseURL: process.env.AGNES_API_BASE!,
+    })
+
+    // 构造 model messages：系统消息 + 用户/助手消息
+    const messages = [
+      { role: 'system' as const, content: STREAM_SYSTEM_PROMPT },
+      ...simpleMessages.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content as string,
+      })),
+    ]
+
+    // 设置 SSE 响应头
+    setSSEHeaders(res)
+
+    // 请求关闭时取消流
+    const abortController = new AbortController()
+    req.on('close', () => {
+      if (!abortController.signal.aborted) {
+        abortController.abort()
+      }
+    })
+
+    try {
+      const result = streamText({
+        model: openai('agnes-2.0-flash'),
+        messages,
+        tools: vibeCodeTools,
+        // ai v7：用 stopWhen: isStepCount(N) 替代旧 maxSteps
+        stopWhen: isStepCount(10),
+        abortSignal: abortController.signal,
+        onFinish: ({ text, toolResults }) => {
+          console.log(
+            `[vibe-code/stream] user=${user.id} projectId=${projectId || 'default'} ` +
+              `text_len=${text.length} tool_results=${toolResults.length}`,
+          )
+        },
+      })
+
+      // 发送 start 事件
+      sendEvent(res, 'start', {})
+
+      // 追踪本次流式输出中最后一次 writeFile 的 content + assistant 文本
+      // 用于在流结束后自动创建快照（Task 7.2）
+      let latestCode = ''
+      let assistantText = ''
+
+      // 遍历 fullStream，转发为简单 SSE 事件
+      for await (const part of result.fullStream) {
+        switch (part.type) {
+          case 'text-delta': {
+            if (part.text) {
+              assistantText += part.text
+              sendEvent(res, 'token', { c: part.text })
+            }
+            break
+          }
+          case 'tool-call': {
+            // 追踪 writeFile 工具调用的 content（自动快照用）
+            if (part.toolName === 'writeFile') {
+              const input = part.input as { content?: unknown } | undefined
+              if (input && typeof input.content === 'string' && input.content) {
+                latestCode = input.content
+              }
+            }
+            // 工具调用开始（input 已完整）
+            sendEvent(res, 'tool_call', {
+              id: part.toolCallId,
+              name: part.toolName,
+              args: part.input ?? {},
+            })
+            break
+          }
+          case 'tool-result': {
+            // 工具调用结果
+            sendEvent(res, 'tool_result', {
+              id: part.toolCallId,
+              name: part.toolName,
+              result: part.output,
+            })
+            break
+          }
+          case 'tool-error': {
+            // 工具执行错误：转为 tool_result 事件，result 为 { error }
+            sendEvent(res, 'tool_result', {
+              id: part.toolCallId,
+              name: part.toolName,
+              result: {
+                error:
+                  part.error instanceof Error
+                    ? part.error.message
+                    : '工具执行失败',
+              },
+            })
+            break
+          }
+          case 'error': {
+            sendEvent(res, 'error', {
+              error: 'AI 流式错误',
+            })
+            break
+          }
+          default:
+            // 其他类型（start-step / finish-step / reasoning 等）忽略
+            break
+        }
+      }
+
+      // ---- 自动创建快照（Task 7.2）----
+      // 流式结束后，基于本次生成/修改的代码自动创建一个快照。
+      // 失败静默处理，不影响主流程。
+      try {
+        // 优先使用 writeFile 工具调用的 content
+        // 若没有（如纯文本回复），尝试从 assistant 文本中提取 ```html 代码块
+        if (!latestCode && assistantText) {
+          const htmlMatch = assistantText.match(/```html\n([\s\S]*?)\n```/)
+          if (htmlMatch && htmlMatch[1]) {
+            latestCode = htmlMatch[1]
+          }
+        }
+        if (latestCode) {
+          const snapshotProjectId = projectId || `default-${user.id}`
+          await createSnapshot({
+            projectId: snapshotProjectId,
+            userId: user.id,
+            code: latestCode,
+            label: 'auto-save',
+            branch: 'main',
+          })
+        }
+      } catch (snapshotErr) {
+        console.error('[vibe-code/stream] auto-snapshot failed:', snapshotErr)
+      }
+
+      sendEvent(res, 'done', {})
+    } catch (err) {
+      console.error('[vibe-code/stream] error:', err)
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: err instanceof Error ? err.message : 'Vibe Code 流式失败',
+        })
+      } else {
+        sendEvent(res, 'error', {
+          error: err instanceof Error ? err.message : 'Vibe Code 流式失败',
+        })
+      }
+    } finally {
+      res.end()
     }
   }
 )

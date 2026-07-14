@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Spinner } from '@/components/ui-legacy/Spinner'
+import { Spinner } from '@/components/ui/spinner'
 
 // 路由守卫：未登录跳登录页，可选 admin 校验
 export function ProtectedRoute({ children, admin }: { children: React.ReactNode; admin?: boolean }) {

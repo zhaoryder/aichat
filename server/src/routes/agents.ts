@@ -38,12 +38,38 @@ function customAgentToConfig(custom: CustomAgent): AgentConfig {
     avatarGradient: custom.avatar_gradient,
     systemPrompt: custom.system_prompt,
     topics: [],
+    card: {
+      rarity: '普通',
+      skills: [],
+      combo: '自定义智能体无组合效果',
+    },
   }
 }
 
 // ---------------------------------------------------------------------
 // GET /api/agents —— 列出官方 + 公开自定义智能体（公开可读）
 // ---------------------------------------------------------------------
+// 支持参数（spec §5.4）：
+//   filter=official|custom|all     按来源筛选
+//   category=history|literature|…  按 10 大类筛选（仅官方智能体有 category）
+//   tag=教育                         按 topics 标签筛选（包含匹配）
+//   search=孔子                      模糊搜索 name/tagline/title
+//   page=1&pageSize=20               分页（pageSize 默认 20，最大 50）
+// 返回格式：{ agents, total, page, pageSize }
+// ---------------------------------------------------------------------
+
+const VALID_CATEGORIES = new Set([
+  'history',
+  'literature',
+  'science',
+  'art',
+  'anime-game',
+  'worklife',
+  'fun',
+  'sports',
+  'music',
+  'movie-tv',
+])
 
 agentsRouter.get('/', async (req: Request, res: Response) => {
   try {
@@ -51,6 +77,16 @@ agentsRouter.get('/', async (req: Request, res: Response) => {
       typeof req.query.search === 'string' ? req.query.search.trim() : ''
     const filter =
       typeof req.query.filter === 'string' ? req.query.filter : 'all'
+    const category =
+      typeof req.query.category === 'string' ? req.query.category : ''
+    const tag =
+      typeof req.query.tag === 'string' ? req.query.tag.trim() : ''
+
+    // 分页参数（默认 1 / 20，最大 50）
+    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1)
+    const pageSizeRaw =
+      parseInt(String(req.query.pageSize ?? '20'), 10) || 20
+    const pageSize = Math.min(50, Math.max(1, pageSizeRaw))
 
     // filter: official → 仅官方；custom → 仅自定义；all → 全部
     const officialList: AgentConfig[] = filter === 'custom' ? [] : agents
@@ -61,6 +97,18 @@ agentsRouter.get('/', async (req: Request, res: Response) => {
     // 合并列表
     let allAgents = [...officialList, ...customConfigs]
 
+    // 分类筛选（仅对带 category 的官方智能体生效；自定义智能体 era='自定义'，不参与分类）
+    if (category && VALID_CATEGORIES.has(category)) {
+      allAgents = allAgents.filter((a) => a.category === category)
+    }
+
+    // 标签筛选（topics 数组包含匹配）
+    if (tag.length > 0) {
+      allAgents = allAgents.filter((a) =>
+        a.topics.some((t) => t.toLowerCase().includes(tag.toLowerCase())),
+      )
+    }
+
     // 简单内存搜索
     if (search.length > 0) {
       const lower = search.toLowerCase()
@@ -68,11 +116,16 @@ agentsRouter.get('/', async (req: Request, res: Response) => {
         (a) =>
           a.name.toLowerCase().includes(lower) ||
           a.tagline.toLowerCase().includes(lower) ||
-          a.title.toLowerCase().includes(lower)
+          a.title.toLowerCase().includes(lower),
       )
     }
 
-    res.json({ agents: allAgents })
+    // 分页切片
+    const total = allAgents.length
+    const start = (page - 1) * pageSize
+    const paged = allAgents.slice(start, start + pageSize)
+
+    res.json({ agents: paged, total, page, pageSize })
   } catch (err) {
     console.error('[api/agents] 异常：', err)
     res.status(500).json({ error: '服务器开小差了' })

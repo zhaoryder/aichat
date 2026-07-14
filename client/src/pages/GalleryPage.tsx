@@ -11,7 +11,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Heart, Flame, Clock, ImageOff, Loader2 } from 'lucide-react'
+import { Heart, Flame, Clock, ImageOff } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -183,7 +184,7 @@ export function GalleryPage() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Spinner size="sm" className="mr-2" />
                     加载中…
                   </>
                 ) : (

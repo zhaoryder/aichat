@@ -1,88 +1,96 @@
-// 创意工坊首页：6 个功能入口卡片 + 我的作品列表
+// 创意工坊首页：9 个功能入口卡片 + 我的作品列表
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  Code2,
+  Image as ImageIcon,
+  Video,
+  FileText,
+  Newspaper,
+  Mic,
+  Palette,
+  Smile,
+  Workflow,
+} from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
-import { Card } from '@/components/ui-legacy/Card'
-import { Badge } from '@/components/ui-legacy/Badge'
-import { Spinner } from '@/components/ui-legacy/Spinner'
-import { EmptyState } from '@/components/ui-legacy/EmptyState'
-import { Button } from '@/components/ui-legacy/Button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Button } from '@/components/ui/button'
 import type { CreativeWork } from '@shared/types'
 
-// 6 个功能入口配置：图标（inline SVG）+ 标题 + 描述 + 路由
+// 9 个功能入口配置：lucide 图标 + 标题 + 描述 + 路由
 const STUDIO_ENTRIES: {
   to: string
   title: string
   desc: string
   icon: React.ReactNode
+  gradient: string
 }[] = [
   {
-    to: '/studio/script',
-    title: '搞笑剧本',
-    desc: '编剧，多角色对白',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M4 4h12a2 2 0 012 2v14H6a2 2 0 01-2-2V4z" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M18 8h2v12H8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M8 9h6M8 13h6M8 17h3" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    to: '/studio/video',
-    title: '搞笑视频',
-    desc: 'AI 生成短视频',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="5" width="18" height="14" rx="2" strokeLinejoin="round" />
-        <path d="M10 9l5 3-5 3V9z" strokeLinejoin="round" />
-      </svg>
-    ),
+    to: '/studio/vibe-code',
+    title: '网页工程',
+    desc: 'Vibe Coding 自然语言生成代码',
+    icon: <Code2 className="h-7 w-7" />,
+    gradient: 'from-indigo-500 to-blue-500',
   },
   {
     to: '/studio/image',
-    title: '搞笑图片',
+    title: 'AI 绘画',
     desc: 'CogView4 文生图',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="4" width="18" height="16" rx="2" strokeLinejoin="round" />
-        <circle cx="8.5" cy="9.5" r="1.5" fill="currentColor" stroke="none" />
-        <path d="M21 16l-5-5L5 20" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
+    icon: <ImageIcon className="h-7 w-7" />,
+    gradient: 'from-amber-400 to-orange-500',
+  },
+  {
+    to: '/studio/video',
+    title: '短视频创作',
+    desc: 'AI 生成短视频',
+    icon: <Video className="h-7 w-7" />,
+    gradient: 'from-purple-500 to-pink-500',
+  },
+  {
+    to: '/studio/script',
+    title: '剧本创作',
+    desc: '编剧，多角色对白',
+    icon: <FileText className="h-7 w-7" />,
+    gradient: 'from-emerald-500 to-teal-500',
   },
   {
     to: '/studio/article',
-    title: '搞笑文章',
+    title: '文章生成',
     desc: '长文创作',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" strokeLinejoin="round" />
-        <path d="M14 3v6h6M9 13h8M9 17h6" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    to: '/studio/vibe-code',
-    title: 'Vibe 编程',
-    desc: '自然语言生成代码',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M8 9l-3 3 3 3M16 9l3 3-3 3M13 5l-2 14" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
+    icon: <Newspaper className="h-7 w-7" />,
+    gradient: 'from-cyan-500 to-blue-500',
   },
   {
     to: '/studio/voice',
-    title: '搞笑语音',
-    desc: 'TTS 语音合成',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M11 5L6 9H3v6h3l5 4V5z" strokeLinejoin="round" />
-        <path d="M15.5 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" strokeLinecap="round" />
-      </svg>
-    ),
+    title: '语音合成',
+    desc: 'TTS 语音朗读',
+    icon: <Mic className="h-7 w-7" />,
+    gradient: 'from-rose-500 to-pink-500',
+  },
+  {
+    to: '/studio/poster',
+    title: '趣味海报',
+    desc: '模板 + 配色，一键生成',
+    icon: <Palette className="h-7 w-7" />,
+    gradient: 'from-violet-500 to-purple-500',
+  },
+  {
+    to: '/studio/meme',
+    title: '表情包制作',
+    desc: '文字 + 模板，快速出图',
+    icon: <Smile className="h-7 w-7" />,
+    gradient: 'from-yellow-400 to-amber-500',
+  },
+  {
+    to: '/studio/pipeline',
+    title: '多媒体流水线',
+    desc: '图片+视频+文章一站式',
+    icon: <Workflow className="h-7 w-7" />,
+    gradient: 'from-fuchsia-500 to-pink-500',
   },
 ]
 
@@ -159,8 +167,7 @@ export const StudioPage = () => {
         {STUDIO_ENTRIES.map((entry) => (
           <Link key={entry.to} to={entry.to}>
             <Card
-              hoverScale
-              className="flex h-full items-start gap-4 p-6 transition-transform duration-300 ease-out hover:scale-[1.02]"
+              className="hover-lift flex h-full items-start gap-4 p-6 transition-transform duration-300 ease-out hover:scale-[1.02]"
             >
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
                 {entry.icon}
@@ -197,8 +204,19 @@ export const StudioPage = () => {
             />
           </Card>
         ) : loading ? (
-          <div className="flex justify-center py-12">
-            <Spinner className="h-8 w-8" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                  <Skeleton className="size-12 rounded" />
+                </div>
+              </Card>
+            ))}
           </div>
         ) : error ? (
           <Card className="p-6 text-center text-sm text-red-500">{error}</Card>
@@ -216,7 +234,7 @@ export const StudioPage = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="mb-1.5 flex items-center gap-2">
-                      <Badge variant="primary">{TYPE_LABEL[work.type]}</Badge>
+                      <Badge variant="default">{TYPE_LABEL[work.type]}</Badge>
                       <span className="text-xs text-gray-400">
                         {formatRelativeTime(work.created_at)}
                       </span>
@@ -228,7 +246,7 @@ export const StudioPage = () => {
                   <Badge
                     variant={
                       work.status === 'done'
-                        ? 'primary'
+                        ? 'default'
                         : work.status === 'failed'
                           ? 'secondary'
                           : 'default'

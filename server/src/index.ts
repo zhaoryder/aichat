@@ -8,7 +8,6 @@ import { agentsRouter } from './routes/agents'
 import { studioRouter } from './routes/studio'
 import { vibeCodeRouter } from './routes/vibe-code'
 import { usersRouter } from './routes/users'
-import { checkinRouter } from './routes/checkin'
 import { favoriteRouter } from './routes/favorite'
 import { shareRouter } from './routes/share'
 import { adminRouter } from './routes/admin'
@@ -18,6 +17,12 @@ import { achievementsRouter } from './routes/achievements'
 import { leaderboardRouter } from './routes/leaderboard'
 import { aiFeedRouter } from './routes/ai-feed'
 import { emoWallRouter } from './routes/emo-wall'
+import { mediaRouter } from './routes/media'
+import { pipelineRouter } from './routes/pipeline'
+import { teamsRouter } from './routes/teams'
+import { roomsRouter } from './routes/rooms'
+import { themesRouter } from './routes/themes'
+import { snapshotsRouter } from './routes/snapshots'
 import './lib/ai-feed-cron'
 
 const app = express()
@@ -39,7 +44,6 @@ app.use('/api/agents', agentsRouter)
 app.use('/api/studio', studioRouter)
 app.use('/api/vibe-code', vibeCodeRouter)
 app.use('/api/users', usersRouter)
-app.use('/api/checkin', checkinRouter)
 app.use('/api/favorite', favoriteRouter)
 app.use('/api/share', shareRouter)
 app.use('/api/admin', adminRouter)
@@ -49,6 +53,12 @@ app.use('/api/achievements', achievementsRouter)
 app.use('/api/leaderboard', leaderboardRouter)
 app.use('/api/ai-posts', aiFeedRouter)
 app.use('/api/emo-wall', emoWallRouter)
+app.use('/api/media', mediaRouter)
+app.use('/api/pipeline', pipelineRouter)
+app.use('/api/teams', teamsRouter)
+app.use('/api/rooms', roomsRouter)
+app.use('/api/themes', themesRouter)
+app.use('/api/snapshots', snapshotsRouter)
 
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`)

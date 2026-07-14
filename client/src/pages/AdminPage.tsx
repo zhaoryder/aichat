@@ -4,7 +4,7 @@
 // Tab 切换：用户管理 / 举报管理
 //   用户管理：
 //     - GET /admin/users 拉取用户列表
-//     - 表格：头像、昵称、邮箱、角色、积分、封禁状态、操作
+//     - 表格：头像、昵称、邮箱、角色、封禁状态、操作
 //     - 封禁：Dialog 选择时长，POST /admin/users/:id/ban body { until: ISO }
 //     - 解封：POST /admin/users/:id/unban
 //   举报管理：
@@ -14,13 +14,13 @@
 
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
-import { Avatar } from '@/components/ui-legacy/Avatar'
-import { Badge } from '@/components/ui-legacy/Badge'
-import { Button } from '@/components/ui-legacy/Button'
-import { Card } from '@/components/ui-legacy/Card'
-import { Dialog } from '@/components/ui-legacy/Dialog'
-import { EmptyState } from '@/components/ui-legacy/EmptyState'
-import { Spinner } from '@/components/ui-legacy/Spinner'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import type { Profile, Report, ReportStatus, ReportTargetType } from '@shared/types'
 
@@ -57,9 +57,9 @@ const REPORT_TYPE_LABEL: Record<ReportTargetType, string> = {
 }
 
 /** 举报状态文案与颜色 */
-const REPORT_STATUS_META: Record<ReportStatus, { label: string; variant: 'default' | 'primary' | 'secondary' }> = {
+const REPORT_STATUS_META: Record<ReportStatus, { label: string; variant: 'default' | 'secondary' }> = {
   pending: { label: '待处理', variant: 'secondary' },
-  resolved: { label: '已处理', variant: 'primary' },
+  resolved: { label: '已处理', variant: 'default' },
   ignored: { label: '已忽略', variant: 'default' },
 }
 
@@ -246,7 +246,6 @@ function UsersTab() {
               <th className="px-4 py-3 text-left font-medium">用户</th>
               <th className="px-4 py-3 text-left font-medium">邮箱</th>
               <th className="px-4 py-3 text-left font-medium">角色</th>
-              <th className="px-4 py-3 text-left font-medium">积分</th>
               <th className="px-4 py-3 text-left font-medium">状态</th>
               <th className="px-4 py-3 text-right font-medium">操作</th>
             </tr>
@@ -259,20 +258,21 @@ function UsersTab() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Avatar
-                        name={u.nickname || 'U'}
-                        size="sm"
-                        gradient="from-primary to-amber-500"
-                      />
+                        className="h-8 w-8 bg-gradient-to-br from-primary to-amber-500"
+                      >
+                        <AvatarFallback className="bg-transparent text-xs font-bold text-white">
+                          {(u.nickname || 'U').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       <span className="font-medium text-gray-900">{u.nickname || '—'}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{u.id}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={u.role === 'admin' ? 'primary' : 'default'}>
+                    <Badge variant={u.role === 'admin' ? 'default' : 'default'}>
                       {u.role === 'admin' ? '管理员' : '用户'}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{u.points ?? 0}</td>
                   <td className="px-4 py-3">
                     {banned ? (
                       <Badge variant="secondary">已封禁</Badge>
@@ -317,21 +317,22 @@ function UsersTab() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <Avatar
-                    name={u.nickname || 'U'}
-                    size="sm"
-                    gradient="from-primary to-amber-500"
-                  />
+                    className="h-8 w-8 bg-gradient-to-br from-primary to-amber-500"
+                  >
+                    <AvatarFallback className="bg-transparent text-xs font-bold text-white">
+                      {(u.nickname || 'U').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div>
                     <p className="text-sm font-medium text-gray-900">{u.nickname || '—'}</p>
                     <p className="text-xs text-gray-500">{u.id}</p>
                   </div>
                 </div>
-                <Badge variant={u.role === 'admin' ? 'primary' : 'default'}>
+                <Badge variant={u.role === 'admin' ? 'default' : 'default'}>
                   {u.role === 'admin' ? '管理员' : '用户'}
                 </Badge>
               </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-gray-500">积分：{u.points ?? 0}</span>
+              <div className="mt-3 flex items-center justify-end text-sm">
                 {banned ? (
                   <Badge variant="secondary">已封禁</Badge>
                 ) : (
@@ -367,10 +368,43 @@ function UsersTab() {
       {/* 封禁 Dialog */}
       <Dialog
         open={!!banTarget}
-        onClose={() => (banSubmitting ? null : setBanTarget(null))}
-        title={`封禁 ${banTarget?.nickname || '用户'}`}
-        footer={
-          <>
+        onOpenChange={(v) => {
+          if (!v && !banSubmitting) setBanTarget(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{`封禁 ${banTarget?.nickname || '用户'}`}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">选择封禁时长：</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { value: '1d', label: '1 天' },
+                  { value: '7d', label: '7 天' },
+                  { value: '30d', label: '30 天' },
+                  { value: 'forever', label: '永久' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setBanDuration(opt.value)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-sm font-medium transition-all duration-300 ease-out',
+                    banDuration === opt.value
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50',
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {banError && <p className="text-sm text-red-600">{banError}</p>}
+          </div>
+          <DialogFooter>
             <Button
               variant="ghost"
               onClick={() => setBanTarget(null)}
@@ -381,37 +415,8 @@ function UsersTab() {
             <Button onClick={handleBan} disabled={banSubmitting}>
               {banSubmitting ? '封禁中…' : '确认封禁'}
             </Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <p className="text-sm text-gray-600">选择封禁时长：</p>
-          <div className="grid grid-cols-2 gap-2">
-            {(
-              [
-                { value: '1d', label: '1 天' },
-                { value: '7d', label: '7 天' },
-                { value: '30d', label: '30 天' },
-                { value: 'forever', label: '永久' },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setBanDuration(opt.value)}
-                className={cn(
-                  'rounded-lg border px-3 py-2 text-sm font-medium transition-all duration-300 ease-out',
-                  banDuration === opt.value
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-gray-200 text-gray-700 hover:bg-gray-50',
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          {banError && <p className="text-sm text-red-600">{banError}</p>}
-        </div>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </>
   )

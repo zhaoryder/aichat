@@ -13,6 +13,7 @@ import OpenAI, {
   APIError as OpenAIAPIError,
 } from 'openai'
 import { getAgentById } from '../../shared/agents'
+export { getAgentById }
 import {
   AIRequestError,
   AIRequestTimeoutError,
@@ -26,8 +27,8 @@ import type { ChatMessage } from '../../shared/types'
 
 const AGNES_API_KEY = process.env.AGNES_API_KEY
 const AGNES_API_BASE = process.env.AGNES_API_BASE
-// 默认模型名 glm-4-flash；可通过 AGNES_MODEL 覆盖
-const AGNES_MODEL = process.env.AGNES_MODEL || 'glm-4-flash'
+// 默认模型名 agens-2.0-flash；可通过 AGNES_MODEL 覆盖
+const AGNES_MODEL = process.env.AGNES_MODEL || 'agens-2.0-flash'
 
 /** 默认请求超时（毫秒） */
 const DEFAULT_TIMEOUT_MS = 30_000
@@ -432,7 +433,7 @@ export async function generateImage(
 ): Promise<string> {
   const client = getClient()
   const response = await client.images.generate({
-    model: 'cogview-4',
+    model: 'agnes-image-2.1-flash',
     prompt,
     size: options?.size ?? '1024x1024',
   })
@@ -468,7 +469,7 @@ export async function submitVideoTask(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'cogvideox-3',
+          model: 'agnes-video-2.0',
           prompt,
           with_audio: true,
           duration,

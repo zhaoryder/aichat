@@ -21,6 +21,13 @@ export function setSSEHeaders(res: Response): void {
 /** 发送一个 SSE 事件（event: xxx\ndata: JSON\n\n） */
 export function sendEvent(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  // 确保 SSE 数据立即 flush，避免反向代理/压缩中间件缓冲导致延迟
+  const r = res as Response & { flush?: () => void }
+  if (typeof r.flush === 'function') {
+    r.flush()
+  } else {
+    res.flushHeaders()
+  }
 }
 
 /**

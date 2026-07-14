@@ -1,6 +1,6 @@
 {
   "name": "aichat-server",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -11,10 +11,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.11",
     "@supabase/supabase-js": "^2.110.2",
+    "ai": "^7.0.22",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "openai": "^6.45.0"
+    "openai": "^6.45.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

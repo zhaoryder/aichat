@@ -6,12 +6,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
-import { Card } from '@/components/ui-legacy/Card'
-import { Input } from '@/components/ui-legacy/Input'
-import { Button } from '@/components/ui-legacy/Button'
-import { Spinner } from '@/components/ui-legacy/Spinner'
-import { EmptyState } from '@/components/ui-legacy/EmptyState'
-import { Badge } from '@/components/ui-legacy/Badge'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Badge } from '@/components/ui/badge'
 import { SelectWithCustom } from '@/components/SelectWithCustom'
 import { VIDEO_STYLES } from '@shared/presets'
 import { cn } from '@/lib/utils'
@@ -330,7 +330,7 @@ export const VideoStudioPage = () => {
           ) : phase === 'success' && videoUrl ? (
             <div className="flex flex-1 flex-col p-5">
               <div className="mb-3 flex items-center gap-2">
-                <Badge variant="primary">已完成</Badge>
+                <Badge variant="default">已完成</Badge>
                 <span className="text-sm text-gray-500">视频已生成，可播放或下载</span>
               </div>
               <video

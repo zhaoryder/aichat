@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, MessageCircle, Loader2, Send, Newspaper } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -165,7 +166,7 @@ export function AIFeedPage() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Spinner size="sm" className="mr-2" />
                     加载中…
                   </>
                 ) : (

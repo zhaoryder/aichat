@@ -6,17 +6,18 @@
 // - 流式占位帖落库后由 Realtime 推送真实帖，按 _streamKey 匹配替换占位（去重）
 // - 用户输入框始终可用，不被 AI 生成阻塞
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { apiFetch, apiStream } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui-legacy/Button'
-import { Textarea } from '@/components/ui-legacy/Input'
-import { Spinner } from '@/components/ui-legacy/Spinner'
-import { Badge } from '@/components/ui-legacy/Badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Spinner } from '@/components/ui/spinner'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { AgentConfig } from '@shared/agents'
-import type { ForumPost, ForumTopic } from '@shared/types'
+import type { ForumPost, ForumRating, ForumTopic } from '@shared/types'
 
 // 帖子类型：在 ForumPost 基础上扩展流式标记
 type TopicPost = ForumPost & {
@@ -47,6 +48,7 @@ function formatRelativeTime(iso: string): string {
 export const ForumTopicPage = () => {
   const { id: topicId } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [topic, setTopic] = useState<ForumTopic | null>(null)
   const [posts, setPosts] = useState<TopicPost[]>([])
@@ -58,6 +60,20 @@ export const ForumTopicPage = () => {
   const [replyAgentIds, setReplyAgentIds] = useState<string[]>([])
   const [replying, setReplying] = useState(false)
   const [replyError, setReplyError] = useState('')
+  /** 网络错误时存储上次失败的回帖数据，用于重试 */
+  const [retryInfo, setRetryInfo] = useState<{
+    text: string
+    agentIds: string[]
+  } | null>(null)
+
+  // 评分相关
+  const [ratingsAvg, setRatingsAvg] = useState(0)
+  const [ratingsCount, setRatingsCount] = useState(0)
+  const [myRating, setMyRating] = useState(0)
+  const [ratingSubmitting, setRatingSubmitting] = useState(false)
+
+  // 一键复刻
+  const [cloning, setCloning] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   /** 用户是否手动上滑（流式输出时不强制拉回底部） */
@@ -94,6 +110,30 @@ export const ForumTopicPage = () => {
       active = false
     }
   }, [topicId])
+
+  // 拉取话题评分（含当前用户评分）
+  useEffect(() => {
+    if (!topicId || !user) return
+    let active = true
+    apiFetch<{
+      ratings: ForumRating[]
+      average: number
+      count: number
+      myRating: ForumRating | null
+    }>(`/forum/ratings/${topicId}`)
+      .then((res) => {
+        if (!active) return
+        setRatingsAvg(res.average ?? 0)
+        setRatingsCount(res.count ?? 0)
+        setMyRating(res.myRating?.rating ?? 0)
+      })
+      .catch(() => {
+        // 评分加载失败不影响主流程
+      })
+    return () => {
+      active = false
+    }
+  }, [topicId, user])
 
   // 拉取智能体列表构建查找表（用于 AI 帖头像/名字）
   useEffect(() => {
@@ -209,132 +249,217 @@ export const ForumTopicPage = () => {
     )
   }
 
-  const handleReply = useCallback(async () => {
-    const text = replyInput.trim()
-    if (!text || !topicId || replying) return
+  // 提交评分
+  const handleRate = useCallback(
+    async (value: number) => {
+      if (!topicId || !user || ratingSubmitting) return
+      if (value < 1 || value > 5) return
+      setRatingSubmitting(true)
+      // 乐观更新当前用户评分
+      const prevMy = myRating
+      setMyRating(value)
+      try {
+        const res = await apiFetch<{ rating: ForumRating }>(
+          '/forum/rate',
+          {
+            method: 'POST',
+            body: JSON.stringify({ topicId, rating: value }),
+          },
+        )
+        setMyRating(res.rating.rating)
+        // 重新拉取平均分与总数（保证一致性）
+        const fresh = await apiFetch<{
+          ratings: ForumRating[]
+          average: number
+          count: number
+        }>(`/forum/ratings/${topicId}`)
+        setRatingsAvg(fresh.average ?? 0)
+        setRatingsCount(fresh.count ?? 0)
+        toast.success('评分成功')
+      } catch (err) {
+        setMyRating(prevMy)
+        toast.error(err instanceof Error ? err.message : '评分失败')
+      } finally {
+        setRatingSubmitting(false)
+      }
+    },
+    [topicId, user, ratingSubmitting, myRating],
+  )
 
-    setReplyError('')
-    userScrolledUpRef.current = false
-
-    // 乐观追加用户回帖（Realtime 回填时替换）
-    const optimistic: TopicPost = {
-      id: `__local_${Date.now()}`,
-      topic_id: topicId,
-      author_id: user?.id ?? '',
-      author_type: 'user',
-      agent_id: null,
-      content: text,
-      created_at: new Date().toISOString(),
-      _local: true,
-    }
-    setPosts((prev) => [...prev, optimistic])
-    setReplyInput('')
-    setReplying(true)
-
-    // 取消上一个流（若有）
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
-
+  // 一键复刻项目包
+  const handleClone = useCallback(async () => {
+    if (!topicId || !user || cloning) return
+    setCloning(true)
     try {
-      const res = await apiStream(
-        '/forum/reply-stream',
-        { topicId, content: text, agentIds: replyAgentIds },
-        { signal: controller.signal },
+      const res = await apiFetch<{ work: { id: string } }>(
+        `/forum/clone/${topicId}`,
+        {
+          method: 'POST',
+        },
       )
-      if (!res.body) return
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let currentEvent = ''
-      // 跟踪当前回合每个 agent 的流式占位（用于 token 累加定位）
-      // key: agentId → 该 agent 最新占位在 posts 中的临时 id
-      const streamPlaceholders = new Map<string, string>()
+      toast.success('已复刻到我的创意作品，正在跳转…')
+      navigate(`/studio/vibe-code?projectId=${res.work.id}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '复刻失败')
+    } finally {
+      setCloning(false)
+    }
+  }, [topicId, user, cloning, navigate])
 
-      while (true) {
-        if (controller.signal.aborted) break
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            currentEvent = line.slice(7).trim()
-          } else if (line.startsWith('data: ')) {
-            let data: {
-              agentId?: string
-              c?: string
-              message?: string
-              userPostId?: string
-            }
-            try {
-              data = JSON.parse(line.slice(6))
-            } catch {
-              continue
-            }
-            if (currentEvent === 'agent_start' && data.agentId) {
-              // 追加流式占位帖
-              const placeholderId = `__stream_${data.agentId}_${Date.now()}`
-              streamPlaceholders.set(data.agentId, placeholderId)
-              setPosts((prev) => [
-                ...prev,
-                {
-                  id: placeholderId,
-                  topic_id: topicId,
-                  author_id: '',
-                  author_type: 'agent',
-                  agent_id: data.agentId as string,
-                  content: '',
-                  created_at: new Date().toISOString(),
-                  isStreaming: true,
-                  _streamKey: data.agentId,
-                },
-              ])
-            } else if (currentEvent === 'token' && data.c && data.agentId) {
-              const targetId = streamPlaceholders.get(data.agentId)
-              if (targetId) {
+  const handleReply = useCallback(
+    async (
+      overrideText?: string,
+      overrideAgentIds?: string[],
+      isRetry = false,
+    ) => {
+      const text = (overrideText ?? replyInput).trim()
+      const agentIds = overrideAgentIds ?? replyAgentIds
+      if (!text || !topicId || replying) return
+
+      setReplyError('')
+      setRetryInfo(null)
+      userScrolledUpRef.current = false
+
+      // 乐观追加用户回帖（Realtime 回填时替换）
+      // 重试时不再追加（之前的乐观帖仍在列表中）
+      if (!isRetry) {
+        const optimistic: TopicPost = {
+          id: `__local_${Date.now()}`,
+          topic_id: topicId,
+          author_id: user?.id ?? '',
+          author_type: 'user',
+          agent_id: null,
+          content: text,
+          created_at: new Date().toISOString(),
+          _local: true,
+        }
+        setPosts((prev) => [...prev, optimistic])
+        setReplyInput('')
+      }
+      setReplying(true)
+
+      // 取消上一个流（若有）
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+
+      try {
+        const res = await apiStream(
+          '/forum/reply-stream',
+          { topicId, content: text, agentIds },
+          { signal: controller.signal },
+        )
+        if (!res.body) return
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        // 关键：currentEvent 必须在 while 循环外部声明，
+        // 避免 chunk 边界切在 event/data 之间时丢失 token
+        let currentEvent = ''
+        // 跟踪当前回合每个 agent 的流式占位（用于 token 累加定位）
+        // key: agentId → 该 agent 最新占位在 posts 中的临时 id
+        const streamPlaceholders = new Map<string, string>()
+
+        while (true) {
+          if (controller.signal.aborted) break
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim()
+            } else if (line.startsWith('data: ')) {
+              let data: {
+                agentId?: string
+                c?: string
+                message?: string
+                userPostId?: string
+              }
+              try {
+                data = JSON.parse(line.slice(6))
+              } catch {
+                continue
+              }
+              if (currentEvent === 'agent_start' && data.agentId) {
+                // 追加流式占位帖
+                const placeholderId = `__stream_${data.agentId}_${Date.now()}`
+                streamPlaceholders.set(data.agentId, placeholderId)
+                setPosts((prev) => [
+                  ...prev,
+                  {
+                    id: placeholderId,
+                    topic_id: topicId,
+                    author_id: '',
+                    author_type: 'agent',
+                    agent_id: data.agentId as string,
+                    content: '',
+                    created_at: new Date().toISOString(),
+                    isStreaming: true,
+                    _streamKey: data.agentId,
+                  },
+                ])
+              } else if (currentEvent === 'token' && data.c && data.agentId) {
+                const targetId = streamPlaceholders.get(data.agentId)
+                if (targetId) {
+                  setPosts((prev) =>
+                    prev.map((p) =>
+                      p.id === targetId
+                        ? { ...p, content: p.content + data.c }
+                        : p,
+                    ),
+                  )
+                }
+              } else if (currentEvent === 'agent_done' && data.agentId) {
+                const targetId = streamPlaceholders.get(data.agentId)
+                if (targetId) {
+                  setPosts((prev) =>
+                    prev.map((p) =>
+                      p.id === targetId ? { ...p, isStreaming: false } : p,
+                    ),
+                  )
+                }
+              } else if (currentEvent === 'done') {
+                // 最终事件：标记所有仍在流式的占位为完成
                 setPosts((prev) =>
                   prev.map((p) =>
-                    p.id === targetId
-                      ? { ...p, content: p.content + data.c }
-                      : p,
+                    p.isStreaming ? { ...p, isStreaming: false } : p,
                   ),
                 )
+              } else if (currentEvent === 'error') {
+                setReplyError(data.message || 'AI 生成失败')
               }
-            } else if (currentEvent === 'agent_done' && data.agentId) {
-              const targetId = streamPlaceholders.get(data.agentId)
-              if (targetId) {
-                setPosts((prev) =>
-                  prev.map((p) =>
-                    p.id === targetId ? { ...p, isStreaming: false } : p,
-                  ),
-                )
-              }
-            } else if (currentEvent === 'error') {
-              setReplyError(data.message || 'AI 生成失败')
             }
           }
         }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          // 卸载或重发取消：保留已收到的 token，停止占位
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.isStreaming ? { ...p, isStreaming: false } : p,
+            ),
+          )
+        } else {
+          // 网络错误：停止占位 + 存储重试信息
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.isStreaming ? { ...p, isStreaming: false } : p,
+            ),
+          )
+          setReplyError(err instanceof Error ? err.message : '回帖失败')
+          setRetryInfo({ text, agentIds })
+        }
+      } finally {
+        setReplying(false)
+        if (abortRef.current === controller) {
+          abortRef.current = null
+        }
       }
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        // 卸载或重发取消：保留已收到的 token，停止占位
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.isStreaming ? { ...p, isStreaming: false } : p,
-          ),
-        )
-      } else {
-        setReplyError(err instanceof Error ? err.message : '回帖失败')
-      }
-    } finally {
-      setReplying(false)
-      if (abortRef.current === controller) {
-        abortRef.current = null
-      }
-    }
-  }, [replyInput, topicId, replying, replyAgentIds, user?.id])
+    },
+    [replyInput, topicId, replying, replyAgentIds, user?.id],
+  )
 
   if (status === 'loading') {
     return (
@@ -429,6 +554,24 @@ export const ForumTopicPage = () => {
           <p className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-700">
             {topic.content}
           </p>
+
+          {topic.project_payload && (
+            <ProjectPayloadCard
+              payload={topic.project_payload}
+              onClone={handleClone}
+              cloning={cloning}
+              canClone={!!user}
+            />
+          )}
+
+          <RatingStars
+            average={ratingsAvg}
+            count={ratingsCount}
+            myRating={myRating}
+            onRate={handleRate}
+            disabled={!user || ratingSubmitting}
+            loggedIn={!!user}
+          />
         </div>
       </header>
 
@@ -472,7 +615,7 @@ export const ForumTopicPage = () => {
               style={{ maxHeight: '120px' }}
             />
             <Button
-              onClick={handleReply}
+              onClick={() => handleReply()}
               disabled={!user || !replyInput.trim() || replying}
               className="shrink-0 transition-transform duration-300 ease-out hover:scale-[1.02]"
             >
@@ -480,7 +623,21 @@ export const ForumTopicPage = () => {
             </Button>
           </div>
           {replyError && (
-            <p className="mt-1 text-xs text-red-600">{replyError}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <p className="text-xs text-red-600">{replyError}</p>
+              {retryInfo && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleReply(retryInfo.text, retryInfo.agentIds, true)
+                  }
+                  disabled={replying}
+                  className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                >
+                  重试
+                </button>
+              )}
+            </div>
           )}
           {!user && (
             <p className="mt-1 text-center text-xs text-gray-400">
@@ -607,7 +764,7 @@ function ReplyAgentPicker({
         </svg>
         @ 召唤智能体
         {selected.length > 0 && (
-          <Badge variant="primary" className="ml-1">
+          <Badge variant="default" className="ml-1">
             {selected.length}
           </Badge>
         )}
@@ -662,6 +819,187 @@ function ReplyAgentPicker({
             </p>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------
+// 项目包展示卡片（用于一键复刻）
+// ---------------------------------------------------------------------
+
+type ProjectPayload = NonNullable<ForumTopic['project_payload']>
+
+function ProjectPayloadCard({
+  payload,
+  onClone,
+  cloning,
+  canClone,
+}: {
+  payload: ProjectPayload
+  onClone: () => void
+  cloning: boolean
+  canClone: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const code = typeof payload.code === 'string' ? payload.code : ''
+  const title =
+    (typeof payload.title === 'string' && payload.title) || '未命名项目'
+  const assets = Array.isArray(payload.assets) ? payload.assets : []
+
+  const previewLimit = 200
+  const truncated = code.length > previewLimit
+  const preview = expanded
+    ? code
+    : code.slice(0, previewLimit) + (truncated ? '\n…' : '')
+
+  return (
+    <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                d="M16 18l6-6-6-6M8 6l-6 6 6 6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            可复刻项目
+          </div>
+          <p className="mt-1 truncate text-sm font-medium text-gray-900">
+            {title}
+          </p>
+          {assets.length > 0 && (
+            <p className="mt-0.5 text-xs text-gray-500">
+              含 {assets.length} 个素材引用
+            </p>
+          )}
+        </div>
+        <Button
+          size="sm"
+          onClick={onClone}
+          disabled={!canClone || cloning}
+          className="shrink-0"
+        >
+          {cloning ? <Spinner size="sm" /> : '一键复刻'}
+        </Button>
+      </div>
+
+      {code && (
+        <div className="mt-2">
+          <pre className="max-h-48 overflow-auto rounded-lg bg-gray-900 px-3 py-2 text-xs leading-relaxed text-gray-100 scrollbar-thin">
+            <code>{preview}</code>
+          </pre>
+          {truncated && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-1 text-xs text-primary hover:underline"
+            >
+              {expanded ? '收起' : `展开全部（共 ${code.length} 字符）`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {!canClone && (
+        <p className="mt-1 text-[11px] text-gray-400">
+          <Link to="/auth/login" className="text-primary hover:underline">
+            登录
+          </Link>{' '}
+          后可一键复刻到创意作品
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------
+// 5 星评分组件
+// ---------------------------------------------------------------------
+
+function RatingStars({
+  average,
+  count,
+  myRating,
+  onRate,
+  disabled,
+  loggedIn,
+}: {
+  average: number
+  count: number
+  myRating: number
+  onRate: (value: number) => void
+  disabled: boolean
+  loggedIn: boolean
+}) {
+  const [hover, setHover] = useState(0)
+  const displayValue = hover || myRating
+
+  return (
+    <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
+      <div className="flex items-center" role="radiogroup" aria-label="评分">
+        {[1, 2, 3, 4, 5].map((v) => {
+          const active = v <= displayValue
+          return (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={myRating === v}
+              aria-label={`${v} 星`}
+              disabled={disabled}
+              onMouseEnter={() => !disabled && setHover(v)}
+              onMouseLeave={() => setHover(0)}
+              onClick={() => onRate(v)}
+              className={cn(
+                'p-0.5 transition-transform',
+                !disabled && 'hover:scale-110',
+                disabled && 'cursor-not-allowed',
+              )}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill={active ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                strokeWidth="1.5"
+                className={active ? 'text-amber-400' : 'text-gray-300'}
+              >
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )
+        })}
+      </div>
+      <span className="font-medium text-gray-900">
+        {average > 0 ? average.toFixed(1) : '暂无'}
+      </span>
+      <span className="text-gray-400">·</span>
+      <span>{count} 人评分</span>
+      {myRating > 0 && (
+        <>
+          <span className="text-gray-300">·</span>
+          <span className="text-primary">我已评 {myRating} 星</span>
+        </>
+      )}
+      {!loggedIn && (
+        <Link to="/auth/login" className="ml-1 text-primary hover:underline">
+          登录后评分
+        </Link>
       )}
     </div>
   )

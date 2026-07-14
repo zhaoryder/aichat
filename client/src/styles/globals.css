@@ -2,61 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-/* shadcn/ui 语义令牌：亮色（金黄主题） */
+/* shadcn/ui 语义令牌：亮色（indigo 主题，spec §4.5.1） */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 0 0% 98%;
+    --foreground: 240 10% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 240 10% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    /* 保留金黄主题作为 primary */
-    --primary: 44 100% 48%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 44 100% 96%;
-    --accent-foreground: 44 100% 30%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 44 100% 48%;
+    --popover-foreground: 240 10% 9%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 243 75% 59%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 10% 9%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 45%;
+    --accent: 240 5% 96%;
+    --accent-foreground: 240 10% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 89%;
+    --input: 240 6% 89%;
+    --ring: 239 84% 67%;
     --radius: 0.5rem;
   }
 
-  /* shadcn/ui 语义令牌：暗色 */
+  /* shadcn/ui 语义令牌：暗色（indigo 主题，spec §4.5.1） */
   .dark {
-    --background: 0 0% 3.9%;
+    --background: 0 0% 4%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
+    --card: 240 10% 9%;
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
+    --popover: 240 10% 9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
+    --primary: 239 76% 76%;
+    --primary-foreground: 244 47% 20%;
+    --primary-hover: 239 70% 70%;
+    --secondary: 240 6% 16%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
+    --muted: 240 6% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 6% 16%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 16%;
+    --input: 240 6% 16%;
+    --ring: 239 76% 76%;
   }
 }
 
 /* 旧版 CSS 变量保留，兼容部分遗留样式 */
 :root {
-  --color-primary: #F5B400;
-  --color-primary-hover: #E5A300;
-  --color-primary-light: #FFF8E1;
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --color-primary-light: #e0e7ff;
 }
 
 @layer base {
@@ -76,6 +77,23 @@
 .animate-slide-up { animation: slide-up 0.4s ease-out; }
 .animate-bounce-dot { animation: bounce-dot 1.4s ease-in-out infinite; }
 .animate-pulse-cursor { animation: pulse-cursor 1s ease-in-out infinite; }
+
+/* 消息进入动画：从下方淡入并向上滑动 */
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up-fade { animation: slide-up-fade 0.3s ease-out; }
+
+/* 流式光标：通过 ::after 伪元素渲染 ▋ 字符（assistant message 流式输出中时显示） */
+.animate-pulse-cursor::after {
+  content: '▋';
+  display: inline-block;
+  margin-left: 2px;
+  color: hsl(var(--primary));
+  font-weight: 600;
+  animation: pulse-cursor 1s ease-in-out infinite;
+}
 
 /* 滚动条 */
 .scrollbar-thin::-webkit-scrollbar { width: 6px; }
@@ -100,4 +118,24 @@
   border-radius: 0.25rem;
   font-size: 0.85em;
   font-weight: 600;
+}
+
+/* hover-lift 卡片悬停动画（spec §4.5.2） */
+@layer utilities {
+  .hover-lift {
+    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+    will-change: transform, box-shadow;
+  }
+  .hover-lift:hover {
+    transform: scale(1.04);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.18);
+  }
+  .hover-lift-strong:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 32px rgba(99, 102, 241, 0.25);
+  }
+  .hover-lift-subtle:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+  }
 }

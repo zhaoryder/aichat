@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { ProjectSnapshot } from '@shared/types'
 
 // API 基础地址：优先用环境变量，否则用相对路径走 vite 代理
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
@@ -271,5 +272,69 @@ export async function publishImageToGallery(data: {
   return apiFetch<{ image: GalleryImage }>('/gallery/images', {
     method: 'POST',
     body: JSON.stringify(data),
+  })
+}
+
+// =====================================================================
+// Snapshots 云端项目快照 API（Task 7.2）
+// =====================================================================
+
+/** 创建快照 */
+export async function createSnapshotApi(data: {
+  projectId: string
+  code: string
+  label?: string
+  parentId?: string
+  branch?: string
+}): Promise<{ snapshot: ProjectSnapshot }> {
+  return apiFetch<{ snapshot: ProjectSnapshot }>('/snapshots', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+/** 列出指定项目 + 分支的快照时间线 */
+export async function listSnapshotsApi(
+  projectId: string,
+  branch?: string,
+): Promise<{ snapshots: ProjectSnapshot[] }> {
+  const params = new URLSearchParams({ projectId })
+  if (branch) params.set('branch', branch)
+  return apiFetch<{ snapshots: ProjectSnapshot[] }>(`/snapshots?${params.toString()}`)
+}
+
+/** 回退到指定快照（后端会基于该快照创建新快照） */
+export async function restoreSnapshotApi(
+  id: string,
+): Promise<{ snapshot: ProjectSnapshot }> {
+  return apiFetch<{ snapshot: ProjectSnapshot }>(`/snapshots/${id}/restore`, {
+    method: 'POST',
+  })
+}
+
+/** diff 结果 */
+export interface SnapshotDiff {
+  added: string[]
+  removed: string[]
+  unchanged: number
+}
+
+/** 获取两个快照之间的行级 diff */
+export async function getSnapshotDiffApi(
+  id: string,
+  compareId: string,
+): Promise<{ diff: SnapshotDiff }> {
+  const params = new URLSearchParams({ compareId })
+  return apiFetch<{ diff: SnapshotDiff }>(
+    `/snapshots/${id}/diff?${params.toString()}`,
+  )
+}
+
+/** 生成只读分享链接（简化版） */
+export async function shareSnapshotApi(
+  id: string,
+): Promise<{ shareUrl: string }> {
+  return apiFetch<{ shareUrl: string }>(`/snapshots/${id}/share`, {
+    method: 'POST',
   })
 }

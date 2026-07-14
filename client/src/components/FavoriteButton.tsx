@@ -1,24 +1,22 @@
 // =====================================================================
 // 收藏按钮组件
 // ---------------------------------------------------------------------
-// Props: { agentId, agentType?, initialFavorited? }
+// Props: { agentId, agentType?, size?, className? }
 //   - 心形图标：已收藏金黄填充，未收藏灰色描边
-//   - 点击调 POST /favorite，乐观更新（点击立即切换，失败回滚）
+//   - 点击调 useFavorites().toggleFavorite（POST /favorite），全局状态同步
 //   - 加载中显示 Spinner
-//   - 挂载时若未传 initialFavorited，则调 GET /favorite/check 拉初始状态
+//   - 收藏状态从全局 Context 读取，刷新后保持
 // =====================================================================
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
-import { Spinner } from '@/components/ui-legacy/Spinner'
+import { useFavorites } from '@/hooks/useFavorites'
+import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 
 export interface FavoriteButtonProps {
   agentId: string
   agentType?: 'official' | 'custom'
-  /** 初始收藏状态（未传则挂载时拉取） */
-  initialFavorited?: boolean
   /** 可选的尺寸 */
   size?: 'sm' | 'md'
   /** 自定义类名 */
@@ -27,60 +25,27 @@ export interface FavoriteButtonProps {
 
 export function FavoriteButton({
   agentId,
-  agentType,
-  initialFavorited,
+  agentType = 'official',
   size = 'md',
   className,
 }: FavoriteButtonProps) {
-  // null 表示初始状态未知（拉取中）
-  const [favorited, setFavorited] = useState<boolean | null>(
-    initialFavorited === undefined ? null : initialFavorited,
-  )
+  const { isFavorited, toggleFavorite, loading } = useFavorites()
+  const favorited = isFavorited(agentId)
   const [submitting, setSubmitting] = useState(false)
 
-  // 挂载时若 initialFavorited 未传，拉取一次初始状态
-  useEffect(() => {
-    if (initialFavorited !== undefined) return
-    if (!agentId) return
-    let active = true
-    const query = agentType
-      ? `agentId=${encodeURIComponent(agentId)}&agentType=${encodeURIComponent(agentType)}`
-      : `agentId=${encodeURIComponent(agentId)}`
-    apiFetch<{ favorited: boolean }>(`/favorite/check?${query}`)
-      .then((res) => {
-        if (!active) return
-        setFavorited(res.favorited === true)
-      })
-      .catch(() => {
-        // 静默降级：默认未收藏
-        if (active) setFavorited(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [agentId, agentType, initialFavorited])
-
   const handleClick = useCallback(async () => {
-    if (submitting || favorited === null) return
-    const prev = favorited
-    // 乐观更新：立即切换图标
-    setFavorited(!prev)
+    if (submitting) return
     setSubmitting(true)
+    const prev = favorited
     try {
-      await apiFetch<{ favorited: boolean }>('/favorite', {
-        method: 'POST',
-        body: JSON.stringify({ agentId, agentType }),
-      })
-      // 不依赖返回值，保持乐观结果
+      await toggleFavorite(agentId, agentType)
       toast.success(!prev ? '收藏成功！' : '已取消收藏')
     } catch (err) {
-      // 回滚
-      setFavorited(prev)
       toast.error(err instanceof Error ? err.message : '操作失败，请重试')
     } finally {
       setSubmitting(false)
     }
-  }, [agentId, agentType, favorited, submitting])
+  }, [agentId, agentType, favorited, submitting, toggleFavorite])
 
   const sizeClass = size === 'sm' ? 'h-8 w-8' : 'h-9 w-9'
   const iconSize = size === 'sm' ? 16 : 18
@@ -89,9 +54,9 @@ export function FavoriteButton({
     <button
       type="button"
       onClick={handleClick}
-      disabled={favorited === null || submitting}
+      disabled={loading || submitting}
       aria-label={favorited ? '取消收藏' : '收藏智能体'}
-      aria-pressed={favorited === true}
+      aria-pressed={favorited}
       title={favorited ? '已收藏' : '收藏'}
       className={cn(
         'inline-flex items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed',

@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { agents, type AgentConfig } from '@shared/agents'
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui-legacy/Button'
-import { Card } from '@/components/ui-legacy/Card'
-import { Badge } from '@/components/ui-legacy/Badge'
+import { useFavorites } from '@/hooks/useFavorites'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // 智能体头像：用 CSS 渐变背景渲染圆形头像 + 首字母
@@ -30,6 +32,7 @@ function AgentAvatar({ agent, size = 'md' }: { agent: AgentConfig; size?: 'sm' |
 
 export const HomePage = () => {
   const { user } = useAuth()
+  const { favorites, loading: favoritesLoading } = useFavorites()
   const navigate = useNavigate()
   // 首次加载骨架屏（仅在首屏短暂显示，避免后续 refetch 闪烁）
   const [loading, setLoading] = useState(true)
@@ -37,6 +40,9 @@ export const HomePage = () => {
     const timer = window.setTimeout(() => setLoading(false), 300)
     return () => window.clearTimeout(timer)
   }, [])
+
+  // 已登录用户的收藏智能体
+  const favoriteAgents = user ? agents.filter(a => favorites.has(a.id)) : []
 
   // CTA：已登录跳第一个智能体对话，未登录跳广场
   function handleStart() {
@@ -52,7 +58,7 @@ export const HomePage = () => {
           AI 搞笑工坊
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base text-gray-600 sm:text-lg">
-          和 17 位穿越时空的&ldquo;灵魂人物&rdquo;聊聊天——从孔子到马斯克，从林黛玉到 C 罗，每一位都会用专属的毒舌与梗陪你整活。
+          和 300+ 位穿越时空的&ldquo;灵魂人物&rdquo;聊聊天——从孔子到马斯克，从林黛玉到 C 罗，每一位都会用专属的毒舌与梗陪你整活。
         </p>
         <div className="mt-8 flex justify-center">
           <Button
@@ -68,13 +74,86 @@ export const HomePage = () => {
         </div>
       </section>
 
-      {/* 智能体卡片网格 */}
+      {/* 我的收藏区块：仅已登录用户显示 */}
+      {user && (
+        <section className="mx-auto max-w-7xl px-4 pb-10">
+          <h2 className="mb-6 text-lg font-semibold text-gray-800">我的收藏</h2>
+          {favoritesLoading ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <Skeleton className="mt-3 h-4 w-24" />
+                  <Skeleton className="mt-2 h-3 w-32" />
+                </div>
+              ))}
+            </div>
+          ) : favoriteAgents.length > 0 ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {favoriteAgents.map((agent) => (
+                <Link key={agent.id} to={`/chat/${agent.id}`} className="group block">
+                  <Card className="hover-lift h-full p-5">
+                    <div className="flex items-start gap-4">
+                      <AgentAvatar agent={agent} size="md" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate font-bold text-gray-900">{agent.name}</h3>
+                          <Badge variant="default" className="shrink-0">{agent.era}</Badge>
+                        </div>
+                        <p className="mt-0.5 text-xs text-gray-500">{agent.title}</p>
+                      </div>
+                    </div>
+                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">
+                      &ldquo;{agent.tagline}&rdquo;
+                    </p>
+                    <div className="mt-4 flex items-center justify-end">
+                      <span className="text-xs font-medium text-primary transition-transform duration-300 ease-out group-hover:translate-x-1">
+                        继续对话 →
+                      </span>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M12 17.3l-6.18 3.7 1.64-7.03L2 9.24l7.19-.61L12 2l2.81 6.63 7.19.61-5.46 4.73 1.64 7.03z" strokeLinejoin="round" />
+                </svg>
+              }
+              title="还没有收藏的智能体"
+              description="去广场逛逛，收藏你喜欢的角色，它们会显示在这里方便快速访问。"
+              action={
+                <Button size="sm" onClick={() => navigate('/agents')} className="gap-1">
+                  去广场逛逛
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 12h14M13 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Button>
+              }
+            />
+          )}
+        </section>
+      )}
+
+      {/* 热门精选：取前 30 个作为精选（spec §5.3） */}
       <section className="mx-auto max-w-7xl px-4 pb-20">
-        <h2 className="mb-6 text-lg font-semibold text-gray-800">选择一位智能体开始对话</h2>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800">热门精选</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/agents')}
+            className="gap-1 transition-transform duration-300 ease-out hover:scale-[1.02]"
+          >
+            查看全部 {agents.length}+ →
+          </Button>
+        </div>
         {loading ? (
           // 首次加载骨架屏
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="flex items-start gap-4">
                   <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
@@ -97,32 +176,45 @@ export const HomePage = () => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {agents.map((agent) => (
-              <Link key={agent.id} to={`/chat/${agent.id}`} className="group block">
-                <Card hoverScale className="h-full p-5">
-                  <div className="flex items-start gap-4">
-                    <AgentAvatar agent={agent} size="md" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate font-bold text-gray-900">{agent.name}</h3>
-                        <Badge variant="default" className="shrink-0">{agent.era}</Badge>
+          <>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {agents.slice(0, 30).map((agent) => (
+                <Link key={agent.id} to={`/chat/${agent.id}`} className="group block">
+                  <Card className="hover-lift h-full p-5">
+                    <div className="flex items-start gap-4">
+                      <AgentAvatar agent={agent} size="md" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate font-bold text-gray-900">{agent.name}</h3>
+                          <Badge variant="default" className="shrink-0">{agent.era}</Badge>
+                        </div>
+                        <p className="mt-0.5 text-xs text-gray-500">{agent.title}</p>
                       </div>
-                      <p className="mt-0.5 text-xs text-gray-500">{agent.title}</p>
                     </div>
-                  </div>
-                  <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">
-                    &ldquo;{agent.tagline}&rdquo;
-                  </p>
-                  <div className="mt-4 flex items-center justify-end">
-                    <span className="text-xs font-medium text-primary transition-transform duration-300 ease-out group-hover:translate-x-1">
-                      {user ? '开始对话 →' : '去登录 →'}
-                    </span>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
+                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">
+                      &ldquo;{agent.tagline}&rdquo;
+                    </p>
+                    <div className="mt-4 flex items-center justify-end">
+                      <span className="text-xs font-medium text-primary transition-transform duration-300 ease-out group-hover:translate-x-1">
+                        {user ? '开始对话 →' : '去登录 →'}
+                      </span>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+            {/* 底部固定按钮：跳转广场查看全部（spec §5.3） */}
+            <div className="mt-10 flex justify-center">
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => navigate('/agents')}
+                className="gap-2 transition-transform duration-300 ease-out hover:scale-[1.02]"
+              >
+                查看全部 {agents.length}+ 位智能体 →
+              </Button>
+            </div>
+          </>
         )}
       </section>
     </div>

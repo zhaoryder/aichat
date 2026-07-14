@@ -5,13 +5,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch, apiStream } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui-legacy/Button'
-import { Card } from '@/components/ui-legacy/Card'
-import { Input, Textarea } from '@/components/ui-legacy/Input'
-import { Dialog } from '@/components/ui-legacy/Dialog'
-import { Badge } from '@/components/ui-legacy/Badge'
-import { Spinner } from '@/components/ui-legacy/Spinner'
-import { EmptyState } from '@/components/ui-legacy/EmptyState'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import type { AgentConfig } from '@shared/agents'
 import type { ForumTopic } from '@shared/types'
 
@@ -231,7 +233,7 @@ function TopicCard({ topic }: { topic: ForumTopic }) {
 
   return (
     <Link to={`/forum/topic/${topic.id}`} className="group block">
-      <Card hoverScale className="p-5">
+      <Card className="hover-lift p-5">
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-bold text-gray-900 group-hover:text-primary">
             {topic.title}
@@ -395,20 +397,14 @@ function NewTopicDialog({ open, onClose, onCreated }: NewTopicDialogProps) {
   return (
     <Dialog
       open={open}
-      onClose={onClose}
-      title="发起新话题"
-      className="max-w-xl"
-      footer={
-        !submitting && (
-          <>
-            <Button variant="outline" onClick={onClose}>
-              取消
-            </Button>
-            <Button onClick={handleSubmit}>发起并召唤 AI</Button>
-          </>
-        )
-      }
+      onOpenChange={(v) => {
+        if (!v) onClose()
+      }}
     >
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>发起新话题</DialogTitle>
+        </DialogHeader>
       <div className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -441,9 +437,18 @@ function NewTopicDialog({ open, onClose, onCreated }: NewTopicDialogProps) {
           </label>
           <div className="max-h-44 overflow-y-auto rounded-lg border border-input p-2 scrollbar-thin">
             {agents.length === 0 ? (
-              <p className="py-4 text-center text-xs text-gray-400">
-                加载中…
-              </p>
+              <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5"
+                  >
+                    <Skeleton className="size-4 shrink-0 rounded" />
+                    <Skeleton className="size-6 shrink-0 rounded-full" />
+                    <Skeleton className="h-3 flex-1" />
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                 {agents.map((a) => {
@@ -493,6 +498,15 @@ function NewTopicDialog({ open, onClose, onCreated }: NewTopicDialogProps) {
           </p>
         )}
       </div>
+      {!submitting && (
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            取消
+          </Button>
+          <Button onClick={handleSubmit}>发起并召唤 AI</Button>
+        </DialogFooter>
+      )}
+      </DialogContent>
     </Dialog>
   )
 }

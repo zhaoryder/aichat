@@ -5,12 +5,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch, publishImageToGallery } from '@/lib/api'
-import { Card } from '@/components/ui-legacy/Card'
-import { Input, Textarea } from '@/components/ui-legacy/Input'
-import { Button } from '@/components/ui-legacy/Button'
-import { Spinner } from '@/components/ui-legacy/Spinner'
-import { EmptyState } from '@/components/ui-legacy/EmptyState'
-import { Dialog } from '@/components/ui-legacy/Dialog'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { SelectWithCustom } from '@/components/SelectWithCustom'
@@ -342,10 +343,12 @@ export const ImageStudioPage = () => {
       </div>
 
       {/* 大图预览 */}
-      <Dialog open={!!previewUrl} onClose={() => setPreviewUrl('')} className="max-w-3xl">
-        {previewUrl && (
-          <img src={previewUrl} alt="大图预览" className="w-full rounded-lg" />
-        )}
+      <Dialog open={!!previewUrl} onOpenChange={(v) => !v && setPreviewUrl('')}>
+        <DialogContent className="max-w-3xl">
+          {previewUrl && (
+            <img src={previewUrl} alt="大图预览" className="w-full rounded-lg" />
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   )

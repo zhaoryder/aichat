@@ -4,7 +4,7 @@
 // 从 lib/supabase/queries.ts 迁移，适配 Express 后端。
 // 所有函数使用 service_role 客户端（绕过 RLS）。
 // 函数命名按任务要求：createForumTopic / createForumPost / listForumTopics /
-// listForumPosts 等。新增 checkin / listCheckins / createShare /
+// listForumPosts 等。新增 createShare /
 // getShare / listUsers / listReports / createReport / updateReportStatus /
 // getResolvedAgent。
 // =====================================================================
@@ -14,21 +14,28 @@ import { getAgentById, type AgentConfig } from '../../shared/agents'
 import type {
   Agent,
   AgentFavorite,
+  AgentTeam,
+  ChatRoom,
   Conversation,
   CreativeWork,
   CustomAgent,
   ForumPost,
+  ForumRating,
   ForumTopic,
   GameSave,
+  MediaAsset,
   Message,
   MessageRole,
   ModerationKeyword,
   Profile,
+  ProjectSnapshot,
   Report,
   ReportStatus,
   ReportTargetType,
+  RoomMessage,
+  RoomParticipant,
   SharedConversation,
-  Checkin,
+  UserTheme,
 } from '../../shared/types'
 
 // ---------------------------------------------------------------------
@@ -134,7 +141,12 @@ export async function createForumTopic(
   authorId: string,
   title: string,
   content: string,
-  mentionedAgents: string[]
+  mentionedAgents: string[],
+  projectPayload?: {
+    code?: string
+    title?: string
+    assets?: string[]
+  } | null
 ): Promise<ForumTopic> {
   const { data, error } = await supabase
     .from('forum_topics')
@@ -143,6 +155,7 @@ export async function createForumTopic(
       title,
       content,
       mentioned_agents: mentionedAgents,
+      project_payload: projectPayload ?? null,
     })
     .select('*')
     .single()
@@ -304,6 +317,11 @@ export async function getResolvedAgent(
     avatarGradient: custom.avatar_gradient,
     systemPrompt: custom.system_prompt,
     topics: [],
+    card: {
+      rarity: '普通',
+      skills: [],
+      combo: '自定义智能体无组合效果',
+    },
   }
 }
 
@@ -725,101 +743,6 @@ export async function deleteGameSave(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------
-// 签到相关
-// ---------------------------------------------------------------------
-
-/**
- * 每日签到。
- *
- * 逻辑：
- *   1. 检查今天是否已签到（check_date = today）
- *   2. 若未签到，查昨天的记录计算连续天数
- *   3. 积分 = 10 基础 + 连续签到加成（每连续 7 天额外 +5）
- *   4. 插入签到记录，递增用户积分
- *
- * @returns 签到结果；若今天已签到则返回已有记录
- */
-export async function checkin(
-  userId: string
-): Promise<{ checkin: Checkin; alreadyCheckedIn: boolean }> {
-  const today = new Date()
-  const todayStr = today.toISOString().slice(0, 10) // YYYY-MM-DD
-
-  // 1. 检查今天是否已签到
-  const { data: todayRecord } = await supabase
-    .from('checkins')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('check_date', todayStr)
-    .maybeSingle()
-
-  if (todayRecord) {
-    return { checkin: todayRecord as Checkin, alreadyCheckedIn: true }
-  }
-
-  // 2. 查昨天记录，计算连续天数
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().slice(0, 10)
-
-  const { data: yesterdayRecord } = await supabase
-    .from('checkins')
-    .select('streak_days')
-    .eq('user_id', userId)
-    .eq('check_date', yesterdayStr)
-    .maybeSingle()
-
-  const prevStreak = (yesterdayRecord?.streak_days as number) ?? 0
-  const streakDays = prevStreak + 1
-
-  // 3. 计算积分：基础 10 + 每 7 天连续额外 5
-  const bonus = Math.floor(streakDays / 7) * 5
-  const pointsEarned = 10 + bonus
-
-  // 4. 插入签到记录
-  const { data, error } = await supabase
-    .from('checkins')
-    .insert({
-      user_id: userId,
-      check_date: todayStr,
-      streak_days: streakDays,
-      points_earned: pointsEarned,
-    })
-    .select('*')
-    .single()
-
-  if (error || !data) {
-    throw new Error(`签到失败: ${error?.message ?? '未知错误'}`)
-  }
-
-  // 5. 递增用户积分
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('points')
-    .eq('id', userId)
-    .maybeSingle()
-
-  const currentPoints = (profile?.points as number | null) ?? 0
-  await supabase
-    .from('profiles')
-    .update({ points: currentPoints + pointsEarned })
-    .eq('id', userId)
-
-  return { checkin: data as Checkin, alreadyCheckedIn: false }
-}
-
-/** 列出指定用户的签到记录，按日期倒序 */
-export async function listCheckins(userId: string): Promise<Checkin[]> {
-  const { data, error } = await supabase
-    .from('checkins')
-    .select('*')
-    .eq('user_id', userId)
-    .order('check_date', { ascending: false })
-  if (error) throw new Error(`查询签到记录失败: ${error.message}`)
-  return (data as Checkin[]) ?? []
-}
-
-// ---------------------------------------------------------------------
 // 对话分享相关
 // ---------------------------------------------------------------------
 
@@ -905,4 +828,492 @@ export async function updateReportStatus(
     .update({ status })
     .eq('id', id)
   if (error) throw new Error(`更新举报状态失败: ${error.message}`)
+}
+
+// ---------------------------------------------------------------------
+// 素材库（media_assets）相关
+// ---------------------------------------------------------------------
+
+/** 新增一条素材记录 */
+export async function addMediaAsset(input: {
+  userId: string
+  type: 'image' | 'video' | 'audio'
+  url: string
+  prompt?: string | null
+  title?: string | null
+  projectId?: string | null
+  metadata?: Record<string, unknown>
+}): Promise<MediaAsset> {
+  const { data, error } = await supabase
+    .from('media_assets')
+    .insert({
+      user_id: input.userId,
+      type: input.type,
+      url: input.url,
+      prompt: input.prompt ?? null,
+      title: input.title ?? null,
+      project_id: input.projectId ?? null,
+      metadata: input.metadata ?? {},
+    })
+    .select('*')
+    .single()
+  if (error || !data) {
+    throw new Error(`新增素材失败: ${error?.message ?? '未知错误'}`)
+  }
+  return data as MediaAsset
+}
+
+/** 列出当前用户的素材（按类型筛选 + 时间倒序） */
+export async function listMediaAssets(
+  userId: string,
+  options?: {
+    type?: 'image' | 'video' | 'audio'
+    page?: number
+    pageSize?: number
+    search?: string
+  }
+): Promise<{ assets: MediaAsset[]; total: number }> {
+  const page = Math.max(1, options?.page ?? 1)
+  const pageSize = Math.max(1, Math.min(options?.pageSize ?? 20, 100))
+  const from = (page - 1) * pageSize
+  const to = page * pageSize - 1
+
+  let query = supabase
+    .from('media_assets')
+    .select('*', { count: 'exact' })
+    .eq('user_id', userId)
+
+  if (options?.type) {
+    query = query.eq('type', options.type)
+  }
+  if (options?.search) {
+    const like = `%${options.search}%`
+    query = query.or(`prompt.ilike.${like},title.ilike.${like}`)
+  }
+  query = query.order('created_at', { ascending: false }).range(from, to)
+
+  const { data, error, count } = await query
+  if (error) throw new Error(`列出素材失败: ${error.message}`)
+  return {
+    assets: (data as MediaAsset[]) ?? [],
+    total: count ?? 0,
+  }
+}
+
+/** 删除一条素材（必须匹配 userId 防止越权） */
+export async function deleteMediaAsset(
+  id: string,
+  userId: string
+): Promise<boolean> {
+  const { error, count } = await supabase
+    .from('media_assets')
+    .delete({ count: 'exact' })
+    .eq('id', id)
+    .eq('user_id', userId)
+  if (error) throw new Error(`删除素材失败: ${error.message}`)
+  return (count ?? 0) > 0
+}
+
+// ---------------------------------------------------------------------
+// agent_teams（多智能体团队）相关
+// ---------------------------------------------------------------------
+
+/** 创建一个智能体团队 */
+export async function createAgentTeam(
+  userId: string,
+  name: string,
+  agentIds: string[],
+  config: Record<string, unknown> = {},
+): Promise<AgentTeam> {
+  const { data, error } = await supabase
+    .from('agent_teams')
+    .insert({
+      user_id: userId,
+      name,
+      agent_ids: agentIds,
+      config,
+    })
+    .select('*')
+    .single()
+  if (error || !data) {
+    throw new Error(`创建团队失败: ${error?.message ?? '未知错误'}`)
+  }
+  return data as AgentTeam
+}
+
+/** 列出当前用户的智能体团队 */
+export async function listAgentTeams(userId: string): Promise<AgentTeam[]> {
+  const { data, error } = await supabase
+    .from('agent_teams')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(`列出团队失败: ${error.message}`)
+  return (data as AgentTeam[]) ?? []
+}
+
+/** 获取团队详情（含所属校验） */
+export async function getAgentTeam(
+  id: string,
+  userId: string,
+): Promise<AgentTeam | null> {
+  const { data, error } = await supabase
+    .from('agent_teams')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw new Error(`获取团队失败: ${error.message}`)
+  return (data as AgentTeam) ?? null
+}
+
+// ---------------------------------------------------------------------
+// project_snapshots（Vibe Code 快照）相关
+// ---------------------------------------------------------------------
+
+/** 创建快照 */
+export async function createSnapshot(input: {
+  projectId: string
+  userId: string
+  code: string
+  label?: string | null
+  parentId?: string | null
+  branch?: string
+}): Promise<ProjectSnapshot> {
+  const { data, error } = await supabase
+    .from('project_snapshots')
+    .insert({
+      project_id: input.projectId,
+      user_id: input.userId,
+      code: input.code,
+      label: input.label ?? null,
+      parent_id: input.parentId ?? null,
+      branch: input.branch ?? 'main',
+    })
+    .select('*')
+    .single()
+  if (error || !data) {
+    throw new Error(`创建快照失败: ${error?.message ?? '未知错误'}`)
+  }
+  return data as ProjectSnapshot
+}
+
+/** 列出指定项目 + 分支的快照时间线 */
+export async function listSnapshots(
+  projectId: string,
+  userId: string,
+  branch?: string,
+): Promise<ProjectSnapshot[]> {
+  let query = supabase
+    .from('project_snapshots')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+  if (branch) {
+    query = query.eq('branch', branch)
+  }
+  query = query.order('created_at', { ascending: false })
+  const { data, error } = await query
+  if (error) throw new Error(`列出快照失败: ${error.message}`)
+  return (data as ProjectSnapshot[]) ?? []
+}
+
+/** 获取单条快照 */
+export async function getSnapshot(
+  id: string,
+  userId: string,
+): Promise<ProjectSnapshot | null> {
+  const { data, error } = await supabase
+    .from('project_snapshots')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw new Error(`获取快照失败: ${error.message}`)
+  return (data as ProjectSnapshot) ?? null
+}
+
+/** "回退"到指定快照：基于该快照创建一个新的当前状态快照（不删除历史） */
+export async function restoreSnapshot(
+  id: string,
+  userId: string,
+): Promise<ProjectSnapshot> {
+  const original = await getSnapshot(id, userId)
+  if (!original) {
+    throw new Error('快照不存在或无权访问')
+  }
+  return await createSnapshot({
+    projectId: original.project_id,
+    userId,
+    code: original.code,
+    label: `restore-from-${original.id.slice(0, 8)}`,
+    parentId: original.id,
+    branch: original.branch,
+  })
+}
+
+// ---------------------------------------------------------------------
+// chat_rooms / room_participants / room_messages（联机房间）相关
+// ---------------------------------------------------------------------
+
+/** 创建房间 */
+export async function createRoom(
+  hostId: string,
+  name: string,
+  agentId: string,
+): Promise<ChatRoom> {
+  const { data, error } = await supabase
+    .from('chat_rooms')
+    .insert({ host_id: hostId, name, agent_id: agentId })
+    .select('*')
+    .single()
+  if (error || !data) {
+    throw new Error(`创建房间失败: ${error?.message ?? '未知错误'}`)
+  }
+  return data as ChatRoom
+}
+
+/** 列出活跃房间 */
+export async function listActiveRooms(): Promise<ChatRoom[]> {
+  const { data, error } = await supabase
+    .from('chat_rooms')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(`列出房间失败: ${error.message}`)
+  return (data as ChatRoom[]) ?? []
+}
+
+/** 获取房间详情 */
+export async function getRoom(id: string): Promise<ChatRoom | null> {
+  const { data, error } = await supabase
+    .from('chat_rooms')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(`获取房间失败: ${error.message}`)
+  return (data as ChatRoom) ?? null
+}
+
+/** 加入房间（idempotent） */
+export async function joinRoom(
+  roomId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('room_participants')
+    .upsert({ room_id: roomId, user_id: userId })
+  if (error) throw new Error(`加入房间失败: ${error.message}`)
+}
+
+/** 离开房间 */
+export async function leaveRoom(
+  roomId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('room_participants')
+    .delete()
+    .eq('room_id', roomId)
+    .eq('user_id', userId)
+  if (error) throw new Error(`离开房间失败: ${error.message}`)
+}
+
+/** 列出房间参与者 */
+export async function listRoomParticipants(
+  roomId: string,
+): Promise<RoomParticipant[]> {
+  const { data, error } = await supabase
+    .from('room_participants')
+    .select('*')
+    .eq('room_id', roomId)
+    .order('joined_at', { ascending: true })
+  if (error) throw new Error(`列出参与者失败: ${error.message}`)
+  return (data as RoomParticipant[]) ?? []
+}
+
+/** 列出房间历史消息 */
+export async function listRoomMessages(
+  roomId: string,
+  limit = 100,
+): Promise<RoomMessage[]> {
+  const { data, error } = await supabase
+    .from('room_messages')
+    .select('*')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: true })
+    .limit(limit)
+  if (error) throw new Error(`列出房间消息失败: ${error.message}`)
+  return (data as RoomMessage[]) ?? []
+}
+
+/** 写入一条房间消息 */
+export async function addRoomMessage(input: {
+  roomId: string
+  userId: string | null
+  role: 'user' | 'assistant'
+  content: string
+  agentId?: string | null
+}): Promise<RoomMessage> {
+  const { data, error } = await supabase
+    .from('room_messages')
+    .insert({
+      room_id: input.roomId,
+      user_id: input.userId,
+      role: input.role,
+      content: input.content,
+      agent_id: input.agentId ?? null,
+    })
+    .select('*')
+    .single()
+  if (error || !data) {
+    throw new Error(`写入房间消息失败: ${error?.message ?? '未知错误'}`)
+  }
+  return data as RoomMessage
+}
+
+/** 关闭房间（仅房主） */
+export async function closeRoom(
+  roomId: string,
+  hostId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('chat_rooms')
+    .update({ status: 'closed' })
+    .eq('id', roomId)
+    .eq('host_id', hostId)
+  if (error) throw new Error(`关闭房间失败: ${error.message}`)
+}
+
+/** 房主踢人 */
+export async function kickParticipant(
+  roomId: string,
+  hostId: string,
+  userId: string,
+): Promise<void> {
+  // 先校验是房主
+  const { data: room, error: roomErr } = await supabase
+    .from('chat_rooms')
+    .select('id')
+    .eq('id', roomId)
+    .eq('host_id', hostId)
+    .maybeSingle()
+  if (roomErr) throw new Error(`校验房主权限失败: ${roomErr.message}`)
+  if (!room) throw new Error('无权操作：仅房主可踢人')
+
+  const { error } = await supabase
+    .from('room_participants')
+    .delete()
+    .eq('room_id', roomId)
+    .eq('user_id', userId)
+  if (error) throw new Error(`踢人失败: ${error.message}`)
+}
+
+// ---------------------------------------------------------------------
+// user_themes（个性化装扮）相关
+// ---------------------------------------------------------------------
+
+/** 获取用户主题 */
+export async function getUserTheme(userId: string): Promise<UserTheme | null> {
+  const { data, error } = await supabase
+    .from('user_themes')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw new Error(`获取主题失败: ${error.message}`)
+  return (data as UserTheme) ?? null
+}
+
+/** 更新或插入用户主题 */
+export async function upsertUserTheme(input: {
+  userId: string
+  themeId?: string
+  customColors?: Record<string, unknown>
+  bubbleStyle?: string
+  loadingAnim?: string
+}): Promise<UserTheme> {
+  const update: Record<string, unknown> = {
+    user_id: input.userId,
+    updated_at: new Date().toISOString(),
+  }
+  if (input.themeId !== undefined) update.theme_id = input.themeId
+  if (input.customColors !== undefined) update.custom_colors = input.customColors
+  if (input.bubbleStyle !== undefined) update.bubble_style = input.bubbleStyle
+  if (input.loadingAnim !== undefined) update.loading_anim = input.loadingAnim
+
+  const { data, error } = await supabase
+    .from('user_themes')
+    .upsert(update)
+    .select('*')
+    .single()
+  if (error || !data) {
+    throw new Error(`保存主题失败: ${error?.message ?? '未知错误'}`)
+  }
+  return data as UserTheme
+}
+
+// ---------------------------------------------------------------------
+// forum_ratings（话题评分）相关
+// ---------------------------------------------------------------------
+
+/** 创建或更新用户对某话题的评分（topic_id + user_id 唯一） */
+export async function createOrUpdateRating(
+  topicId: string,
+  userId: string,
+  rating: number
+): Promise<ForumRating> {
+  const { data, error } = await supabase
+    .from('forum_ratings')
+    .upsert(
+      {
+        topic_id: topicId,
+        user_id: userId,
+        rating,
+      },
+      { onConflict: 'topic_id,user_id' }
+    )
+    .select('*')
+    .single()
+  if (error || !data) {
+    throw new Error(`评分失败: ${error?.message ?? '未知错误'}`)
+  }
+  return data as ForumRating
+}
+
+/** 列出某话题的所有评分，并计算平均分与总数 */
+export async function listRatingsByTopic(
+  topicId: string
+): Promise<{ ratings: ForumRating[]; average: number; count: number }> {
+  const { data, error } = await supabase
+    .from('forum_ratings')
+    .select('*')
+    .eq('topic_id', topicId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new Error(`列出评分失败: ${error.message}`)
+  }
+
+  const ratings = (data as ForumRating[]) ?? []
+  const count = ratings.length
+  const sum = ratings.reduce((acc, r) => acc + (r.rating ?? 0), 0)
+  const average = count > 0 ? Math.round((sum / count) * 10) / 10 : 0
+  return { ratings, average, count }
+}
+
+/** 获取用户对某话题的评分 */
+export async function getUserRating(
+  topicId: string,
+  userId: string
+): Promise<ForumRating | null> {
+  const { data, error } = await supabase
+    .from('forum_ratings')
+    .select('*')
+    .eq('topic_id', topicId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    throw new Error(`获取用户评分失败: ${error.message}`)
+  }
+  return (data as ForumRating) ?? null
 }

@@ -14,5 +14,5 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "shared/**/*.ts"]
+  "include": ["src/**/*.ts", "../shared/**/*.ts"]
 }
