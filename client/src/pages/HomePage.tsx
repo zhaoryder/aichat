@@ -1,5 +1,5 @@
 // 主页：Hero 区 + 智能体卡片网格
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { agents, type AgentConfig } from '@shared/agents'
 import { useAuth } from '@/hooks/useAuth'
@@ -43,6 +43,33 @@ export const HomePage = () => {
 
   // 已登录用户的收藏智能体
   const favoriteAgents = user ? agents.filter(a => favorites.has(a.id)) : []
+
+  // 热门精选：从各分类均匀取样，确保首页展示多样化角色而非全是历史人物
+  const featuredAgents = useMemo(() => {
+    // 按分类分组
+    const groups = new Map<string, AgentConfig[]>()
+    for (const a of agents) {
+      const cat = a.category || 'other'
+      if (!groups.has(cat)) groups.set(cat, [])
+      groups.get(cat)!.push(a)
+    }
+    // 轮询取样：每个分类取 1 个，循环直到凑够 30 个
+    const result: AgentConfig[] = []
+    const lists = [...groups.values()]
+    const indices = lists.map(() => 0)
+    while (result.length < 30) {
+      let added = false
+      for (let i = 0; i < lists.length && result.length < 30; i++) {
+        if (indices[i] < lists[i].length) {
+          result.push(lists[i][indices[i]])
+          indices[i]++
+          added = true
+        }
+      }
+      if (!added) break
+    }
+    return result
+  }, [])
 
   // CTA：已登录跳第一个智能体对话，未登录跳广场
   function handleStart() {
@@ -178,7 +205,7 @@ export const HomePage = () => {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {agents.slice(0, 30).map((agent) => (
+              {featuredAgents.map((agent) => (
                 <Link key={agent.id} to={`/chat/${agent.id}`} className="group block">
                   <Card className="hover-lift h-full p-5">
                     <div className="flex items-start gap-4">

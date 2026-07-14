@@ -47,14 +47,39 @@ const DEFAULT_THEME: UserTheme = {
   updated_at: '',
 }
 
+/** 将 hex 颜色 (#rrggbb) 转换为 HSL 三元组字符串（"H S% L%"）。
+ *  shadcn 设计系统要求 --primary 等 CSS 变量为 HSL 三元组（如 "239 84% 67%"），
+ *  组件用 hsl(var(--primary)) 调用。直接设置 hex 值会导致 hsl(#6366f1) 无效。 */
+function hexToHslTriple(hex: string): string {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex)
+  if (!m) return '239 84% 67%' // fallback：indigo-500
+  const r = parseInt(m[1], 16) / 255
+  const g = parseInt(m[2], 16) / 255
+  const b = parseInt(m[3], 16) / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  let h = 0
+  let s = 0
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0)
+    else if (max === g) h = (b - r) / d + 2
+    else h = (r - g) / d + 4
+    h *= 60
+  }
+  return `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
+}
+
 /** 将主题应用到 document 的 CSS 变量 */
 function applyThemeToCSS(t: Partial<UserTheme>): void {
   const template = t.theme_id ? getThemeById(t.theme_id) : undefined
   const primary = t.custom_colors?.primary || template?.primary || '#6366f1'
   const background = t.custom_colors?.background || template?.background || '#fafafa'
   const root = document.documentElement
-  root.style.setProperty('--primary', primary)
-  root.style.setProperty('--background', background)
+  root.style.setProperty('--primary', hexToHslTriple(primary))
+  root.style.setProperty('--background', hexToHslTriple(background))
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
