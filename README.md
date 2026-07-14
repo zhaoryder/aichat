@@ -1,4 +1,4 @@
-# AI 搞笑智能体平台
+# AI Agent智能体平台
 
 前后端分离架构：Vite + React 18（纯 CSR）+ Express + TypeScript。
 
