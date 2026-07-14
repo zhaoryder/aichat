@@ -27,8 +27,8 @@ import type { ChatMessage } from '../../shared/types'
 
 const AGNES_API_KEY = process.env.AGNES_API_KEY
 const AGNES_API_BASE = process.env.AGNES_API_BASE
-// 默认模型名 agens-2.0-flash；可通过 AGNES_MODEL 覆盖
-const AGNES_MODEL = process.env.AGNES_MODEL || 'agens-2.0-flash'
+// 默认模型 agnes-2.0-flash；可通过 AGNES_MODEL 覆盖
+const AGNES_MODEL = process.env.AGNES_MODEL || 'agnes-2.0-flash'
 
 /** 默认请求超时（毫秒） */
 const DEFAULT_TIMEOUT_MS = 30_000
@@ -424,7 +424,7 @@ export async function polishAgentPrompt(draft: string): Promise<string> {
 // ----------------------------------------------------------------------
 
 /**
- * 生成图片（智谱 CogView4）
+ * 生成图片（Agnes Image 2.1 Flash）
  * 返回图片 URL
  */
 export async function generateImage(
@@ -443,7 +443,7 @@ export async function generateImage(
 }
 
 /**
- * 提交视频生成任务（智谱 CogVideoX，异步）
+ * 提交视频生成任务（Agnes Video 2.0，异步）
  * 返回任务 ID
  * @param duration 视频时长（5 或 10 秒），默认 5
  * 内置 429 自动重试（指数退避，最多 3 次）
@@ -454,7 +454,7 @@ export async function submitVideoTask(
 ): Promise<string> {
   const apiKey = AGNES_API_KEY
   const baseURL = AGNES_API_BASE
-  // 智谱官方文档：duration 只支持 5 或 10
+  // Agnes 官方文档：duration 只支持 5 或 10
   const duration = options?.duration === 10 ? 10 : 5
 
   const MAX_RETRIES = 3
@@ -462,14 +462,14 @@ export async function submitVideoTask(
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(`${baseURL}/videos/generations`, {
+      const response = await fetch(`${baseURL}/video/generations`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'agnes-video-2.0',
+          model: 'agnes-video-v2.0',
           prompt,
           with_audio: true,
           duration,
@@ -493,8 +493,12 @@ export async function submitVideoTask(
         )
       }
 
-      const data = (await response.json()) as { id?: string; task_id?: string }
-      const taskId = data.id ?? data.task_id
+      const data = (await response.json()) as {
+        id?: string
+        task_id?: string
+        data?: { id?: string; task_id?: string }
+      }
+      const taskId = data.id ?? data.task_id ?? data.data?.id ?? data.data?.task_id
       if (!taskId) throw new AIRequestError('视频生成任务提交失败：未返回任务 ID')
       return taskId
     } catch (err) {
@@ -520,7 +524,7 @@ export async function getVideoTaskResult(
 ): Promise<{ status: 'processing' | 'SUCCESS' | 'FAIL'; videoUrl?: string; coverUrl?: string }> {
   const apiKey = AGNES_API_KEY
   const baseURL = AGNES_API_BASE
-  const response = await fetch(`${baseURL}/async-result/${taskId}`, {
+  const response = await fetch(`${baseURL}/video/generations/${taskId}`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${apiKey}` },
   })
@@ -545,7 +549,7 @@ export async function getVideoTaskResult(
 }
 
 /**
- * 生成语音（智谱 TTS）
+ * 生成语音（Agnes TTS）
  * 返回音频 base64 或 URL
  */
 export async function generateSpeech(
@@ -570,7 +574,7 @@ export async function generateSpeech(
     const text_err = await response.text()
     throw new AIRequestError(`语音生成失败（HTTP ${response.status}）：${text_err}`)
   }
-  // 智谱 TTS 返回可能是 JSON 含 url 或直接音频
+  // Agnes TTS 返回可能是 JSON 含 url 或直接音频
   const contentType = response.headers.get('content-type') ?? ''
   if (contentType.includes('application/json')) {
     const data = (await response.json()) as { url?: string; audio_url?: string }
