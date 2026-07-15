@@ -22,6 +22,7 @@
 import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
 import {
+  callAgnesChat,
   chatCompletionStream,
   generateImage,
   generateSpeech,
@@ -695,3 +696,246 @@ studioRouter.delete(
     }
   }
 )
+
+// =====================================================================
+// 海报 / 表情包 / 通用生成端点
+// =====================================================================
+
+interface PosterBody {
+  prompt?: unknown
+  title?: unknown
+  template?: unknown
+  colorScheme?: unknown
+}
+
+// 模板对应的提示词前缀
+const POSTER_TEMPLATE_PROMPTS: Record<string, string> = {
+  festival: '节日海报风格，喜庆热闹',
+  product: '产品宣传海报风格，专业大气',
+  joke: '搞笑段子海报风格，幽默夸张',
+  motivational: '励志名言海报风格，简洁有力',
+}
+
+const POSTER_COLOR_PROMPTS: Record<string, string> = {
+  rainbow: '彩虹色系，明亮活泼',
+  retro: '复古配色，琥珀玫瑰色调',
+  minimal: '极简配色，浅灰白',
+  dark: '暗夜配色，深蓝紫色调',
+  candy: '糖果配色，粉紫色调',
+}
+
+// POST /api/studio/poster —— AI 生成海报
+studioRouter.post('/poster', authMiddleware, async (req: Request, res: Response) => {
+  const user = req.user!
+  try {
+    const body = req.body as PosterBody
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
+    const title = typeof body.title === 'string' ? body.title.trim() : ''
+    const template = typeof body.template === 'string' ? body.template : 'festival'
+    const colorScheme = typeof body.colorScheme === 'string' ? body.colorScheme : 'rainbow'
+
+    if (!prompt) {
+      res.status(400).json({ error: '缺少海报主题描述' })
+      return
+    }
+
+    // 拼接完整海报 prompt：主题 + 模板 + 配色 + 海报专用修饰
+    const templatePart = POSTER_TEMPLATE_PROMPTS[template] ?? POSTER_TEMPLATE_PROMPTS.festival
+    const colorPart = POSTER_COLOR_PROMPTS[colorScheme] ?? POSTER_COLOR_PROMPTS.rainbow
+    const titlePart = title ? `标题文字"${title}"，` : ''
+    const fullPrompt = `${titlePart}${prompt}，${templatePart}，${colorPart}，竖版海报构图，3:4 比例，高画质，细节丰富，文字清晰可读`
+
+    // 调用 Agnes Image 生成海报图片
+    const url = await generateImage(fullPrompt, { size: '768x1024' })
+
+    // 保存为创意作品
+    try {
+      const work = await createCreativeWork(user.id, 'image', title || prompt.slice(0, 50), {
+        prompt: fullPrompt,
+        template,
+        colorScheme,
+      })
+      await updateCreativeWork(work.id, {
+        result: { url },
+        status: 'done',
+      })
+    } catch {
+      // 保存失败不影响返回
+    }
+
+    res.json({ url, prompt: fullPrompt })
+  } catch (err) {
+    console.error('[api/studio/poster] 异常：', err)
+    res.status(500).json({
+      error: err instanceof Error ? err.message : '海报生成失败',
+    })
+  }
+})
+
+interface MemeBody {
+  prompt?: unknown
+  template?: unknown
+}
+
+// 表情包模板对应的 AI 角色设定
+const MEME_TEMPLATE_STYLES: Record<string, string> = {
+  huaji: '滑稽搞笑风格',
+  sikao: '思考人生风格',
+  dese: '得瑟显摆风格',
+  weiqu: '委屈巴巴风格',
+  gaoguai: '搞怪卖萌风格',
+  shengqi: '愤怒抓狂风格',
+}
+
+// POST /api/studio/meme —— AI 生成表情包台词
+studioRouter.post('/meme', authMiddleware, async (req: Request, res: Response) => {
+  const user = req.user!
+  try {
+    const body = req.body as MemeBody
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
+    const template = typeof body.template === 'string' ? body.template : 'huaji'
+
+    if (!prompt) {
+      res.status(400).json({ error: '缺少表情包描述' })
+      return
+    }
+
+    const stylePart = MEME_TEMPLATE_STYLES[template] ?? MEME_TEMPLATE_STYLES.huaji
+    // 构造 meme 台词生成对话
+    const systemPrompt = `你是表情包台词大师。根据用户描述生成适合表情包的搞笑台词。
+要求：
+1. 顶部和底部各一句台词（可只生成一句）
+2. 每句台词不超过 15 个汉字
+3. 必须搞笑、夸张、有梗（不要网络流行语）
+4. 风格：${stylePart}
+5. 严格输出 JSON 格式：{"topText":"顶部台词","bottomText":"底部台词"}
+
+示例：
+描述：上班迟到被老板抓到
+{"topText":"当我兴高采烈冲进办公室","bottomText":"发现今天是周日"
+
+描述：考试前一晚才开始复习
+{"topText":"我：临时抱佛脚","bottomText":"佛：你抱错腿了"}`
+
+    const userPrompt = `请为以下场景生成表情包台词：${prompt}
+严格输出 JSON：{"topText":"","bottomText":""}`
+
+    // 直接调用底层 OpenAI client（绕过 agent 注入，使用我们自己的 system prompt）
+    const rawText = await callAgnesChat(systemPrompt, userPrompt)
+    // 尝试解析 JSON
+    let topText = ''
+    let bottomText = ''
+    const jsonMatch = rawText.match(/\{[^{}]*"topText"[^{}]*\}/)
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0])
+        topText = String(parsed.topText || '')
+        bottomText = String(parsed.bottomText || '')
+      } catch {
+        // 解析失败，用原文
+      }
+    }
+    if (!topText && !bottomText) {
+      // 兜底：用原文前两句
+      const lines = rawText.split(/[\n。]/).map((s) => s.trim()).filter(Boolean).slice(0, 2)
+      topText = lines[0] || ''
+      bottomText = lines[1] || ''
+    }
+
+    res.json({ topText, bottomText, text: topText || bottomText })
+  } catch (err) {
+    console.error('[api/studio/meme] 异常：', err)
+    res.status(500).json({
+      error: err instanceof Error ? err.message : '表情包台词生成失败',
+    })
+  }
+})
+
+// 通用生成端点（兼容老调用方）
+studioRouter.post('/generate', authMiddleware, async (req: Request, res: Response) => {
+  const body = req.body as { type?: string; prompt?: unknown; title?: unknown; template?: unknown; colorScheme?: unknown }
+  const type = body.type
+  if (type === 'poster') {
+    // 等价于调用 /poster 端点：复用相同逻辑
+    const user = req.user!
+    try {
+      const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
+      const title = typeof body.title === 'string' ? body.title.trim() : ''
+      const template = typeof body.template === 'string' ? body.template : 'festival'
+      const colorScheme = typeof body.colorScheme === 'string' ? body.colorScheme : 'rainbow'
+      if (!prompt) {
+        res.status(400).json({ error: '缺少海报主题描述' })
+        return
+      }
+      const templatePart = POSTER_TEMPLATE_PROMPTS[template] ?? POSTER_TEMPLATE_PROMPTS.festival
+      const colorPart = POSTER_COLOR_PROMPTS[colorScheme] ?? POSTER_COLOR_PROMPTS.rainbow
+      const titlePart = title ? `标题文字"${title}"，` : ''
+      const fullPrompt = `${titlePart}${prompt}，${templatePart}，${colorPart}，竖版海报构图，3:4 比例，高画质，细节丰富，文字清晰可读`
+      const url = await generateImage(fullPrompt, { size: '768x1024' })
+      try {
+        const work = await createCreativeWork(user.id, 'image', title || prompt.slice(0, 50), {
+          prompt: fullPrompt,
+          template,
+          colorScheme,
+        })
+        await updateCreativeWork(work.id, { result: { url }, status: 'done' })
+      } catch {
+        // 保存失败不影响返回
+      }
+      res.json({ url, prompt: fullPrompt })
+    } catch (err) {
+      console.error('[api/studio/generate poster] 异常：', err)
+      res.status(500).json({ error: err instanceof Error ? err.message : '海报生成失败' })
+    }
+    return
+  }
+  if (type === 'meme') {
+    // 等价于调用 /meme 端点
+    try {
+      const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
+      const template = typeof body.template === 'string' ? body.template : 'huaji'
+      if (!prompt) {
+        res.status(400).json({ error: '缺少表情包描述' })
+        return
+      }
+      const stylePart = MEME_TEMPLATE_STYLES[template] ?? MEME_TEMPLATE_STYLES.huaji
+      const systemPrompt = `你是表情包台词大师。根据用户描述生成适合表情包的搞笑台词。
+要求：
+1. 顶部和底部各一句台词（可只生成一句）
+2. 每句台词不超过 15 个汉字
+3. 必须搞笑、夸张、有梗（不要网络流行语）
+4. 风格：${stylePart}
+5. 严格输出 JSON 格式：{"topText":"顶部台词","bottomText":"底部台词"}`
+      const userPrompt = `请为以下场景生成表情包台词：${prompt}\n严格输出 JSON：{"topText":"","bottomText":""}`
+      const rawText = await callAgnesChat(systemPrompt, userPrompt)
+      let topText = ''
+      let bottomText = ''
+      const jsonMatch = rawText.match(/\{[^{}]*"topText"[^{}]*\}/)
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0])
+          topText = String(parsed.topText || '')
+          bottomText = String(parsed.bottomText || '')
+        } catch {
+          // 解析失败，用原文
+        }
+      }
+      if (!topText && !bottomText) {
+        const lines = rawText.split(/[\n。]/).map((s) => s.trim()).filter(Boolean).slice(0, 2)
+        topText = lines[0] || ''
+        bottomText = lines[1] || ''
+      }
+      res.json({ topText, bottomText, text: topText || bottomText })
+    } catch (err) {
+      console.error('[api/studio/generate meme] 异常：', err)
+      res.status(500).json({ error: err instanceof Error ? err.message : '表情包台词生成失败' })
+    }
+    return
+  }
+  res.status(400).json({ error: `不支持的类型：${type ?? '(空)'}` })
+})
+
+// =====================================================================
+// 文件末尾
+// =====================================================================
+

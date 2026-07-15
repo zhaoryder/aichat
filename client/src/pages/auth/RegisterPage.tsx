@@ -85,12 +85,12 @@ export default function RegisterPage() {
           <h1 className="bg-gradient-to-r from-primary to-amber-500 bg-clip-text text-2xl font-extrabold text-transparent">
             注册账号
           </h1>
-          <p className="mt-2 text-sm text-gray-500">加入 AI 搞笑工坊，开启创意之旅</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">加入 AI 搞笑工坊，开启创意之旅</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 邮箱
               </label>
               <Input
@@ -101,11 +101,11 @@ export default function RegisterPage() {
                 onChange={(e) => update('email', e.target.value)}
                 disabled={submitting}
               />
-              {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
+              {errors.email && <p className="text-xs text-red-500 dark:text-red-400">{errors.email}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="nickname" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="nickname" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 昵称
               </label>
               <Input
@@ -116,11 +116,11 @@ export default function RegisterPage() {
                 onChange={(e) => update('nickname', e.target.value)}
                 disabled={submitting}
               />
-              {errors.nickname && <p className="text-xs text-red-500">{errors.nickname}</p>}
+              {errors.nickname && <p className="text-xs text-red-500 dark:text-red-400">{errors.nickname}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 密码
               </label>
               <Input
@@ -131,11 +131,11 @@ export default function RegisterPage() {
                 onChange={(e) => update('password', e.target.value)}
                 disabled={submitting}
               />
-              {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
+              {errors.password && <p className="text-xs text-red-500 dark:text-red-400">{errors.password}</p>}
             </div>
 
             {globalError && (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{globalError}</div>
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">{globalError}</div>
             )}
 
             <Button
@@ -148,7 +148,7 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-gray-500">
+          <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
             已有账号？{' '}
             <Link to="/auth/login" className="font-medium text-primary hover:underline">
               去登录

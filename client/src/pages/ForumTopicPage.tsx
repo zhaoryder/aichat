@@ -472,7 +472,7 @@ export const ForumTopicPage = () => {
   if (status === 'error' || !topic) {
     return (
       <div className="flex h-[calc(100dvh-4rem)] flex-col items-center justify-center gap-3 text-center">
-        <p className="text-base text-gray-700">{errorMsg || '话题不存在'}</p>
+        <p className="text-base text-gray-700 dark:text-gray-300">{errorMsg || '话题不存在'}</p>
         <Button asChild variant="outline">
           <Link to="/forum">返回论坛</Link>
         </Button>
@@ -481,13 +481,13 @@ export const ForumTopicPage = () => {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col bg-gray-50">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col bg-gray-50 dark:bg-gray-900">
       {/* 话题头部 */}
-      <header className="shrink-0 border-b border-gray-200 bg-white/90 backdrop-blur">
+      <header className="shrink-0 border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-700 dark:bg-gray-900/90">
         <div className="mx-auto max-w-3xl px-4 py-4">
           <Link
             to="/forum"
-            className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-900"
+            className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
             <svg
               width="16"
@@ -505,12 +505,12 @@ export const ForumTopicPage = () => {
             </svg>
             返回论坛
           </Link>
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl dark:text-gray-100">
             {topic.title}
           </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <span>{formatRelativeTime(topic.created_at)}</span>
-            <span className="text-gray-300">·</span>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
             <span className="inline-flex items-center gap-1">
               <svg
                 width="12"
@@ -531,7 +531,7 @@ export const ForumTopicPage = () => {
             </span>
             {topic.mentioned_agents.length > 0 && (
               <>
-                <span className="text-gray-300">·</span>
+                <span className="text-gray-300 dark:text-gray-600">·</span>
                 <div className="flex items-center gap-1">
                   {topic.mentioned_agents.slice(0, 6).map((aid) => {
                     const a = agentsMap.get(aid)
@@ -551,7 +551,7 @@ export const ForumTopicPage = () => {
               </>
             )}
           </div>
-          <p className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-700">
+          <p className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
             {topic.content}
           </p>
 
@@ -583,7 +583,7 @@ export const ForumTopicPage = () => {
       >
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
           {displayPosts.length === 0 && (
-            <div className="py-12 text-center text-sm text-gray-400">
+            <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">
               还没有回帖，来 @ 智能体接个梗吧
             </div>
           )}
@@ -594,7 +594,7 @@ export const ForumTopicPage = () => {
       </div>
 
       {/* 回帖区 */}
-      <footer className="shrink-0 border-t border-gray-200 bg-white/90 backdrop-blur">
+      <footer className="shrink-0 border-t border-gray-200 bg-white/90 backdrop-blur dark:border-gray-700 dark:bg-gray-900/90">
         <div className="mx-auto max-w-3xl px-4 py-3">
           <ReplyAgentPicker
             agentsMap={agentsMap}
@@ -624,7 +624,7 @@ export const ForumTopicPage = () => {
           </div>
           {replyError && (
             <div className="mt-1 flex items-center gap-2">
-              <p className="text-xs text-red-600">{replyError}</p>
+              <p className="text-xs text-red-600 dark:text-red-400">{replyError}</p>
               {retryInfo && (
                 <button
                   type="button"
@@ -640,7 +640,7 @@ export const ForumTopicPage = () => {
             </div>
           )}
           {!user && (
-            <p className="mt-1 text-center text-xs text-gray-400">
+            <p className="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">
               <Link to="/auth/login" className="text-primary hover:underline">
                 登录
               </Link>{' '}
@@ -678,7 +678,7 @@ function PostBubble({
               {agent.name.trim().charAt(0).toUpperCase() || '?'}
             </span>
           ) : (
-            <span className="flex size-8 items-center justify-center rounded-full bg-gray-300 text-xs font-bold text-white">
+            <span className="flex size-8 items-center justify-center rounded-full bg-gray-300 text-xs font-bold text-white dark:bg-gray-600">
               ?
             </span>
           )}
@@ -691,7 +691,7 @@ function PostBubble({
         )}
       >
         {!isUser && (
-          <span className="mb-0.5 px-1 text-xs font-medium text-gray-500">
+          <span className="mb-0.5 px-1 text-xs font-medium text-gray-500 dark:text-gray-400">
             {agent?.name ?? '未知智能体'}
             {isStreaming && (
               <span className="ml-1 text-primary">正在打字…</span>
@@ -703,7 +703,7 @@ function PostBubble({
             'whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
             isUser
               ? 'bg-primary text-black'
-              : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100',
+              : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:text-gray-100 dark:ring-gray-800',
           )}
         >
           {showTypingDots ? (
@@ -711,7 +711,7 @@ function PostBubble({
               {[0, 150, 300].map((delay) => (
                 <span
                   key={delay}
-                  className="animate-bounce-dot inline-block size-2 rounded-full bg-gray-400"
+                  className="animate-bounce-dot inline-block size-2 rounded-full bg-gray-400 dark:bg-gray-500"
                   style={{ animationDelay: `${delay}ms` }}
                 />
               ))}
@@ -750,7 +750,7 @@ function ReplyAgentPicker({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900"
+        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
       >
         <svg
           width="12"
@@ -806,7 +806,7 @@ function ReplyAgentPicker({
                   >
                     {a.name.trim().charAt(0).toUpperCase() || '?'}
                   </span>
-                  <span className="truncate text-xs text-gray-700">
+                  <span className="truncate text-xs text-gray-700 dark:text-gray-300">
                     {a.name}
                   </span>
                 </label>
@@ -814,7 +814,7 @@ function ReplyAgentPicker({
             })}
           </div>
           {selected.length === 0 && (
-            <p className="py-1 text-center text-[10px] text-gray-400">
+            <p className="py-1 text-center text-[10px] text-gray-400 dark:text-gray-500">
               不选则用话题提及的智能体
             </p>
           )}
@@ -874,11 +874,11 @@ function ProjectPayloadCard({
             </svg>
             可复刻项目
           </div>
-          <p className="mt-1 truncate text-sm font-medium text-gray-900">
+          <p className="mt-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
             {title}
           </p>
           {assets.length > 0 && (
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
               含 {assets.length} 个素材引用
             </p>
           )}
@@ -911,7 +911,7 @@ function ProjectPayloadCard({
       )}
 
       {!canClone && (
-        <p className="mt-1 text-[11px] text-gray-400">
+        <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
           <Link to="/auth/login" className="text-primary hover:underline">
             登录
           </Link>{' '}
@@ -945,7 +945,7 @@ function RatingStars({
   const displayValue = hover || myRating
 
   return (
-    <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
+    <div className="mt-3 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
       <div className="flex items-center" role="radiogroup" aria-label="评分">
         {[1, 2, 3, 4, 5].map((v) => {
           const active = v <= displayValue
@@ -973,7 +973,7 @@ function RatingStars({
                 fill={active ? 'currentColor' : 'none'}
                 stroke="currentColor"
                 strokeWidth="1.5"
-                className={active ? 'text-amber-400' : 'text-gray-300'}
+                className={active ? 'text-amber-400' : 'text-gray-300 dark:text-gray-600'}
               >
                 <path
                   d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
@@ -985,14 +985,14 @@ function RatingStars({
           )
         })}
       </div>
-      <span className="font-medium text-gray-900">
+      <span className="font-medium text-gray-900 dark:text-gray-100">
         {average > 0 ? average.toFixed(1) : '暂无'}
       </span>
-      <span className="text-gray-400">·</span>
+      <span className="text-gray-400 dark:text-gray-500">·</span>
       <span>{count} 人评分</span>
       {myRating > 0 && (
         <>
-          <span className="text-gray-300">·</span>
+          <span className="text-gray-300 dark:text-gray-600">·</span>
           <span className="text-primary">我已评 {myRating} 星</span>
         </>
       )}

@@ -192,11 +192,11 @@ export const ScriptStudioPage = () => {
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
       {/* 顶部导航 */}
       <div className="mb-6">
-        <Link to="/studio" className="text-sm text-gray-500 hover:text-primary">
+        <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">
           ← 返回创意工坊
         </Link>
-        <h1 className="mt-2 text-3xl font-extrabold text-gray-900">搞笑剧本</h1>
-        <p className="mt-1 text-sm text-gray-500">让 AI 编出多角色对白的搞笑短剧本</p>
+        <h1 className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-gray-100">搞笑剧本</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">让 AI 编出多角色对白的搞笑短剧本</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
@@ -204,8 +204,8 @@ export const ScriptStudioPage = () => {
         <Card className="h-fit p-5">
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                主题 <span className="text-red-500">*</span>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                主题 <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <Input
                 value={topic}
@@ -216,8 +216,8 @@ export const ScriptStudioPage = () => {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                场景 <span className="text-gray-400">（可选）</span>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                场景 <span className="text-gray-400 dark:text-gray-500">（可选）</span>
               </label>
               <Input
                 value={scene}
@@ -237,7 +237,7 @@ export const ScriptStudioPage = () => {
             />
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 时长（分钟）
               </label>
               <Input
@@ -251,15 +251,15 @@ export const ScriptStudioPage = () => {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                角色 <span className="text-gray-400">（可多选，留空则用默认叙述者）</span>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                角色 <span className="text-gray-400 dark:text-gray-500">（可多选，留空则用默认叙述者）</span>
               </label>
               {agentsLoading ? (
-                <div className="flex items-center gap-2 py-2 text-sm text-gray-400">
+                <div className="flex items-center gap-2 py-2 text-sm text-gray-400 dark:text-gray-500">
                   <Spinner size="sm" /> 加载角色列表…
                 </div>
               ) : (
-                <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 scrollbar-thin">
+                <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 scrollbar-thin dark:border-gray-700">
                   {agents.map((agent) => {
                     const checked = selectedAgents.includes(agent.id)
                     return (
@@ -267,7 +267,7 @@ export const ScriptStudioPage = () => {
                         key={agent.id}
                         className={cn(
                           'flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
-                          checked ? 'bg-primary/10' : 'hover:bg-gray-50',
+                          checked ? 'bg-primary/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50',
                         )}
                       >
                         <input
@@ -275,7 +275,7 @@ export const ScriptStudioPage = () => {
                           checked={checked}
                           onChange={() => toggleAgent(agent.id)}
                           disabled={streaming}
-                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/40"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/40 dark:border-gray-600"
                         />
                         <span
                           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
@@ -283,14 +283,14 @@ export const ScriptStudioPage = () => {
                         >
                           {agent.name.charAt(0)}
                         </span>
-                        <span className="truncate text-gray-700">{agent.name}</span>
+                        <span className="truncate text-gray-700 dark:text-gray-300">{agent.name}</span>
                       </label>
                     )
                   })}
                 </div>
               )}
               {selectedAgents.length > 0 && (
-                <p className="mt-1.5 text-xs text-gray-400">
+                <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
                   已选 {selectedAgents.length} 个角色
                 </p>
               )}
@@ -317,7 +317,7 @@ export const ScriptStudioPage = () => {
         {/* 右侧输出区 */}
         <Card className="flex min-h-[400px] flex-col">
           {error && (
-            <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600">
+            <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
               {error}
             </div>
           )}
@@ -333,7 +333,7 @@ export const ScriptStudioPage = () => {
               {/* 流式输出 */}
               <div
                 ref={outputRef}
-                className="flex-1 overflow-y-auto whitespace-pre-wrap p-5 text-sm leading-relaxed text-gray-800 scrollbar-thin"
+                className="flex-1 overflow-y-auto whitespace-pre-wrap p-5 text-sm leading-relaxed text-gray-800 dark:text-gray-200 scrollbar-thin"
               >
                 {fullText}
                 {streaming && (
@@ -343,14 +343,14 @@ export const ScriptStudioPage = () => {
 
               {/* 底部操作栏 */}
               {done && fullText && !streaming && (
-                <div className="flex items-center gap-2 border-t border-gray-100 px-5 py-3">
+                <div className="flex items-center gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-800">
                   <Button size="sm" variant="outline" onClick={handleCopy}>
                     复制
                   </Button>
                   <Button size="sm" variant="outline" onClick={handleDownload}>
                     下载 txt
                   </Button>
-                  <span className="ml-auto text-xs text-gray-400">
+                  <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
                     共 {fullText.length} 字
                   </span>
                 </div>

@@ -190,7 +190,7 @@ export function ProfilePage() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">个人中心</h1>
+      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-gray-100">个人中心</h1>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* 左列：用户信息 */}
@@ -205,10 +205,10 @@ export function ProfilePage() {
                   {(profile.nickname || user.email || 'U').charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <h2 className="mt-3 text-lg font-bold text-gray-900">
+              <h2 className="mt-3 text-lg font-bold text-gray-900 dark:text-gray-100">
                 {profile.nickname || '未设置昵称'}
               </h2>
-              <p className="mt-0.5 text-sm text-gray-500">{user.email}</p>
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
               <div className="mt-3 flex items-center gap-2">
                 <Badge variant={profile.role === 'admin' ? 'default' : 'default'}>
                   {profile.role === 'admin' ? '管理员' : '普通用户'}
@@ -217,10 +217,10 @@ export function ProfilePage() {
               </div>
             </div>
 
-            <div className="mt-5 space-y-2 border-t border-gray-100 pt-4 text-sm">
+            <div className="mt-5 space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-800">
               <div className="flex justify-between">
-                <span className="text-gray-500">注册时间</span>
-                <span className="text-gray-700">
+                <span className="text-gray-500 dark:text-gray-400">注册时间</span>
+                <span className="text-gray-700 dark:text-gray-300">
                   {formatDateTime(profileMeta.created_at)}
                 </span>
               </div>
@@ -239,7 +239,7 @@ export function ProfilePage() {
                 variant="ghost"
                 size="sm"
                 onClick={handleSignOut}
-                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
               >
                 登出
               </Button>
@@ -252,9 +252,9 @@ export function ProfilePage() {
           {/* 我的收藏 */}
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">我的收藏</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">我的收藏</h2>
               {favorites.length > 0 && (
-                <span className="text-sm text-gray-500">{favorites.length} 个</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{favorites.length} 个</span>
               )}
             </div>
             {favoritesLoading ? (
@@ -283,9 +283,9 @@ export function ProfilePage() {
           {/* 对话历史 */}
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">对话历史</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">对话历史</h2>
               {conversations.length > 0 && (
-                <span className="text-sm text-gray-500">{conversations.length} 个</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{conversations.length} 个</span>
               )}
             </div>
             {convLoading ? (
@@ -314,9 +314,9 @@ export function ProfilePage() {
           {/* 我的作品 */}
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">我的作品</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">我的作品</h2>
               {works.length > 0 && (
-                <span className="text-sm text-gray-500">{works.length} 件</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{works.length} 件</span>
               )}
             </div>
             {worksLoading ? (
@@ -365,7 +365,7 @@ export function ProfilePage() {
               autoFocus
             />
             {nicknameError && (
-              <p className="text-sm text-red-600">{nicknameError}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">{nicknameError}</p>
             )}
           </div>
           <DialogFooter>
@@ -396,7 +396,7 @@ function FavoriteItem({ favorite }: { favorite: AgentFavorite }) {
 
   return (
     <Link to={`/chat/${favorite.agent_id}`} className="group block">
-      <div className="flex items-start gap-3 rounded-xl p-3 transition-transform duration-300 ease-out hover:scale-[1.02] hover:bg-gray-50">
+      <div className="flex items-start gap-3 rounded-xl p-3 transition-transform duration-300 ease-out hover:scale-[1.02] hover:bg-gray-50 dark:hover:bg-gray-800/50">
         {/* 头像：官方用 CSS 渐变，自定义用通用金黄 */}
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
@@ -410,12 +410,12 @@ function FavoriteItem({ favorite }: { favorite: AgentFavorite }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-sm font-medium text-gray-900">{name}</h3>
+            <h3 className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{name}</h3>
             <Badge variant={isOfficial ? 'default' : 'default'}>
               {isOfficial ? '官方' : '自定义'}
             </Badge>
           </div>
-          {title && <p className="mt-0.5 truncate text-xs text-gray-500">{title}</p>}
+          {title && <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{title}</p>}
         </div>
       </div>
     </Link>
@@ -429,11 +429,11 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
   return (
     <Link
       to={`/chat/${conversation.agent_id}?cid=${conversation.id}`}
-      className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-transform duration-300 ease-out hover:scale-[1.01] hover:bg-gray-50"
+      className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-transform duration-300 ease-out hover:scale-[1.01] hover:bg-gray-50 dark:hover:bg-gray-800/50"
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-900">{title}</p>
-        <p className="mt-0.5 text-xs text-gray-500">
+        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{title}</p>
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
           更新于 {formatRelativeTime(conversation.updated_at)}
         </p>
       </div>
@@ -460,11 +460,11 @@ function WorkItem({ work }: { work: CreativeWork }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Badge variant="default">{WORK_TYPE_LABEL[work.type]}</Badge>
-          <span className="truncate text-sm font-medium text-gray-900">
+          <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
             {work.title || '未命名作品'}
           </span>
         </div>
-        <p className="mt-0.5 text-xs text-gray-500">
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
           创建于 {formatRelativeTime(work.created_at)}
         </p>
       </div>

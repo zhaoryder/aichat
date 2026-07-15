@@ -92,8 +92,8 @@ export const RoomsListPage = () => {
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
       {/* 头部 */}
       <header className="mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-900">联机共聊房间</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">联机共聊房间</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           创建或加入房间，和好友一起与 AI 共聊
         </p>
       </header>
@@ -192,7 +192,7 @@ function RoomCard({
   return (
     <Card className="hover-lift flex flex-col p-5">
       <div className="mb-3 flex items-start justify-between gap-2">
-        <h3 className="font-bold text-gray-900">{room.name}</h3>
+        <h3 className="font-bold text-gray-900 dark:text-gray-100">{room.name}</h3>
         {room.status === 'closed' && (
           <Badge variant="secondary">已关闭</Badge>
         )}
@@ -208,17 +208,17 @@ function RoomCard({
             {agent.name.trim().charAt(0).toUpperCase() || '?'}
           </span>
         )}
-        <span className="truncate text-sm text-gray-600">
+        <span className="truncate text-sm text-gray-600 dark:text-gray-400">
           {agent?.name ?? '未知智能体'}
         </span>
       </div>
 
-      <div className="mb-4 flex items-center gap-3 text-xs text-gray-400">
+      <div className="mb-4 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
         <span className="inline-flex items-center gap-1">
           <Users className="h-3 w-3" />
           {isHost ? '房主已就位' : '公开'}
         </span>
-        <span className="text-gray-300">·</span>
+        <span className="text-gray-300 dark:text-gray-600">·</span>
         <span>{formatRelativeTime(room.created_at)}</span>
       </div>
 
@@ -318,7 +318,7 @@ function CreateRoomDialog({ open, onClose, onCreated }: CreateRoomDialogProps) {
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               房间名称
             </label>
             <Input
@@ -330,7 +330,7 @@ function CreateRoomDialog({ open, onClose, onCreated }: CreateRoomDialogProps) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               选择智能体
             </label>
             {agents.length === 0 ? (
@@ -369,7 +369,7 @@ function CreateRoomDialog({ open, onClose, onCreated }: CreateRoomDialogProps) {
                         >
                           {a.name.trim().charAt(0).toUpperCase() || '?'}
                         </span>
-                        <span className="truncate text-sm text-gray-700">
+                        <span className="truncate text-sm text-gray-700 dark:text-gray-300">
                           {a.name}
                         </span>
                       </label>
@@ -380,13 +380,13 @@ function CreateRoomDialog({ open, onClose, onCreated }: CreateRoomDialogProps) {
             )}
           </div>
           {submitting && (
-            <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500">
+            <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500 dark:text-gray-400">
               <Spinner size="sm" />
               正在创建房间…
             </div>
           )}
           {error && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
               {error}
             </p>
           )}

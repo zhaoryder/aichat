@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 type VideoPhase = 'idle' | 'submitting' | 'pending' | 'processing' | 'success' | 'failed' | 'timeout'
 
 const POLL_INTERVAL = 10000 // 10 秒（减少请求次数避免 429）
-const TIMEOUT_MS = 10 * 60 * 1000 // 10 分钟（CogVideoX-3 生成 10 秒视频可能需 3-5 分钟）
+const TIMEOUT_MS = 10 * 60 * 1000 // 10 分钟（Agnes Video 生成 10 秒视频可能需 3-5 分钟）
 
 // 状态文案
 const PHASE_TEXT: Record<VideoPhase, string> = {
@@ -145,6 +145,7 @@ export const VideoStudioPage = () => {
       const res = await apiFetch<{ taskId: string }>('/studio/video/create', {
         method: 'POST',
         body: JSON.stringify({ prompt: trimmed, style: style.trim(), duration }),
+        timeoutMs: 90000, // 视频提交需要更长时间（后端 429 自动重试 3 次约 4 秒）
       })
       const taskId = res.taskId
       if (!taskId) {
@@ -160,7 +161,7 @@ export const VideoStudioPage = () => {
       timerRef.current = setInterval(() => pollOnce(taskId), POLL_INTERVAL)
     } catch (err) {
       const raw = err instanceof Error ? err.message : '提交任务失败'
-      // 429 友好提示：智谱 CogVideoX 免费额度有限
+      // 429 友好提示：Agnes Video 免费额度有限
       const friendly =
         /429|too many requests|繁忙|限流/i.test(raw)
           ? '视频生成服务繁忙（免费额度有限），请稍后重试'
@@ -184,11 +185,11 @@ export const VideoStudioPage = () => {
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6">
-        <Link to="/studio" className="text-sm text-gray-500 hover:text-primary">
+        <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">
           ← 返回创意工坊
         </Link>
-        <h1 className="mt-2 text-3xl font-extrabold text-gray-900">搞笑视频</h1>
-        <p className="mt-1 text-sm text-gray-500">用 AI 生成一段搞笑短视频</p>
+        <h1 className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-gray-100">搞笑视频</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">用 AI 生成一段搞笑短视频</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[320px_1fr] lg:grid-cols-[360px_1fr]">
@@ -196,8 +197,8 @@ export const VideoStudioPage = () => {
         <Card className="h-fit p-5">
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                主题 <span className="text-red-500">*</span>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                主题 <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <Input
                 value={prompt}
@@ -215,7 +216,7 @@ export const VideoStudioPage = () => {
               disabled={isWorking}
             />
             <div>
-              <span className="mb-1.5 block text-sm font-medium text-gray-700">时长</span>
+              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">时长</span>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -225,7 +226,7 @@ export const VideoStudioPage = () => {
                     'flex-1 rounded-lg border px-3 py-2 text-sm transition-all',
                     duration === 5
                       ? 'border-primary bg-primary/10 text-primary font-medium'
-                      : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                      : 'border-gray-300 text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500'
                   )}
                 >
                   5 秒
@@ -238,13 +239,13 @@ export const VideoStudioPage = () => {
                     'flex-1 rounded-lg border px-3 py-2 text-sm transition-all',
                     duration === 10
                       ? 'border-primary bg-primary/10 text-primary font-medium'
-                      : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                      : 'border-gray-300 text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500'
                   )}
                 >
                   10 秒
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-400">含 AI 音效，429 时自动重试</p>
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">含 AI 音效，429 时自动重试</p>
             </div>
             <Button
               className="w-full transition-transform duration-300 ease-out hover:scale-[1.02]"
@@ -267,7 +268,7 @@ export const VideoStudioPage = () => {
           ) : isWorking ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
               <Spinner className="h-10 w-10" />
-              <p className="text-sm font-medium text-gray-700">{PHASE_TEXT[phase]}</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{PHASE_TEXT[phase]}</p>
               {/* 分阶段进度条：提交中 → 排队中 → 生成中 → 完成 */}
               <div className="flex w-full max-w-md items-start">
                 {STAGES.map((stage, i) => {
@@ -281,7 +282,7 @@ export const VideoStudioPage = () => {
                         <div
                           className={cn(
                             'h-0.5 flex-1',
-                            i === 0 ? 'bg-transparent' : reached ? 'bg-primary' : 'bg-gray-200',
+                            i === 0 ? 'bg-transparent' : reached ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700',
                           )}
                         />
                         {/* 圆点 */}
@@ -292,7 +293,7 @@ export const VideoStudioPage = () => {
                               ? 'animate-pulse bg-primary ring-4 ring-primary/20'
                               : reached
                                 ? 'bg-green-500'
-                                : 'bg-gray-300',
+                                : 'bg-gray-300 dark:bg-gray-600',
                           )}
                         />
                         {/* 右侧连线 */}
@@ -303,7 +304,7 @@ export const VideoStudioPage = () => {
                               ? 'bg-transparent'
                               : i < currentStage
                                 ? 'bg-primary'
-                                : 'bg-gray-200',
+                                : 'bg-gray-200 dark:bg-gray-700',
                           )}
                         />
                       </div>
@@ -313,8 +314,8 @@ export const VideoStudioPage = () => {
                           isCurrent
                             ? 'font-medium text-primary'
                             : reached
-                              ? 'text-green-600'
-                              : 'text-gray-400',
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-gray-400 dark:text-gray-500',
                         )}
                       >
                         {stage}
@@ -323,7 +324,7 @@ export const VideoStudioPage = () => {
                   )
                 })}
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400 dark:text-gray-500">
                 已等待 {Math.floor(elapsedSec / 60)}分{elapsedSec % 60}秒 · 通常 3-5 分钟 · 每 10 秒自动刷新
               </p>
             </div>
@@ -331,7 +332,7 @@ export const VideoStudioPage = () => {
             <div className="flex flex-1 flex-col p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Badge variant="default">已完成</Badge>
-                <span className="text-sm text-gray-500">视频已生成，可播放或下载</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">视频已生成，可播放或下载</span>
               </div>
               <video
                 src={videoUrl}
@@ -360,15 +361,15 @@ export const VideoStudioPage = () => {
           ) : (
             // failed / timeout
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500 dark:bg-red-950/40 dark:text-red-400">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {phase === 'timeout' ? '生成超时（超过 10 分钟，AI 视频生成确实较慢）' : '生成失败'}
               </p>
-              {error && <p className="max-w-sm text-xs text-gray-500">{error}</p>}
+              {error && <p className="max-w-sm text-xs text-gray-500 dark:text-gray-400">{error}</p>}
               <Button size="sm" onClick={handleRetry}>
                 重试
               </Button>

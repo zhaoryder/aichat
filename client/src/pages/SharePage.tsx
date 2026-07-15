@@ -98,7 +98,7 @@ export function SharePage() {
   // 加载中
   if (status === 'loading') {
     return (
-      <div className="flex min-h-dvh flex-col bg-gray-50">
+      <div className="flex min-h-dvh flex-col bg-gray-50 dark:bg-gray-950">
         <SimpleHeader />
         <div className="flex flex-1 items-center justify-center">
           <Spinner size="lg" />
@@ -110,7 +110,7 @@ export function SharePage() {
   // 错误
   if (status === 'error' || !share) {
     return (
-      <div className="flex min-h-dvh flex-col bg-gray-50">
+      <div className="flex min-h-dvh flex-col bg-gray-50 dark:bg-gray-950">
         <SimpleHeader />
         <div className="flex flex-1 items-center justify-center px-4">
           <EmptyState
@@ -128,7 +128,7 @@ export function SharePage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-gray-50">
+    <div className="flex min-h-dvh flex-col bg-gray-50 dark:bg-gray-950">
       {/* 简单顶部条（不带主布局 Navbar） */}
       <SimpleHeader />
 
@@ -140,7 +140,7 @@ export function SharePage() {
             <h1 className="bg-gradient-to-r from-primary via-amber-400 to-orange-500 bg-clip-text text-2xl font-extrabold text-transparent sm:text-3xl">
               这是一份 AI 搞笑对话分享
             </h1>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               创建于 {formatCreatedAt(share.created_at)}
             </p>
           </header>
@@ -155,11 +155,11 @@ export function SharePage() {
           </div>
 
           {/* 底部 CTA */}
-          <footer className="mt-12 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">
+          <footer className="mt-12 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
               来 AI 搞笑工坊创建你的对话
             </h2>
-            <p className="mt-1.5 text-sm text-gray-500">
+            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
               和孔子、马斯克、林黛玉等 17 位 AI 角色畅聊
             </p>
             <div className="mt-4 flex justify-center gap-3">
@@ -184,7 +184,7 @@ export function SharePage() {
 /** 简单顶部条：仅 logo + 回首页 */
 function SimpleHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
       <nav className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
         <Link
           to="/"
@@ -216,7 +216,7 @@ function MessageBubble({ message }: { message: Message }) {
             'whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
             isUser
               ? 'bg-primary text-black'
-              : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100',
+              : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100 dark:bg-gray-800 dark:text-gray-100 dark:ring-gray-700',
           )}
         >
           {message.content}

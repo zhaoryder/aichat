@@ -376,7 +376,7 @@ export const RoomPage = () => {
   if (!room) {
     return (
       <div className="flex h-[calc(100dvh-4rem)] flex-col items-center justify-center gap-3 text-center">
-        <p className="text-base text-gray-700">房间不存在或已关闭</p>
+        <p className="text-base text-gray-700 dark:text-gray-300">房间不存在或已关闭</p>
         <Button asChild variant="outline">
           <Link to="/rooms">返回房间列表</Link>
         </Button>
@@ -388,18 +388,18 @@ export const RoomPage = () => {
   const roomClosed = room.status === 'closed'
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col bg-gray-50 lg:flex-row">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col bg-gray-50 dark:bg-gray-950 lg:flex-row">
       {/* 左侧：参与者列表 */}
-      <aside className="shrink-0 border-b border-gray-200 bg-white lg:w-1/4 lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
-          <Users className="h-4 w-4 text-gray-500" />
-          <h2 className="text-sm font-semibold text-gray-900">
+      <aside className="shrink-0 border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:w-1/4 lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+          <Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             参与者 ({participants.length})
           </h2>
         </div>
         <div className="max-h-48 overflow-y-auto p-2 scrollbar-thin lg:max-h-[calc(100dvh-12rem)]">
           {participants.length === 0 ? (
-            <p className="py-4 text-center text-xs text-gray-400">
+            <p className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">
               暂无其他参与者
             </p>
           ) : (
@@ -414,10 +414,10 @@ export const RoomPage = () => {
                   >
                     <UserAvatar userId={p.user_id} size="sm" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900">
+                      <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                         {isSelf ? '你' : p.user_id.slice(0, 8)}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
                         {formatRelativeTime(p.joined_at)}
                       </p>
                     </div>
@@ -428,7 +428,7 @@ export const RoomPage = () => {
                       <button
                         type="button"
                         onClick={() => handleKick(p.user_id)}
-                        className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                        className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                         title="踢出"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -445,11 +445,11 @@ export const RoomPage = () => {
       {/* 中间：消息流 + 输入框 */}
       <main className="flex min-h-0 flex-1 flex-col lg:w-1/2">
         {/* 顶部房间信息 */}
-        <header className="shrink-0 border-b border-gray-200 bg-white/90 backdrop-blur">
+        <header className="shrink-0 border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
           <div className="flex items-center gap-3 px-4 py-3">
             <Link
               to="/rooms"
-              className="inline-flex size-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-muted hover:text-gray-900"
+              className="inline-flex size-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-muted hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
               aria-label="返回房间列表"
             >
               <svg
@@ -469,13 +469,13 @@ export const RoomPage = () => {
             </Link>
             {agent && <AgentAvatar agent={agent} size="sm" />}
             <div className="min-w-0 flex-1">
-              <h1 className="truncate font-bold text-gray-900">{room.name}</h1>
-              <p className="truncate text-xs text-gray-500">
+              <h1 className="truncate font-bold text-gray-900 dark:text-gray-100">{room.name}</h1>
+              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                 {agent?.name ?? '智能体'} · {participants.length} 人在线
               </p>
             </div>
             {roomClosed && (
-              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500">
+              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                 已关闭
               </span>
             )}
@@ -484,7 +484,7 @@ export const RoomPage = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleCloseRoom}
-                className="gap-1 text-red-500 hover:bg-red-50 hover:text-red-600"
+                className="gap-1 text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">关闭房间</span>
@@ -495,7 +495,7 @@ export const RoomPage = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleLeave}
-                className="gap-1 text-gray-500 hover:bg-muted"
+                className="gap-1 text-gray-500 hover:bg-muted dark:text-gray-400"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">离开</span>
@@ -516,7 +516,7 @@ export const RoomPage = () => {
                 <Spinner size="md" />
               </div>
             ) : messages.length === 0 ? (
-              <div className="py-12 text-center text-sm text-gray-400">
+              <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">
                 还没有消息，来打个招呼吧！
               </div>
             ) : (
@@ -535,7 +535,7 @@ export const RoomPage = () => {
 
         {/* 输入区 */}
         {!roomClosed && (
-          <footer className="shrink-0 border-t border-gray-200 bg-white/90 backdrop-blur">
+          <footer className="shrink-0 border-t border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
             <div className="mx-auto max-w-2xl px-4 py-3">
               <div className="flex items-end gap-2">
                 <Textarea
@@ -568,7 +568,7 @@ export const RoomPage = () => {
                   <span className="hidden sm:inline ml-1">发送</span>
                 </Button>
               </div>
-              <p className="mt-1 text-center text-xs text-gray-400">
+              <p className="mt-1 text-center text-xs text-gray-400 dark:text-gray-500">
                 按 Enter 发送 · Shift + Enter 换行
               </p>
             </div>
@@ -576,8 +576,8 @@ export const RoomPage = () => {
         )}
 
         {roomClosed && (
-          <footer className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-4 text-center">
-            <p className="text-sm text-gray-500">房间已关闭，无法发送消息</p>
+          <footer className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-4 text-center dark:border-gray-800 dark:bg-gray-900/50">
+            <p className="text-sm text-gray-500 dark:text-gray-400">房间已关闭，无法发送消息</p>
             <Button asChild variant="outline" size="sm" className="mt-2">
               <Link to="/rooms">返回房间列表</Link>
             </Button>
@@ -586,8 +586,8 @@ export const RoomPage = () => {
       </main>
 
       {/* 右侧：网页工程同步预览（简化版空状态） */}
-      <aside className="hidden w-1/4 shrink-0 border-l border-gray-200 bg-white lg:block">
-        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
+      <aside className="hidden w-1/4 shrink-0 border-l border-gray-200 bg-white lg:block dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
           <svg
             width="16"
             height="16"
@@ -599,7 +599,7 @@ export const RoomPage = () => {
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <path d="M3 9h18M9 21V9" strokeLinecap="round" />
           </svg>
-          <h2 className="text-sm font-semibold text-gray-900">共享预览</h2>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">共享预览</h2>
         </div>
         <div className="flex h-[calc(100%-3rem)] items-center justify-center p-4">
           <EmptyState
@@ -648,7 +648,7 @@ function MessageBubble({
           {agent ? (
             <AgentAvatar agent={agent} size="sm" />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-300 text-xs font-bold text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-300 text-xs font-bold text-white dark:bg-gray-700">
               ?
             </div>
           )}
@@ -662,7 +662,7 @@ function MessageBubble({
         )}
       >
         {!isUser && (
-          <span className="mb-0.5 px-1 text-xs font-medium text-gray-500">
+          <span className="mb-0.5 px-1 text-xs font-medium text-gray-500 dark:text-gray-400">
             {agent?.name ?? 'AI'}
             {isStreaming && (
               <span className="ml-1 text-primary">正在打字…</span>
@@ -674,7 +674,7 @@ function MessageBubble({
             'whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
             isSelf
               ? 'bg-primary text-black'
-              : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100',
+              : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100 dark:bg-gray-800 dark:text-gray-100 dark:ring-gray-700',
           )}
         >
           {showTypingDots ? (
@@ -682,7 +682,7 @@ function MessageBubble({
               {[0, 150, 300].map((delay) => (
                 <span
                   key={delay}
-                  className="animate-bounce-dot inline-block size-2 rounded-full bg-gray-400"
+                  className="animate-bounce-dot inline-block size-2 rounded-full bg-gray-400 dark:bg-gray-500"
                   style={{ animationDelay: `${delay}ms` }}
                 />
               ))}
@@ -696,7 +696,7 @@ function MessageBubble({
             </>
           )}
         </div>
-        <span className="mt-0.5 px-1 text-xs text-gray-400">
+        <span className="mt-0.5 px-1 text-xs text-gray-400 dark:text-gray-500">
           {formatRelativeTime(message.created_at)}
         </span>
       </div>

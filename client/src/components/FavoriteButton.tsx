@@ -63,7 +63,7 @@ export function FavoriteButton({
         sizeClass,
         favorited
           ? 'text-primary'
-          : 'text-gray-400 hover:bg-muted hover:text-gray-700',
+          : 'text-gray-400 hover:bg-muted hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300',
         className,
       )}
     >

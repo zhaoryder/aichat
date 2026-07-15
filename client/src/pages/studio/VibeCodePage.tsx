@@ -237,11 +237,11 @@ const WebSearchToolUI = makeAssistantToolUI<{ query: string }, WebSearchResult>(
     }
     if (isError) {
       const err = result as { error?: string } | null
-      return <p className="text-xs text-red-500 my-1">搜索失败：{err?.error ?? '未知错误'}</p>
+      return <p className="text-xs text-red-500 dark:text-red-400 my-1">搜索失败：{err?.error ?? '未知错误'}</p>
     }
     const results = result as WebSearchResult
     if (!Array.isArray(results) || results.length === 0) {
-      return <p className="text-xs text-gray-500 my-1">未找到搜索结果</p>
+      return <p className="text-xs text-gray-500 dark:text-gray-400 my-1">未找到搜索结果</p>
     }
     return (
       <div className="my-2 space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-2">
@@ -255,14 +255,14 @@ const WebSearchToolUI = makeAssistantToolUI<{ query: string }, WebSearchResult>(
             href={r.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-md bg-white px-2 py-1 text-xs transition-transform hover:scale-[1.01]"
+            className="block rounded-md bg-white dark:bg-gray-900 px-2 py-1 text-xs transition-transform hover:scale-[1.01]"
           >
             <div className="flex items-center gap-1">
               <ExternalLink className="h-2.5 w-2.5" />
-              <span className="font-medium text-gray-700">{r.title}</span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">{r.title}</span>
             </div>
             {r.snippet && (
-              <p className="mt-0.5 line-clamp-2 text-gray-500">{r.snippet}</p>
+              <p className="mt-0.5 line-clamp-2 text-gray-500 dark:text-gray-400">{r.snippet}</p>
             )}
           </a>
         ))}
@@ -276,26 +276,26 @@ const GenerateImageToolUI = makeAssistantToolUI<{ prompt: string }, { url: strin
   render: ({ args, result, isError }) => {
     if (result === undefined) {
       return (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 my-2 text-sm">
-          <ImageIcon className="h-4 w-4 text-amber-500" />
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/50 px-3 py-2 my-2 text-sm">
+          <ImageIcon className="h-4 w-4 text-amber-500 dark:text-amber-400" />
           <span>生成图片：{args?.prompt}</span>
-          <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
+          <Loader2 className="h-3 w-3 animate-spin text-amber-500 dark:text-amber-400" />
         </div>
       )
     }
     if (isError) {
-      return <p className="text-xs text-red-500 my-1">图片生成失败</p>
+      return <p className="text-xs text-red-500 dark:text-red-400 my-1">图片生成失败</p>
     }
     const r = result as { url: string; prompt: string }
     return (
-      <div className="my-2 inline-block rounded-lg border border-amber-200 bg-amber-50 p-2">
+      <div className="my-2 inline-block rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/50 p-2">
         <img
           src={r.url}
           alt={r.prompt}
           className="max-w-xs rounded-md"
           loading="lazy"
         />
-        <p className="mt-1 text-xs text-amber-700">{r.prompt}</p>
+        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">{r.prompt}</p>
       </div>
     )
   },
@@ -309,24 +309,24 @@ const GenerateVideoToolUI = makeAssistantToolUI<
   render: ({ args, result, isError }) => {
     if (result === undefined) {
       return (
-        <div className="flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 my-2 text-sm">
-          <Video className="h-4 w-4 text-purple-500" />
+        <div className="flex items-center gap-2 rounded-lg border border-purple-200 dark:border-purple-900/50 bg-purple-50 dark:bg-purple-950/40 px-3 py-2 my-2 text-sm">
+          <Video className="h-4 w-4 text-purple-500 dark:text-purple-400" />
           <span>生成视频：{args?.prompt}（{args?.duration ?? 5}s）</span>
-          <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
+          <Loader2 className="h-3 w-3 animate-spin text-purple-500 dark:text-purple-400" />
         </div>
       )
     }
     if (isError) {
-      return <p className="text-xs text-red-500 my-1">视频生成失败</p>
+      return <p className="text-xs text-red-500 dark:text-red-400 my-1">视频生成失败</p>
     }
     const r = result as { taskId: string; prompt: string; duration: number }
     return (
-      <div className="my-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-700">
+      <div className="my-2 rounded-lg border border-purple-200 dark:border-purple-900/50 bg-purple-50 dark:bg-purple-950/40 px-3 py-2 text-xs text-purple-700 dark:text-purple-300">
         <div className="flex items-center gap-1.5 font-medium">
           <Video className="h-3 w-3" />
           视频任务已提交
         </div>
-        <div className="mt-1 text-purple-600">
+        <div className="mt-1 text-purple-600 dark:text-purple-400">
           Task ID: {r.taskId} · {r.duration} 秒
         </div>
       </div>
@@ -342,7 +342,7 @@ const WriteFileToolUI = makeAssistantToolUI<
   render: ({ args, result, isError }) => {
     if (result === undefined) {
       return (
-        <div className="my-2 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+        <div className="my-2 flex items-center gap-2 rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1.5 text-xs text-emerald-700 dark:text-emerald-300">
           <FileText className="h-3.5 w-3.5" />
           <span>正在写入：{args?.path ?? 'index.html'}</span>
           <Loader2 className="h-3 w-3 animate-spin" />
@@ -350,11 +350,11 @@ const WriteFileToolUI = makeAssistantToolUI<
       )
     }
     if (isError) {
-      return <p className="text-xs text-red-500 my-1">写入失败：{args?.path}</p>
+      return <p className="text-xs text-red-500 dark:text-red-400 my-1">写入失败：{args?.path}</p>
     }
     const r = result as { success: boolean; path: string; size: number }
     return (
-      <div className="my-2 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+      <div className="my-2 flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1.5 text-xs text-emerald-700 dark:text-emerald-300">
         <FileText className="h-3.5 w-3.5" />
         已写入 {r.path}（{r.size} 字符）
       </div>
@@ -370,7 +370,7 @@ const ReadFileToolUI = makeAssistantToolUI<
   render: ({ args, result }) => {
     if (result === undefined) {
       return (
-        <div className="my-2 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
+        <div className="my-2 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400">
           <FileText className="h-3.5 w-3.5" />
           读取文件：{args?.path}
           <Loader2 className="h-3 w-3 animate-spin" />
@@ -379,7 +379,7 @@ const ReadFileToolUI = makeAssistantToolUI<
     }
     const r = result as { success: boolean; path: string; content?: string; error?: string }
     return (
-      <div className="my-2 rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-700">
+      <div className="my-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300">
         {r.success ? `读取 ${r.path}（${r.content?.length ?? 0} 字符）` : `读取失败：${r.error}`}
       </div>
     )
@@ -394,7 +394,7 @@ const ExecuteCodeToolUI = makeAssistantToolUI<
   render: ({ result }) => {
     if (result === undefined) {
       return (
-        <div className="my-2 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs text-indigo-700">
+        <div className="my-2 flex items-center gap-2 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 text-xs text-indigo-700 dark:text-indigo-300">
           <Terminal className="h-3.5 w-3.5" />
           执行代码...
           <Loader2 className="h-3 w-3 animate-spin" />
@@ -403,17 +403,17 @@ const ExecuteCodeToolUI = makeAssistantToolUI<
     }
     const r = result as { success: boolean; result?: string; error?: string }
     return (
-      <div className="my-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs">
-        <div className="flex items-center gap-1.5 font-medium text-indigo-700">
+      <div className="my-2 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-2 text-xs">
+        <div className="flex items-center gap-1.5 font-medium text-indigo-700 dark:text-indigo-300">
           <Terminal className="h-3 w-3" />
           {r.success ? '代码执行结果' : '执行失败'}
         </div>
         {r.success ? (
-          <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-indigo-900">
+          <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-indigo-900 dark:text-indigo-100">
             {r.result?.slice(0, 500)}
           </pre>
         ) : (
-          <p className="mt-1 text-red-600">{r.error}</p>
+          <p className="mt-1 text-red-600 dark:text-red-400">{r.error}</p>
         )}
       </div>
     )
@@ -435,22 +435,22 @@ function CodeArea({
 }) {
   const hasCode = code.length > 0
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
-        <span className="text-xs font-medium text-gray-500">代码</span>
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-3 py-2">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">代码</span>
         {streaming ? (
-          <span className="flex items-center gap-1.5 text-xs text-amber-500">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+          <span className="flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500 dark:bg-amber-400" />
             生成中…
           </span>
         ) : hasCode ? (
-          <span className="text-xs text-gray-400">{code.length} 字符</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{code.length} 字符</span>
         ) : null}
       </div>
       {hasCode ? (
         <pre
           ref={codeRef}
-          className="flex-1 overflow-auto bg-gray-50 p-3 font-mono text-xs leading-5 text-gray-800 scrollbar-thin"
+          className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-800/50 p-3 font-mono text-xs leading-5 text-gray-800 dark:text-gray-200 scrollbar-thin"
         >
           <code>{code}</code>
           {streaming && (
@@ -478,10 +478,10 @@ function PreviewArea({
   hasCode: boolean
 }) {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
-        <span className="text-xs font-medium text-gray-500">预览</span>
-        {hasCode && <span className="text-xs text-gray-400">iframe srcDoc</span>}
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-3 py-2">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">预览</span>
+        {hasCode && <span className="text-xs text-gray-400 dark:text-gray-500">iframe srcDoc</span>}
       </div>
       {hasCode ? (
         <iframe
@@ -489,7 +489,7 @@ function PreviewArea({
           title="vibe-code-preview"
           srcDoc={srcDoc}
           sandbox="allow-scripts allow-modals"
-          className="flex-1 w-full border-0 bg-white"
+          className="flex-1 w-full border-0 bg-white dark:bg-gray-900"
         />
       ) : (
         <EmptyState
@@ -536,13 +536,13 @@ function AssistantMessage() {
         <Sparkles className="h-3.5 w-3.5" />
       </div>
       <div className="flex max-w-[80%] flex-col items-start">
-        <div className="break-words rounded-2xl bg-white px-3 py-2 text-sm leading-relaxed text-gray-900 shadow-sm ring-1 ring-gray-100">
+        <div className="break-words rounded-2xl bg-white dark:bg-gray-900 px-3 py-2 text-sm leading-relaxed text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-gray-100 dark:ring-gray-800">
           {showTypingDots ? (
             <div className="flex items-center gap-1">
               {[0, 150, 300].map((delay) => (
                 <span
                   key={delay}
-                  className="animate-bounce-dot inline-block size-2 rounded-full bg-gray-400"
+                  className="animate-bounce-dot inline-block size-2 rounded-full bg-gray-400 dark:bg-gray-500"
                   style={{ animationDelay: `${delay}ms` }}
                 />
               ))}
@@ -569,7 +569,7 @@ function VibeComposer({
   const [value, setValue] = useState('')
 
   return (
-    <ComposerPrimitive.Root className="flex flex-col gap-2 border-t border-gray-100 p-3">
+    <ComposerPrimitive.Root className="flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800 p-3">
       <ComposerPrimitive.Input
         asChild
         value={value}
@@ -586,7 +586,7 @@ function VibeComposer({
           placeholder="描述你想要的页面或功能，AI 会自动调用工具生成代码..."
           disabled={disabled}
           rows={3}
-          className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
         />
       </ComposerPrimitive.Input>
       <div className="flex items-center justify-between">
@@ -597,7 +597,7 @@ function VibeComposer({
               type="button"
               onClick={() => setValue(ex)}
               disabled={disabled}
-              className="rounded-full border border-gray-200 px-2.5 py-0.5 text-xs text-gray-500 transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+              className="rounded-full border border-gray-200 dark:border-gray-700 px-2.5 py-0.5 text-xs text-gray-500 dark:text-gray-400 transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
             >
               {ex}
             </button>
@@ -1121,24 +1121,30 @@ export const VibeCodePage = () => {
 
   // ----- assistant-ui 适配器：把 VibeMessage[] 接入 useExternalStoreRuntime -----
   const convertMessage = useCallback(
-    (message: VibeMessage): ThreadMessageLike => ({
-      role: message.role === 'user' ? 'user' : 'assistant',
-      id: message.id,
-      status: message.isStreaming
-        ? { type: 'running' }
-        : { type: 'complete', reason: 'stop' },
-      content: [
-        { type: 'text', text: message.content },
-        ...(message.toolCalls ?? []).map((tc) => ({
-          type: 'tool-call' as const,
-          toolName: tc.name,
-          toolCallId: tc.id,
-          args: tc.args as any,
-          result: tc.result as any,
-          isError: tc.hasError === true,
-        })),
-      ],
-    }),
+    (message: VibeMessage): ThreadMessageLike => {
+      const isAssistant = message.role !== 'user'
+      return {
+        role: isAssistant ? 'assistant' : 'user',
+        id: message.id,
+        // status 仅对 assistant 消息有效，对 user 消息设置会抛 "status is only supported for assistant messages"
+        ...(isAssistant && {
+          status: message.isStreaming
+            ? { type: 'running' }
+            : { type: 'complete', reason: 'stop' },
+        }),
+        content: [
+          { type: 'text', text: message.content },
+          ...(message.toolCalls ?? []).map((tc) => ({
+            type: 'tool-call' as const,
+            toolName: tc.name,
+            toolCallId: tc.id,
+            args: tc.args as any,
+            result: tc.result as any,
+            isError: tc.hasError === true,
+          })),
+        ],
+      }
+    },
     [],
   )
 
@@ -1275,7 +1281,7 @@ export const VibeCodePage = () => {
 
   // ----- 渲染：左侧面板（assistant-ui Thread + 历史项目） -----
   const renderLeftPanel = () => (
-    <div className="flex h-full flex-col overflow-hidden bg-white">
+    <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-gray-900">
       {/* Thread：消息区 + Composer（输入框在底部） */}
       <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ThreadPrimitive.Viewport
@@ -1285,12 +1291,12 @@ export const VibeCodePage = () => {
           <div className="mx-auto max-w-full space-y-3 px-3 py-4">
             <ThreadPrimitive.Empty>
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Bot className="mb-2 h-10 w-10 text-gray-300" />
-                <p className="text-sm font-medium text-gray-700">Vibe Coding Agent</p>
-                <p className="mt-1 text-xs text-gray-400">
+                <Bot className="mb-2 h-10 w-10 text-gray-300 dark:text-gray-600" />
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Vibe Coding Agent</p>
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                   描述需求开始对话，Agent 会自动调用工具
                 </p>
-                <p className="mt-0.5 text-xs text-gray-400">
+                <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                   支持多轮修改、联网搜索、生成图片/视频
                 </p>
               </div>
@@ -1309,15 +1315,15 @@ export const VibeCodePage = () => {
       </ThreadPrimitive.Root>
 
       {/* 历史项目 */}
-      <div className="shrink-0 border-t border-gray-100 p-3 max-h-48 overflow-y-auto scrollbar-thin">
+      <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 p-3 max-h-48 overflow-y-auto scrollbar-thin">
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-gray-600">我的项目</h3>
+          <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400">我的项目</h3>
           {projects.length > 0 && (
-            <span className="text-xs text-gray-400">{projects.length}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{projects.length}</span>
           )}
         </div>
         {!user ? (
-          <p className="py-2 text-center text-xs text-gray-400">
+          <p className="py-2 text-center text-xs text-gray-400 dark:text-gray-500">
             <Link to="/auth/login" className="text-primary hover:underline">
               登录
             </Link>
@@ -1328,7 +1334,7 @@ export const VibeCodePage = () => {
             <Spinner size="sm" />
           </div>
         ) : projects.length === 0 ? (
-          <p className="py-2 text-center text-xs text-gray-400">
+          <p className="py-2 text-center text-xs text-gray-400 dark:text-gray-500">
             还没有项目，生成后点击「保存」
           </p>
         ) : (
@@ -1337,11 +1343,11 @@ export const VibeCodePage = () => {
               <button
                 key={p.id}
                 onClick={() => handleLoadProject(p)}
-                className="block w-full rounded-lg border border-gray-100 px-2.5 py-1.5 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                className="block w-full rounded-lg border border-gray-100 dark:border-gray-800 px-2.5 py-1.5 text-left transition-colors hover:border-primary hover:bg-primary/5"
               >
-                <p className="truncate text-sm font-medium text-gray-800">{p.title}</p>
+                <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{p.title}</p>
                 {p.prompt && (
-                  <p className="mt-0.5 truncate text-xs text-gray-400">{p.prompt}</p>
+                  <p className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-500">{p.prompt}</p>
                 )}
               </button>
             ))}
@@ -1350,23 +1356,23 @@ export const VibeCodePage = () => {
       </div>
 
       {/* 版本历史面板（Task 7.2）—— 折叠式，默认收起 */}
-      <div className="shrink-0 border-t border-gray-100">
+      <div className="shrink-0 border-t border-gray-100 dark:border-gray-800">
         <button
           type="button"
           onClick={() => setHistoryOpen((v) => !v)}
-          className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-gray-50"
+          className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
         >
           <div className="flex items-center gap-1.5">
             {historyOpen ? (
-              <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+              <ChevronDown className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+              <ChevronRight className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
             )}
-            <History className="h-3.5 w-3.5 text-gray-500" />
-            <span className="text-xs font-semibold text-gray-600">版本历史</span>
+            <History className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">版本历史</span>
           </div>
           {snapshots.length > 0 && (
-            <span className="text-xs text-gray-400">{snapshots.length}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{snapshots.length}</span>
           )}
         </button>
 
@@ -1374,7 +1380,7 @@ export const VibeCodePage = () => {
           <div className="max-h-64 overflow-y-auto px-3 pb-3 scrollbar-thin">
             {/* 分支切换器 */}
             <div className="mb-2 flex items-center gap-1.5">
-              <GitBranch className="h-3 w-3 shrink-0 text-gray-400" />
+              <GitBranch className="h-3 w-3 shrink-0 text-gray-400 dark:text-gray-500" />
               <div className="flex flex-wrap gap-1">
                 {branches.map((b) => (
                   <button
@@ -1385,7 +1391,7 @@ export const VibeCodePage = () => {
                       'rounded-full px-2 py-0.5 text-xs transition-colors',
                       currentBranch === b
                         ? 'bg-primary text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700',
                     )}
                   >
                     {b}
@@ -1424,27 +1430,27 @@ export const VibeCodePage = () => {
                 <Spinner size="sm" />
               </div>
             ) : snapshots.length === 0 ? (
-              <p className="py-2 text-center text-xs text-gray-400">
+              <p className="py-2 text-center text-xs text-gray-400 dark:text-gray-500">
                 还没有快照，生成代码后会自动保存
               </p>
             ) : (
               <div className="relative space-y-1.5 pl-3">
                 {/* 时间线竖线 */}
-                <div className="absolute bottom-1 left-1 top-1 w-px bg-gray-200" />
+                <div className="absolute bottom-1 left-1 top-1 w-px bg-gray-200 dark:bg-gray-700" />
                 {snapshots.map((s) => (
                   <div
                     key={s.id}
-                    className="relative rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 transition-colors hover:border-gray-200"
+                    className="relative rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 transition-colors hover:border-gray-200 dark:hover:border-gray-700"
                   >
                     {/* 时间线圆点 */}
-                    <div className="absolute -left-[7px] top-3 h-2 w-2 rounded-full bg-primary ring-2 ring-white" />
+                    <div className="absolute -left-[7px] top-3 h-2 w-2 rounded-full bg-primary ring-2 ring-white dark:ring-gray-900" />
                     <div className="flex items-center justify-between gap-1">
-                      <div className="flex min-w-0 items-center gap-1 text-xs text-gray-500">
+                      <div className="flex min-w-0 items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                         <Clock className="h-3 w-3 shrink-0" />
                         <span className="truncate">{relativeTime(s.created_at)}</span>
                       </div>
                       {s.label && (
-                        <span className="truncate text-xs text-gray-400">
+                        <span className="truncate text-xs text-gray-400 dark:text-gray-500">
                           {s.label}
                         </span>
                       )}
@@ -1455,7 +1461,7 @@ export const VibeCodePage = () => {
                         type="button"
                         onClick={() => handleRestoreSnapshot(s.id)}
                         disabled={isStreaming}
-                        className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-50"
+                        className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary disabled:opacity-50"
                         title="回退到此快照"
                       >
                         <RotateCcw className="h-3 w-3" />
@@ -1465,7 +1471,7 @@ export const VibeCodePage = () => {
                         type="button"
                         onClick={() => handleOpenDiff(s)}
                         disabled={snapshots.length < 2}
-                        className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-50"
+                        className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary disabled:opacity-50"
                         title="与其他快照对比"
                       >
                         <GitCompare className="h-3 w-3" />
@@ -1519,7 +1525,7 @@ export const VibeCodePage = () => {
   const renderToolbar = () => (
     <div className="flex items-center gap-2">
       {/* 视图模式切换（桌面） */}
-      <div className="hidden md:flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5 bg-gray-50">
+      <div className="hidden md:flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 bg-gray-50 dark:bg-gray-800/50">
         {viewModeButtons.map((btn) => (
           <button
             key={btn.mode}
@@ -1529,8 +1535,8 @@ export const VibeCodePage = () => {
             className={cn(
               'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
               viewMode === btn.mode
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-500 hover:text-gray-700',
+                ? 'bg-white dark:bg-gray-900 text-primary shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
             )}
           >
             {btn.icon}
@@ -1545,7 +1551,7 @@ export const VibeCodePage = () => {
         type="button"
         onClick={() => setFullscreen(viewMode === 'code' ? 'code' : 'preview')}
         title="全屏"
-        className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
       >
         <Maximize2 className="h-4 w-4" />
       </button>
@@ -1555,7 +1561,7 @@ export const VibeCodePage = () => {
         type="button"
         onClick={() => setLeftCollapsed((v) => !v)}
         title={leftCollapsed ? '展开左侧' : '收起左侧'}
-        className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
       >
         {leftCollapsed ? (
           <PanelLeftOpen className="h-4 w-4" />
@@ -1623,21 +1629,21 @@ export const VibeCodePage = () => {
       <ReadFileToolUI />
       <ExecuteCodeToolUI />
 
-      <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-gray-50">
+      <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
         {/* 顶部工具栏 */}
-        <header className="shrink-0 border-b border-gray-200 bg-white">
+        <header className="shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
           <div className="flex items-center justify-between gap-2 px-3 py-2">
             <div className="flex items-center gap-2 min-w-0">
               <Link
                 to="/studio"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                 title="返回创意工坊"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Link>
               <div className="min-w-0">
-                <h1 className="truncate text-base font-bold text-gray-900">Vibe 编程</h1>
-                <p className="hidden sm:block text-xs text-gray-500">
+                <h1 className="truncate text-base font-bold text-gray-900 dark:text-gray-100">Vibe 编程</h1>
+                <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400">
                   自然语言 → 可运行代码，AI SDK 流式 + 工具调用
                 </p>
               </div>
@@ -1690,7 +1696,7 @@ export const VibeCodePage = () => {
           {/* 平板/桌面：分栏布局 */}
           <div className="hidden md:flex h-full overflow-hidden">
             {!leftCollapsed && (
-              <aside className="w-[320px] lg:w-[360px] shrink-0 border-r border-gray-200 overflow-hidden">
+              <aside className="w-[320px] lg:w-[360px] shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
                 {renderLeftPanel()}
               </aside>
             )}
@@ -1700,14 +1706,14 @@ export const VibeCodePage = () => {
 
         {/* 全屏覆盖：代码 */}
         {fullscreen === 'code' && (
-          <div className="fixed inset-0 z-50 bg-white">
+          <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950">
             <button
               type="button"
               onClick={() => setFullscreen(null)}
-              className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md bg-white shadow-md ring-1 ring-gray-200 transition-colors hover:bg-gray-50"
+              className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md bg-white dark:bg-gray-900 shadow-md ring-1 ring-gray-200 dark:ring-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
               title="退出全屏 (ESC)"
             >
-              <Minimize2 className="h-4 w-4 text-gray-600" />
+              <Minimize2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
             </button>
             <div className="h-full p-2">
               <CodeArea code={code} streaming={isStreaming} codeRef={codeRef} />
@@ -1717,14 +1723,14 @@ export const VibeCodePage = () => {
 
         {/* 全屏覆盖：预览 */}
         {fullscreen === 'preview' && (
-          <div className="fixed inset-0 z-50 bg-white">
+          <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950">
             <button
               type="button"
               onClick={() => setFullscreen(null)}
-              className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md bg-white shadow-md ring-1 ring-gray-200 transition-colors hover:bg-gray-50"
+              className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md bg-white dark:bg-gray-900 shadow-md ring-1 ring-gray-200 dark:ring-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
               title="退出全屏 (ESC)"
             >
-              <Minimize2 className="h-4 w-4 text-gray-600" />
+              <Minimize2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
             </button>
             <div className="h-full p-2">
               <PreviewArea
@@ -1749,7 +1755,7 @@ export const VibeCodePage = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   标题
                 </label>
                 <Input
@@ -1759,12 +1765,12 @@ export const VibeCodePage = () => {
                   autoFocus
                 />
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input
                   type="checkbox"
                   checked={savePublic}
                   onChange={(e) => setSavePublic(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary"
                 />
                 公开到广场（其他人可见）
               </label>
@@ -1796,11 +1802,11 @@ export const VibeCodePage = () => {
               <DialogTitle>修复代码错误</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 描述运行时遇到的错误，Agent 会基于当前对话上下文修复代码。
               </p>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   错误信息（可选）
                 </label>
                 <textarea
@@ -1808,7 +1814,7 @@ export const VibeCodePage = () => {
                   onChange={(e) => setFixError(e.target.value)}
                   placeholder="例如：点击按钮没反应，控制台报错 xxx is not defined"
                   rows={4}
-                  className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full resize-y rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
             </div>
@@ -1840,14 +1846,14 @@ export const VibeCodePage = () => {
 
             {/* 对比目标选择 */}
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-600">对比：</span>
+              <span className="text-gray-600 dark:text-gray-400">对比：</span>
               <select
                 value={diffCompareId}
                 onChange={(e) => {
                   setDiffCompareId(e.target.value)
                   setDiffData(null)
                 }}
-                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:border-primary focus:outline-none"
+                className="rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-700 dark:text-gray-300 focus:border-primary focus:outline-none"
               >
                 {snapshots
                   .filter((s) => s.id !== diffBaseId)
@@ -1859,9 +1865,9 @@ export const VibeCodePage = () => {
                   ))}
               </select>
               {diffData && (
-                <span className="ml-auto text-xs text-gray-400">
-                  <span className="text-green-600">+{diffData.added.length}</span>{' '}
-                  <span className="text-red-600">-{diffData.removed.length}</span>{' '}
+                <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
+                  <span className="text-green-600 dark:text-green-400">+{diffData.added.length}</span>{' '}
+                  <span className="text-red-600 dark:text-red-400">-{diffData.removed.length}</span>{' '}
                   <span>不变 {diffData.unchanged}</span>
                 </span>
               )}
@@ -1875,19 +1881,19 @@ export const VibeCodePage = () => {
             ) : diffBaseSnapshot && diffCompareSnapshot ? (
               <div className="grid max-h-[60vh] grid-cols-2 gap-2 overflow-hidden">
                 {/* 左栏：base 快照（removed 高亮红色） */}
-                <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200">
-                  <div className="border-b border-gray-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700">
+                <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="border-b border-gray-100 dark:border-gray-800 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300">
                     基准版本（{relativeTime(diffBaseSnapshot.created_at)}）
                   </div>
-                  <pre className="flex-1 overflow-auto bg-gray-50 p-2 font-mono text-xs leading-5 scrollbar-thin">
+                  <pre className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-800/50 p-2 font-mono text-xs leading-5 scrollbar-thin">
                     {diffBaseSnapshot.code.split('\n').map((line, i) => (
                       <div
                         key={i}
                         className={cn(
-                          diffBaseHighlight.has(i) && 'bg-red-100 text-red-800',
+                          diffBaseHighlight.has(i) && 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200',
                         )}
                       >
-                        <span className="mr-2 select-none text-gray-300">
+                        <span className="mr-2 select-none text-gray-300 dark:text-gray-600">
                           {i + 1}
                         </span>
                         {line || ' '}
@@ -1897,19 +1903,19 @@ export const VibeCodePage = () => {
                 </div>
 
                 {/* 右栏：compare 快照（added 高亮绿色） */}
-                <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200">
-                  <div className="border-b border-gray-100 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
+                <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="border-b border-gray-100 dark:border-gray-800 bg-green-50 dark:bg-green-950/50 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
                     对比版本（{relativeTime(diffCompareSnapshot.created_at)}）
                   </div>
-                  <pre className="flex-1 overflow-auto bg-gray-50 p-2 font-mono text-xs leading-5 scrollbar-thin">
+                  <pre className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-800/50 p-2 font-mono text-xs leading-5 scrollbar-thin">
                     {diffCompareSnapshot.code.split('\n').map((line, i) => (
                       <div
                         key={i}
                         className={cn(
-                          diffCompareHighlight.has(i) && 'bg-green-100 text-green-800',
+                          diffCompareHighlight.has(i) && 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200',
                         )}
                       >
-                        <span className="mr-2 select-none text-gray-300">
+                        <span className="mr-2 select-none text-gray-300 dark:text-gray-600">
                           {i + 1}
                         </span>
                         {line || ' '}
@@ -1919,7 +1925,7 @@ export const VibeCodePage = () => {
                 </div>
               </div>
             ) : (
-              <p className="py-4 text-center text-sm text-gray-400">
+              <p className="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
                 无法加载快照数据
               </p>
             )}
@@ -1944,11 +1950,11 @@ export const VibeCodePage = () => {
               <DialogTitle>新建 Remix 分支</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 基于当前代码创建一个新的分支，你可以在该分支上独立迭代而不影响主线。
               </p>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   分支名
                 </label>
                 <Input

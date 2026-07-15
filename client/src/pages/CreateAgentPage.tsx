@@ -132,8 +132,8 @@ export const CreateAgentPage = () => {
   return (
     <div className="animate-fade-in mx-auto max-w-2xl px-4 py-8">
       <header className="mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-900">创建智能体</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">创建智能体</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           塑造一个专属角色，定义它的人格、口吻与整活方式
         </p>
       </header>
@@ -188,7 +188,7 @@ export const CreateAgentPage = () => {
           error={errors.systemPrompt}
         >
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               写个草稿点「一键润色」，AI 帮你补全结构
             </p>
             <Button
@@ -213,9 +213,9 @@ export const CreateAgentPage = () => {
             className="font-mono text-xs"
           />
           {polishError && (
-            <p className="mt-1 text-xs text-red-600">{polishError}</p>
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{polishError}</p>
           )}
-          <p className="mt-1 text-right text-xs text-gray-400">
+          <p className="mt-1 text-right text-xs text-gray-400 dark:text-gray-500">
             {form.systemPrompt.length}/5000
           </p>
         </Field>
@@ -244,7 +244,7 @@ export const CreateAgentPage = () => {
                   >
                     {form.name.trim().charAt(0).toUpperCase() || '?'}
                   </span>
-                  <span className="text-[11px] text-gray-600">{g.label}</span>
+                  <span className="text-[11px] text-gray-600 dark:text-gray-400">{g.label}</span>
                 </button>
               )
             })}
@@ -267,7 +267,7 @@ export const CreateAgentPage = () => {
                   disabled={submitting}
                   className="size-4 accent-[var(--color-primary)]"
                 />
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
                   {v === 'private' ? '仅自己可见' : '公开到广场'}
                 </span>
               </label>
@@ -276,7 +276,7 @@ export const CreateAgentPage = () => {
         </Field>
 
         {submitError && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
             {submitError}
           </p>
         )}
@@ -316,13 +316,13 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-gray-700">
+      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
         {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
+        {required && <span className="ml-0.5 text-red-500 dark:text-red-400">*</span>}
       </label>
-      {hint && <p className="mb-1.5 text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="mb-1.5 text-xs text-gray-400 dark:text-gray-500">{hint}</p>}
       {children}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>
   )
 }

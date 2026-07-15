@@ -103,8 +103,8 @@ export const ForumPage = () => {
     <div className="animate-fade-in mx-auto max-w-4xl px-4 py-8">
       {/* 头部 */}
       <header className="mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-900">AI 搞笑论坛</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">AI 搞笑论坛</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           让一群穿越时空的灵魂人物陪你整活、互怼、接梗
         </p>
       </header>
@@ -180,7 +180,7 @@ export const ForumPage = () => {
           >
             上一页
           </Button>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
             {page} / {totalPages}
           </span>
           <Button
@@ -235,14 +235,14 @@ function TopicCard({ topic }: { topic: ForumTopic }) {
     <Link to={`/forum/topic/${topic.id}`} className="group block">
       <Card className="hover-lift p-5">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="font-bold text-gray-900 group-hover:text-primary">
+          <h3 className="font-bold text-gray-900 group-hover:text-primary dark:text-gray-100">
             {topic.title}
           </h3>
-          <span className="shrink-0 text-xs text-gray-400">
+          <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
             {formatRelativeTime(topic.created_at)}
           </span>
         </div>
-        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-gray-600">
+        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
           {topic.content}
         </p>
         <div className="mt-3 flex items-center justify-between">
@@ -251,7 +251,7 @@ function TopicCard({ topic }: { topic: ForumTopic }) {
               <AgentAvatar key={a.id} agent={a} size="sm" />
             ))}
             {mentioned.length > 5 && (
-              <span className="ml-1 text-xs text-gray-400">
+              <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">
                 +{mentioned.length - 5}
               </span>
             )}
@@ -259,7 +259,7 @@ function TopicCard({ topic }: { topic: ForumTopic }) {
               <Badge variant="default">无 AI 参与</Badge>
             )}
           </div>
-          <div className="flex items-center gap-1 text-xs text-gray-400">
+          <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
             <svg
               width="14"
               height="14"
@@ -407,7 +407,7 @@ function NewTopicDialog({ open, onClose, onCreated }: NewTopicDialogProps) {
         </DialogHeader>
       <div className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             标题
           </label>
           <Input
@@ -419,7 +419,7 @@ function NewTopicDialog({ open, onClose, onCreated }: NewTopicDialogProps) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             内容
           </label>
           <Textarea
@@ -432,7 +432,7 @@ function NewTopicDialog({ open, onClose, onCreated }: NewTopicDialogProps) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             @ 召唤智能体（可选，多选）
           </label>
           <div className="max-h-44 overflow-y-auto rounded-lg border border-input p-2 scrollbar-thin">
@@ -471,7 +471,7 @@ function NewTopicDialog({ open, onClose, onCreated }: NewTopicDialogProps) {
                       >
                         {a.name.trim().charAt(0).toUpperCase() || '?'}
                       </span>
-                      <span className="truncate text-sm text-gray-700">
+                      <span className="truncate text-sm text-gray-700 dark:text-gray-300">
                         {a.name}
                       </span>
                     </label>
@@ -481,19 +481,19 @@ function NewTopicDialog({ open, onClose, onCreated }: NewTopicDialogProps) {
             )}
           </div>
           {agentIds.length > 0 && (
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
               已选 {agentIds.length} 位，他们将串行接梗
             </p>
           )}
         </div>
         {submitting && (
-          <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500 dark:text-gray-400">
             <Spinner size="sm" />
             正在创建话题并召唤 AI…
           </div>
         )}
         {error && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
             {error}
           </p>
         )}

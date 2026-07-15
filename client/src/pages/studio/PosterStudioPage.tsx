@@ -141,7 +141,7 @@ export const PosterStudioPage = () => {
       <header className="mb-8">
         <Link
           to="/studio"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-primary"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-primary dark:text-gray-400"
         >
           <ChevronLeft className="h-4 w-4" />
           返回创意工坊
@@ -154,7 +154,7 @@ export const PosterStudioPage = () => {
             <h1 className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-3xl font-extrabold text-transparent sm:text-4xl">
               趣味海报
             </h1>
-            <p className="mt-1 text-sm text-gray-500">输入主题，AI 帮你生成一张趣味海报</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">输入主题，AI 帮你生成一张趣味海报</p>
           </div>
         </div>
       </header>
@@ -164,8 +164,8 @@ export const PosterStudioPage = () => {
         <Card className="hover-lift h-fit p-5">
           <div className="space-y-5">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                海报标题 <span className="text-gray-400">（可选）</span>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                海报标题 <span className="text-gray-400 dark:text-gray-500">（可选）</span>
               </label>
               <Input
                 value={title}
@@ -175,9 +175,9 @@ export const PosterStudioPage = () => {
               />
             </div>
             <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                 <Wand2 className="h-4 w-4 text-primary" />
-                海报主题 <span className="text-red-500">*</span>
+                海报主题 <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <Textarea
                 value={prompt}
@@ -186,12 +186,12 @@ export const PosterStudioPage = () => {
                 rows={5}
                 disabled={loading}
               />
-              <p className="mt-1 text-right text-xs text-gray-400">{prompt.length} 字</p>
+              <p className="mt-1 text-right text-xs text-gray-400 dark:text-gray-500">{prompt.length} 字</p>
             </div>
 
             {/* 模板选择 */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">选择模板</label>
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">选择模板</label>
               <div className="flex flex-wrap gap-2">
                 {TEMPLATES.map((t) => (
                   <button
@@ -203,7 +203,7 @@ export const PosterStudioPage = () => {
                       'rounded-full border px-4 py-1.5 text-sm transition-all duration-300 ease-out',
                       template === t.id
                         ? 'border-primary bg-primary/15 text-primary'
-                        : 'border-gray-200 text-gray-600 hover:scale-[1.03] hover:border-primary/40 hover:text-primary',
+                        : 'border-gray-200 text-gray-600 hover:scale-[1.03] hover:border-primary/40 hover:text-primary dark:border-gray-700 dark:text-gray-400',
                     )}
                   >
                     {t.label}
@@ -214,7 +214,7 @@ export const PosterStudioPage = () => {
 
             {/* 配色方案 */}
             <div>
-              <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                 <Palette className="h-4 w-4 text-primary" />
                 配色方案
               </label>
@@ -229,7 +229,7 @@ export const PosterStudioPage = () => {
                       'flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-all duration-300 ease-out',
                       colorScheme === c.id
                         ? 'border-primary bg-primary/15 text-primary'
-                        : 'border-gray-200 text-gray-600 hover:scale-[1.03] hover:border-primary/40 hover:text-primary',
+                        : 'border-gray-200 text-gray-600 hover:scale-[1.03] hover:border-primary/40 hover:text-primary dark:border-gray-700 dark:text-gray-400',
                     )}
                   >
                     <span
@@ -268,19 +268,19 @@ export const PosterStudioPage = () => {
         <Card className="hover-lift flex min-h-[480px] flex-col">
           {loading ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
-              <div className="flex aspect-[3/4] w-full max-w-sm overflow-hidden rounded-xl bg-gray-100">
+              <div className="flex aspect-[3/4] w-full max-w-sm overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
                 <Skeleton className="h-full w-full" />
               </div>
-              <p className="text-sm font-medium text-gray-600">AI 正在为你绘制海报…</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">AI 正在为你绘制海报…</p>
             </div>
           ) : current ? (
             <div className="flex flex-1 flex-col p-5">
               <div className="mb-3 flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-800">
+                  <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
                     {current.prompt}
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-400">
+                  <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                     {new Date(current.createdAt).toLocaleString('zh-CN')}
                   </p>
                 </div>
@@ -295,7 +295,7 @@ export const PosterStudioPage = () => {
                   下载
                 </Button>
               </div>
-              <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-4">
+              <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800/50 p-4">
                 {!imageLoaded && <Skeleton className="absolute inset-4 rounded-lg" />}
                 <img
                   src={current.url}
@@ -322,9 +322,9 @@ export const PosterStudioPage = () => {
       {/* 历史记录 */}
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">本次会话历史</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">本次会话历史</h2>
           {history.length > 0 && (
-            <span className="text-sm text-gray-500">共 {history.length} 张</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">共 {history.length} 张</span>
           )}
         </div>
 
@@ -343,7 +343,7 @@ export const PosterStudioPage = () => {
                 key={item.id}
                 className="hover-lift group overflow-hidden p-0 transition-transform duration-300 ease-out hover:scale-[1.03]"
               >
-                <div className="relative aspect-[3/4] overflow-hidden bg-gray-100">
+                <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-800">
                   <img
                     src={item.url}
                     alt={item.prompt}
@@ -360,10 +360,10 @@ export const PosterStudioPage = () => {
                   </button>
                 </div>
                 <div className="p-2.5">
-                  <p className="truncate text-xs font-medium text-gray-700">
+                  <p className="truncate text-xs font-medium text-gray-700 dark:text-gray-300">
                     {item.prompt}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-gray-400">
+                  <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">
                     {new Date(item.createdAt).toLocaleTimeString('zh-CN')}
                   </p>
                 </div>

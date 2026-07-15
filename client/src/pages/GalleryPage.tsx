@@ -249,7 +249,7 @@ function ImageCard({
               disabled={liking}
               whileTap={{ scale: 1.3 }}
               whileHover={{ scale: 1.15 }}
-              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-pink-500 disabled:opacity-50"
+              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-pink-500 dark:hover:text-pink-400 disabled:opacity-50"
             >
               <motion.span
                 animate={liking ? { scale: [1, 1.4, 1] } : { scale: 1 }}

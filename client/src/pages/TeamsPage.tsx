@@ -448,7 +448,7 @@ export const TeamsPage = () => {
           <Users className="h-8 w-8 text-primary" />
           多智能体协作
         </h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           组建你的 AI 梦之队，一次提问，多位智能体并行作答，灵感碰撞
         </p>
       </header>
@@ -461,7 +461,7 @@ export const TeamsPage = () => {
               <Button variant="ghost" size="sm" onClick={exitExec}>
                 <ChevronLeft className="h-4 w-4" /> 返回
               </Button>
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                 执行团队：{activeTeam.name}
               </h2>
               <Badge variant="secondary">
@@ -504,7 +504,7 @@ export const TeamsPage = () => {
           </div>
 
           {execError && (
-            <div className="mb-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="mb-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
               {execError}
             </div>
           )}
@@ -532,7 +532,7 @@ export const TeamsPage = () => {
 
       {/* 一键组队模板 */}
       <section className="mb-8">
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
           <Sparkles className="h-5 w-5 text-primary" />
           一键组队模板
         </h2>
@@ -549,8 +549,8 @@ export const TeamsPage = () => {
                 >
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="font-bold text-gray-900">{tpl.title}</h3>
-                <p className="mt-1 flex-1 text-xs leading-relaxed text-gray-500">
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">{tpl.title}</h3>
+                <p className="mt-1 flex-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                   {tpl.description}
                 </p>
                 <Button
@@ -571,7 +571,7 @@ export const TeamsPage = () => {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_400px]">
         {/* 左侧：已保存团队 */}
         <section>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
             <Users className="h-5 w-5 text-primary" />
             我的团队
           </h2>
@@ -579,7 +579,7 @@ export const TeamsPage = () => {
           {teamsLoading ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
                   <Skeleton className="mb-3 h-5 w-32" />
                   <Skeleton className="mb-2 h-3 w-full" />
                   <Skeleton className="h-3 w-4/5" />
@@ -618,15 +618,15 @@ export const TeamsPage = () => {
 
         {/* 右侧：创建表单 */}
         <section id="create-form">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
             <Plus className="h-5 w-5 text-primary" />
             创建团队
           </h2>
           <Card className="hover-lift p-5">
             <div className="flex flex-col gap-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  团队名称 <span className="text-red-500">*</span>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  团队名称 <span className="text-red-500 dark:text-red-400">*</span>
                 </label>
                 <Input
                   value={teamName}
@@ -638,7 +638,7 @@ export const TeamsPage = () => {
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     选择智能体
                   </span>
                   <Badge variant="secondary">
@@ -653,7 +653,7 @@ export const TeamsPage = () => {
                     ))}
                   </div>
                 ) : agents.length === 0 ? (
-                  <p className="text-xs text-gray-400">暂无可选智能体</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">暂无可选智能体</p>
                 ) : (
                   <div className="max-h-72 space-y-2 overflow-auto pr-1">
                     {agents.map((agent) => {
@@ -665,14 +665,14 @@ export const TeamsPage = () => {
                             'flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 transition-colors',
                             checked
                               ? 'border-primary bg-primary/5'
-                              : 'border-gray-200 hover:border-gray-300',
+                              : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600',
                           )}
                         >
                           <input
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleAgent(agent.id)}
-                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-gray-600"
                           />
                           <Avatar className="size-8">
                             <AvatarFallback
@@ -686,10 +686,10 @@ export const TeamsPage = () => {
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-gray-800">
+                            <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
                               {agent.name}
                             </p>
-                            <p className="truncate text-xs text-gray-500">
+                            <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                               {agent.era}
                             </p>
                           </div>
@@ -706,7 +706,7 @@ export const TeamsPage = () => {
               {/* 工具权限配置（每个已选 agent） */}
               {selectedIds.length > 0 && (
                 <div>
-                  <span className="mb-2 block text-sm font-medium text-gray-700">
+                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     工具权限（按 agent 配置）
                   </span>
                   <div className="space-y-2">
@@ -716,7 +716,7 @@ export const TeamsPage = () => {
                       return (
                         <div
                           key={agentId}
-                          className="rounded-lg border border-gray-100 bg-gray-50/50 p-3"
+                          className="rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-800 dark:bg-gray-800/50"
                         >
                           <div className="mb-2 flex items-center gap-2">
                             <Avatar className="size-6">
@@ -729,7 +729,7 @@ export const TeamsPage = () => {
                                 {meta.name.charAt(0).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-xs font-semibold text-gray-700">
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                               {meta.name}
                             </span>
                           </div>
@@ -740,9 +740,9 @@ export const TeamsPage = () => {
                               return (
                                 <label
                                   key={opt.key}
-                                  className="flex cursor-pointer items-center justify-between gap-2 rounded-md bg-white px-2 py-1.5"
+                                  className="flex cursor-pointer items-center justify-between gap-2 rounded-md bg-white px-2 py-1.5 dark:bg-gray-900"
                                 >
-                                  <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                                  <span className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
                                     <Icon className="h-3.5 w-3.5" />
                                     {opt.label}
                                   </span>
@@ -807,7 +807,7 @@ function TeamCard({
   return (
     <Card className="hover-lift flex flex-col p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="truncate font-bold text-gray-900">{team.name}</h3>
+        <h3 className="truncate font-bold text-gray-900 dark:text-gray-100">{team.name}</h3>
         <Badge variant="secondary">{team.agent_ids.length} 人</Badge>
       </div>
 
@@ -817,7 +817,7 @@ function TeamCard({
           memberAgents.map((agent) => (
             <div
               key={agent.id}
-              className="flex items-center gap-1.5 rounded-full bg-gray-50 py-1 pl-1 pr-2.5"
+              className="flex items-center gap-1.5 rounded-full bg-gray-50 py-1 pl-1 pr-2.5 dark:bg-gray-800/50"
             >
               <Avatar className="size-6">
                 <AvatarFallback
@@ -827,7 +827,7 @@ function TeamCard({
                   {agent.name.trim().charAt(0).toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-xs font-medium text-gray-700">
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                 {agent.name}
               </span>
             </div>
@@ -881,7 +881,7 @@ function AgentStreamCard({
               {initial}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm font-semibold text-gray-800">{name}</span>
+          <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{name}</span>
         </div>
         <StreamStatusBadge status={status} />
       </div>
@@ -889,7 +889,7 @@ function AgentStreamCard({
       {/* 流式文本 */}
       <div className="min-h-[6rem] flex-1">
         {content ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
             {content}
             {status === 'running' && (
               <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle" />
@@ -901,11 +901,11 @@ function AgentStreamCard({
             <Skeleton className="h-3 w-4/5" />
           </div>
         ) : status === 'running' ? (
-          <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> 等待回复…
           </div>
         ) : (
-          <p className="text-xs text-gray-400">（无内容）</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">（无内容）</p>
         )}
       </div>
     </Card>
@@ -917,17 +917,17 @@ function StreamStatusBadge({ status }: { status: StreamStatus }) {
   const config: Record<StreamStatus, { text: string; cls: string; Icon: typeof Check }> = {
     pending: {
       text: '排队中',
-      cls: 'bg-gray-100 text-gray-500',
+      cls: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
       Icon: Square,
     },
     running: {
       text: '生成中',
-      cls: 'bg-blue-50 text-blue-600',
+      cls: 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400',
       Icon: Loader2,
     },
     done: {
       text: '完成',
-      cls: 'bg-green-50 text-green-600',
+      cls: 'bg-green-50 text-green-600 dark:bg-green-950/50 dark:text-green-400',
       Icon: Check,
     },
   }

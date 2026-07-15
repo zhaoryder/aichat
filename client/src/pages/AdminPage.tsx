@@ -68,10 +68,10 @@ export function AdminPage() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-6xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">管理后台</h1>
+      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-gray-100">管理后台</h1>
 
       {/* Tab 切换 */}
-      <div className="mb-6 inline-flex rounded-lg bg-gray-100 p-1">
+      <div className="mb-6 inline-flex rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
         <TabButton active={tab === 'users'} onClick={() => setTab('users')}>
           用户管理
         </TabButton>
@@ -104,8 +104,8 @@ function TabButton({
       className={cn(
         'rounded-md px-4 py-1.5 text-sm font-medium transition-all duration-300 ease-out',
         active
-          ? 'bg-white text-primary shadow-sm'
-          : 'text-gray-600 hover:text-gray-900',
+          ? 'bg-white text-primary shadow-sm dark:bg-gray-900'
+          : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100',
       )}
     >
       {children}
@@ -241,7 +241,7 @@ function UsersTab() {
       {/* 桌面端表格 */}
       <Card className="hidden overflow-hidden md:block">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500">
+          <thead className="bg-gray-50 text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
             <tr>
               <th className="px-4 py-3 text-left font-medium">用户</th>
               <th className="px-4 py-3 text-left font-medium">邮箱</th>
@@ -250,11 +250,11 @@ function UsersTab() {
               <th className="px-4 py-3 text-right font-medium">操作</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {users.map((u) => {
               const banned = isBanned(u.banned_until)
               return (
-                <tr key={u.id} className="hover:bg-gray-50">
+                <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Avatar
@@ -264,10 +264,10 @@ function UsersTab() {
                           {(u.nickname || 'U').charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium text-gray-900">{u.nickname || '—'}</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{u.nickname || '—'}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{u.id}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{u.id}</td>
                   <td className="px-4 py-3">
                     <Badge variant={u.role === 'admin' ? 'default' : 'default'}>
                       {u.role === 'admin' ? '管理员' : '用户'}
@@ -324,8 +324,8 @@ function UsersTab() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{u.nickname || '—'}</p>
-                    <p className="text-xs text-gray-500">{u.id}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{u.nickname || '—'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{u.id}</p>
                   </div>
                 </div>
                 <Badge variant={u.role === 'admin' ? 'default' : 'default'}>
@@ -377,7 +377,7 @@ function UsersTab() {
             <DialogTitle>{`封禁 ${banTarget?.nickname || '用户'}`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">选择封禁时长：</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">选择封禁时长：</p>
             <div className="grid grid-cols-2 gap-2">
               {(
                 [
@@ -395,14 +395,14 @@ function UsersTab() {
                     'rounded-lg border px-3 py-2 text-sm font-medium transition-all duration-300 ease-out',
                     banDuration === opt.value
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-50',
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/50',
                   )}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
-            {banError && <p className="text-sm text-red-600">{banError}</p>}
+            {banError && <p className="text-sm text-red-600 dark:text-red-400">{banError}</p>}
           </div>
           <DialogFooter>
             <Button
@@ -508,16 +508,16 @@ function ReportsTab() {
                 <div className="flex items-center gap-2">
                   <Badge variant="default">{REPORT_TYPE_LABEL[report.target_type]}</Badge>
                   <Badge variant={meta.variant}>{meta.label}</Badge>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
                     {formatDateTime(report.created_at)}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-gray-700">
-                  <span className="text-gray-500">目标 ID：</span>
+                <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-gray-500 dark:text-gray-400">目标 ID：</span>
                   <span className="font-mono text-xs">{report.target_id}</span>
                 </p>
-                <p className="mt-1 text-sm text-gray-700">
-                  <span className="text-gray-500">举报原因：</span>
+                <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-gray-500 dark:text-gray-400">举报原因：</span>
                   {report.reason || '（未填写）'}
                 </p>
               </div>
@@ -539,7 +539,7 @@ function ReportsTab() {
                       size="sm"
                       onClick={() => handleUpdateStatus(report.id, 'ignored')}
                       disabled={isPendingOp}
-                      className="text-gray-500"
+                      className="text-gray-500 dark:text-gray-400"
                     >
                       忽略
                     </Button>
@@ -550,7 +550,7 @@ function ReportsTab() {
                     size="sm"
                     onClick={() => handleUpdateStatus(report.id, 'pending')}
                     disabled={isPendingOp}
-                    className="text-gray-500"
+                    className="text-gray-500 dark:text-gray-400"
                   >
                     重置为待处理
                   </Button>

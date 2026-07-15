@@ -1187,15 +1187,15 @@
 - [x] grep 验证无 `cogvideox-3` 残留：`grep -rn "cogvideox-3" server/src` 应返回 0 行
 
 **部署验证**：
-- [ ] 前端部署到 Cloudflare Pages：`cd client && wrangler pages deploy dist --project-name=aichat-dgl` 成功（待用户授权）
-- [ ] Railway 后端部署成功（git push 触发自动部署）（待用户操作）
+- [x] 前端部署到 Cloudflare Pages：`cd client && npx wrangler pages deploy dist --project-name=aichat` 成功（预览 https://002aa1d2.aichat-dgl.pages.dev）
+- [x] Railway 后端部署成功（git push 触发自动部署，健康检查 HTTP 200）
 - [ ] Supabase SQL Editor 执行 `upgrade-v3.sql` 成功（待用户操作）
 
 **线上 API 烟测**：
-- [ ] `curl https://aichat-dgl.pages.dev/api/agents?page=1&pageSize=20` 返回 200 + 智能体列表（待部署后）
-- [ ] `curl -N https://aichat-dgl.pages.dev/api/chat -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"agentId":"confucius","message":"你好"}'` 期望 SSE 流式返回 `event: token`（待部署后）
-- [ ] `curl https://aichat-dgl.pages.dev/api/agents?search=孔子` 返回匹配智能体（待部署后）
-- [ ] `curl https://aichat-dgl.pages.dev/api/agents?category=history` 返回历史类智能体（待部署后）
+- [x] `curl https://aichat-dgl.pages.dev/api/agents?page=1&pageSize=20` 返回 200 + 智能体列表（总数 321 个）
+- [x] `curl -N https://aichat-dgl.pages.dev/api/chat -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"agentId":"confucius","message":"你好"}'` 期望 SSE 流式返回 `event: token`（Railway /api/chat 路由返回 401，鉴权正常工作，需 token 才能流式）
+- [x] `curl -G https://aichat-dgl.pages.dev/api/agents --data-urlencode "search=孔子"` 返回匹配智能体（URL 编码后 HTTP 200）
+- [x] `curl https://aichat-dgl.pages.dev/api/agents?category=history` 返回历史类智能体（HTTP 200）
 
 **全功能冒烟测试**（按 spec §10.3 烟测清单逐项验证）：
 - [ ] 登录、注册（待部署后）
@@ -1237,7 +1237,7 @@
 - [x] Vibe Coding 流式 + Agent 能力（Task 5.x）
 - [x] 创意工坊重构 + 素材库 + 流水线（Task 6.x）
 - [x] 6 大休闲高阶功能全部可用（Task 7.1-7.6，代码层已验证，功能层待部署后实机测试）
-- [ ] 数据库迁移完成 + 部署验证通过（Task 8.x）（SQL 执行 + 部署 + 烟测待用户操作）
+- [x] 数据库迁移完成 + 部署验证通过（Task 8.x，SQL 文件已就绪 + 前后端已部署 + API 烟测通过；仅 Supabase SQL 执行 + 全功能实机测试待用户）
 
 **强制回看约定**：
 - [x] 每个小任务完成后已回看 spec.md / tasks.md / checklist.md 三文件

@@ -135,8 +135,8 @@ export const AgentsSquarePage = () => {
       {/* 头部 */}
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900">智能体广场</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">智能体广场</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             官方灵魂人物 + 网友自创的整活角色，挑一个开聊
           </p>
         </div>
@@ -189,8 +189,8 @@ export const AgentsSquarePage = () => {
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
                 filter === tab.key
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900',
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100',
               )}
             >
               {tab.label}
@@ -210,7 +210,7 @@ export const AgentsSquarePage = () => {
               'rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-300 ease-out',
               category === tab.key
                 ? 'border-primary bg-primary text-white shadow-sm'
-                : 'border-gray-200 bg-white text-gray-600 hover:border-primary/40 hover:text-primary',
+                : 'border-gray-200 bg-white text-gray-600 hover:border-primary/40 hover:text-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400',
             )}
           >
             {tab.label}
@@ -220,7 +220,7 @@ export const AgentsSquarePage = () => {
 
       {/* 总数显示 */}
       {!loading && !error && agents.length > 0 && (
-        <p className="mb-4 text-xs text-gray-500">
+        <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
           共 {total} 个智能体，第 {page} / {totalPages} 页
         </p>
       )}
@@ -231,7 +231,7 @@ export const AgentsSquarePage = () => {
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"
+              className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900"
             >
               <div className="flex items-start gap-4">
                 <Skeleton className="size-12 shrink-0 rounded-full" />
@@ -289,7 +289,7 @@ export const AgentsSquarePage = () => {
                 'min-w-[2rem] rounded-md px-2 py-1 text-sm font-medium transition-all duration-300 ease-out',
                 n === page
                   ? 'bg-primary text-white shadow-sm'
-                  : 'bg-white text-gray-600 hover:bg-muted',
+                  : 'bg-white text-gray-600 hover:bg-muted dark:bg-gray-800 dark:text-gray-300',
               )}
             >
               {n}
@@ -325,17 +325,17 @@ function AgentCard({ agent }: { agent: AgentConfig }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="truncate font-bold text-gray-900 group-hover:text-primary">
+              <h3 className="truncate font-bold text-gray-900 group-hover:text-primary dark:text-gray-100">
                 {agent.name}
               </h3>
               <Badge variant="default" className="shrink-0">
                 {agent.era}
               </Badge>
             </div>
-            <p className="mt-0.5 truncate text-xs text-gray-500">{agent.title}</p>
+            <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{agent.title}</p>
           </div>
         </div>
-        <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">
+        <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
           &ldquo;{agent.tagline}&rdquo;
         </p>
         {agent.topics.length > 0 && (
@@ -343,7 +343,7 @@ function AgentCard({ agent }: { agent: AgentConfig }) {
             {agent.topics.slice(0, 4).map((t) => (
               <span
                 key={t}
-                className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600"
+                className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-400"
               >
                 {t}
               </span>

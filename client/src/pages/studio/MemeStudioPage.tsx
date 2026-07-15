@@ -1,5 +1,5 @@
 // 表情包工坊：选择模板 + 输入文字，生成表情包
-// - 表单：顶部文字 / 底部文字 / 表情模板
+// - 表单：顶部文字 / 底部文字 / 表情模板 / 自定义 emoji
 // - AI 模式：描述想要的表情，AI 建议文字
 // - 结果：div 渲染的表情包（模板背景 + 文字叠加）
 // - 下载：SVG → Canvas → PNG，无需额外依赖
@@ -41,10 +41,17 @@ const TEMPLATES: MemeTemplate[] = [
   { id: 'weiqu', emoji: '😭', label: '委屈', gradient: 'from-sky-300 to-blue-500', from: '#7dd3fc', to: '#3b82f6' },
   { id: 'gaoguai', emoji: '🤪', label: '搞怪', gradient: 'from-fuchsia-400 to-purple-600', from: '#e879f9', to: '#9333ea' },
   { id: 'shengqi', emoji: '😡', label: '生气', gradient: 'from-red-400 to-rose-600', from: '#f87171', to: '#e11d48' },
+  { id: 'jingxia', emoji: '😨', label: '惊吓', gradient: 'from-slate-300 to-slate-600', from: '#cbd5e1', to: '#475569' },
+  { id: 'aixin', emoji: '🥰', label: '爱心', gradient: 'from-pink-300 to-rose-400', from: '#f9a8d4', to: '#fb7185' },
+  { id: 'tuoli', emoji: '🤯', label: '脱离', gradient: 'from-orange-400 to-red-600', from: '#fb923c', to: '#dc2626' },
+  { id: 'wunai', emoji: '🤷', label: '无奈', gradient: 'from-gray-300 to-gray-500', from: '#d1d5db', to: '#6b7280' },
+  { id: 'kunle', emoji: '😴', label: '困了', gradient: 'from-indigo-300 to-purple-400', from: '#a5b4fc', to: '#c084fc' },
+  { id: 'chengzhang', emoji: '🤓', label: '书呆', gradient: 'from-emerald-300 to-teal-500', from: '#6ee7b7', to: '#14b8a6' },
 ]
 
 interface MemeResult {
   templateId: string
+  customEmoji?: string
   topText: string
   bottomText: string
   createdAt: number
@@ -62,6 +69,7 @@ export const MemeStudioPage = () => {
   const [topText, setTopText] = useState('')
   const [bottomText, setBottomText] = useState('')
   const [templateId, setTemplateId] = useState<string>('huaji')
+  const [customEmoji, setCustomEmoji] = useState('')
   const [aiPrompt, setAiPrompt] = useState('')
 
   const [result, setResult] = useState<MemeResult | null>(null)
@@ -69,6 +77,8 @@ export const MemeStudioPage = () => {
   const [loading, setLoading] = useState(false)
 
   const template = TEMPLATES.find((t) => t.id === templateId) ?? TEMPLATES[0]
+  // 自定义 emoji 优先，否则用模板 emoji
+  const displayEmoji = customEmoji.trim() || template.emoji
 
   async function handleGenerate() {
     if (loading) return
@@ -122,6 +132,7 @@ export const MemeStudioPage = () => {
 
       const item: MemeResult = {
         templateId,
+        customEmoji: customEmoji.trim() || undefined,
         topText: finalTop,
         bottomText: finalBottom,
         createdAt: Date.now(),
@@ -140,6 +151,7 @@ export const MemeStudioPage = () => {
   // 下载：构造 SVG → 转 PNG（无需外部依赖）
   function downloadMeme(item: MemeResult) {
     const tpl = TEMPLATES.find((t) => t.id === item.templateId) ?? TEMPLATES[0]
+    const emoji = item.customEmoji || tpl.emoji
     const W = 800
     const H = 800
 
@@ -152,7 +164,7 @@ export const MemeStudioPage = () => {
     </linearGradient>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#bg)" />
-  <text x="50%" y="48%" text-anchor="middle" dominant-baseline="middle" font-size="320" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">${tpl.emoji}</text>
+  <text x="50%" y="48%" text-anchor="middle" dominant-baseline="middle" font-size="320" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">${emoji}</text>
   ${item.topText ? renderSvgText(item.topText, W / 2, 70, W * 0.9) : ''}
   ${item.bottomText ? renderSvgText(item.bottomText, W / 2, H - 50, W * 0.9) : ''}
 </svg>`
@@ -205,7 +217,7 @@ export const MemeStudioPage = () => {
       <header className="mb-8">
         <Link
           to="/studio"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-primary"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-primary dark:text-gray-400"
         >
           <ChevronLeft className="h-4 w-4" />
           返回创意工坊
@@ -218,7 +230,9 @@ export const MemeStudioPage = () => {
             <h1 className="bg-gradient-to-r from-primary via-fuchsia-500 to-pink-500 bg-clip-text text-3xl font-extrabold text-transparent sm:text-4xl">
               表情包制作
             </h1>
-            <p className="mt-1 text-sm text-gray-500">挑个表情，配上文字，秒变表情包</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              挑个表情，配上文字，AI 还能帮你写台词
+            </p>
           </div>
         </div>
       </header>
@@ -229,7 +243,7 @@ export const MemeStudioPage = () => {
           <div className="space-y-5">
             {/* 顶部文字 */}
             <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                 <Type className="h-4 w-4 text-primary" />
                 顶部文字
               </label>
@@ -243,7 +257,7 @@ export const MemeStudioPage = () => {
 
             {/* 底部文字 */}
             <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                 <Type className="h-4 w-4 text-primary" />
                 底部文字
               </label>
@@ -255,11 +269,26 @@ export const MemeStudioPage = () => {
               />
             </div>
 
+            {/* 自定义 emoji */}
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Smile className="h-4 w-4 text-primary" />
+                自定义 emoji <span className="text-gray-400 dark:text-gray-500">（可选，覆盖模板）</span>
+              </label>
+              <Input
+                value={customEmoji}
+                onChange={(e) => setCustomEmoji(e.target.value)}
+                placeholder="例如：🦄 或 🐱"
+                disabled={loading}
+                maxLength={4}
+              />
+            </div>
+
             {/* AI 描述 */}
             <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                 <Wand2 className="h-4 w-4 text-primary" />
-                AI 生成文字 <span className="text-gray-400">（可选）</span>
+                AI 生成台词 <span className="text-gray-400 dark:text-gray-500">（可选）</span>
               </label>
               <Textarea
                 value={aiPrompt}
@@ -296,8 +325,10 @@ export const MemeStudioPage = () => {
         <div className="space-y-6">
           {/* 模板画廊 */}
           <Card className="hover-lift p-5">
-            <h2 className="mb-3 text-sm font-medium text-gray-700">选择表情模板</h2>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            <h2 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+              选择表情模板
+            </h2>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
               {TEMPLATES.map((t) => (
                 <button
                   key={t.id}
@@ -325,15 +356,17 @@ export const MemeStudioPage = () => {
           <Card className="hover-lift flex min-h-[400px] flex-col">
             {loading ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
-                <div className="aspect-square w-full max-w-sm overflow-hidden rounded-xl bg-gray-100">
+                <div className="aspect-square w-full max-w-sm overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
                   <Skeleton className="h-full w-full" />
                 </div>
-                <p className="text-sm font-medium text-gray-600">AI 正在为你构思台词…</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  AI 正在为你构思台词…
+                </p>
               </div>
             ) : result ? (
               <div className="flex flex-1 flex-col p-5">
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     {new Date(result.createdAt).toLocaleString('zh-CN')}
                   </p>
                   <Button
@@ -348,6 +381,7 @@ export const MemeStudioPage = () => {
                 <div className="flex flex-1 items-center justify-center">
                   <MemeCanvas
                     template={template}
+                    emoji={displayEmoji}
                     topText={result.topText}
                     bottomText={result.bottomText}
                   />
@@ -369,12 +403,13 @@ export const MemeStudioPage = () => {
       {history.length > 0 && (
         <section className="mt-10">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">本次会话历史</h2>
-            <span className="text-sm text-gray-500">共 {history.length} 个</span>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">本次会话历史</h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">共 {history.length} 个</span>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {history.map((item, i) => {
               const tpl = TEMPLATES.find((t) => t.id === item.templateId) ?? TEMPLATES[0]
+              const emoji = item.customEmoji || tpl.emoji
               return (
                 <Card
                   key={`${item.createdAt}-${i}`}
@@ -385,21 +420,22 @@ export const MemeStudioPage = () => {
                     onClick={() => {
                       setResult(item)
                       setTemplateId(item.templateId)
+                      setCustomEmoji(item.customEmoji || '')
                     }}
                     className="block w-full"
                   >
                     <div className="relative aspect-square">
-                      <MemeCanvas template={tpl} topText={item.topText} bottomText={item.bottomText} />
+                      <MemeCanvas template={tpl} emoji={emoji} topText={item.topText} bottomText={item.bottomText} />
                     </div>
                   </button>
                   <div className="flex items-center justify-between p-2.5">
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
                       {new Date(item.createdAt).toLocaleTimeString('zh-CN')}
                     </span>
                     <button
                       type="button"
                       onClick={() => downloadMeme(item)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary dark:text-gray-500"
                       aria-label="下载表情包"
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -418,10 +454,12 @@ export const MemeStudioPage = () => {
 // 表情包画布：div 渲染模板背景 + emoji + 顶/底文字叠加
 function MemeCanvas({
   template,
+  emoji,
   topText,
   bottomText,
 }: {
   template: MemeTemplate
+  emoji: string
   topText: string
   bottomText: string
 }) {
@@ -434,7 +472,7 @@ function MemeCanvas({
     >
       {/* 居中大 emoji */}
       <span className="select-none text-[7rem] leading-none drop-shadow-lg sm:text-[8rem]">
-        {template.emoji}
+        {emoji}
       </span>
 
       {/* 顶部文字 */}

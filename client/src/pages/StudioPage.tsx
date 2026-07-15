@@ -39,7 +39,7 @@ const STUDIO_ENTRIES: {
   {
     to: '/studio/image',
     title: 'AI 绘画',
-    desc: 'CogView4 文生图',
+    desc: 'Agnes Image 文生图',
     icon: <ImageIcon className="h-7 w-7" />,
     gradient: 'from-amber-400 to-orange-500',
   },
@@ -159,7 +159,7 @@ export const StudioPage = () => {
         <h1 className="bg-gradient-to-r from-primary via-amber-400 to-orange-500 bg-clip-text text-4xl font-extrabold text-transparent sm:text-5xl">
           创意工坊
         </h1>
-        <p className="mt-3 text-base text-gray-600">用 AI 创造搞笑作品</p>
+        <p className="mt-3 text-base text-gray-600 dark:text-gray-400">用 AI 创造搞笑作品</p>
       </header>
 
       {/* 6 个功能入口卡片网格 */}
@@ -173,8 +173,8 @@ export const StudioPage = () => {
                 {entry.icon}
               </div>
               <div className="min-w-0">
-                <h3 className="text-lg font-semibold text-gray-900">{entry.title}</h3>
-                <p className="mt-1 text-sm text-gray-500">{entry.desc}</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{entry.title}</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{entry.desc}</p>
               </div>
             </Card>
           </Link>
@@ -184,9 +184,9 @@ export const StudioPage = () => {
       {/* 我的作品 */}
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">我的作品</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">我的作品</h2>
           {user && works.length > 0 && (
-            <span className="text-sm text-gray-500">共 {works.length} 件</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">共 {works.length} 件</span>
           )}
         </div>
 
@@ -219,7 +219,7 @@ export const StudioPage = () => {
             ))}
           </div>
         ) : error ? (
-          <Card className="p-6 text-center text-sm text-red-500">{error}</Card>
+          <Card className="p-6 text-center text-sm text-red-500 dark:text-red-400">{error}</Card>
         ) : works.length === 0 ? (
           <Card className="p-8">
             <EmptyState
@@ -235,11 +235,11 @@ export const StudioPage = () => {
                   <div className="min-w-0 flex-1">
                     <div className="mb-1.5 flex items-center gap-2">
                       <Badge variant="default">{TYPE_LABEL[work.type]}</Badge>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         {formatRelativeTime(work.created_at)}
                       </span>
                     </div>
-                    <p className="truncate text-sm font-medium text-gray-800">
+                    <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
                       {work.title || '未命名作品'}
                     </p>
                   </div>

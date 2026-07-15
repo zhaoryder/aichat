@@ -3,6 +3,7 @@
 // - 启动后通过 SSE 接收 step_start / step_progress / step_done / pipeline_done
 // - 每个步骤一张卡片：待处理 → 进行中（进度条）→ 完成（预览）/ 失败（重试）
 // - 完成后展示产物汇总，支持「插入到对话」（演示用 toast）
+// - 视频步骤返回 taskId，跳转到视频工坊查看进度
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiStream } from '@/lib/api'
@@ -24,6 +25,7 @@ import {
   Loader2,
   RotateCcw,
   ArrowRight,
+  ExternalLink,
 } from 'lucide-react'
 
 type StepKey = 'image' | 'video' | 'article'
@@ -32,13 +34,15 @@ type StepStatus = 'pending' | 'running' | 'done' | 'failed'
 interface StepState {
   status: StepStatus
   progress: number
-  result?: { url?: string; content?: string }
+  result?: { url?: string; content?: string; taskId?: string }
+  error?: string
 }
 
 interface PipelineAsset {
   type: string
   url?: string
   content?: string
+  taskId?: string
 }
 
 // 步骤配置：标签 + 图标
@@ -110,13 +114,17 @@ export const PipelineStudioPage = () => {
         const url = typeof data.url === 'string' ? data.url : undefined
         const content =
           typeof data.content === 'string' ? data.content : undefined
+        const taskId = typeof data.taskId === 'string' ? data.taskId : undefined
+        const stepError =
+          typeof data.error === 'string' ? data.error : undefined
         if (step) {
           setStepStates((prev) => ({
             ...prev,
             [step]: {
-              status: 'done',
+              status: stepError ? 'failed' : 'done',
               progress: 100,
-              result: { url, content },
+              result: { url, content, taskId },
+              error: stepError,
             },
           }))
         }
@@ -234,7 +242,7 @@ export const PipelineStudioPage = () => {
         <div className="mb-6">
           <Link
             to="/studio"
-            className="inline-flex items-center text-sm text-gray-500 hover:text-primary"
+            className="inline-flex items-center text-sm text-gray-500 hover:text-primary dark:text-gray-400"
           >
             <ChevronLeft className="h-4 w-4" /> 返回创意工坊
           </Link>
@@ -260,7 +268,7 @@ export const PipelineStudioPage = () => {
       <div className="mb-8">
         <Link
           to="/studio"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-primary"
+          className="inline-flex items-center text-sm text-gray-500 hover:text-primary dark:text-gray-400"
         >
           <ChevronLeft className="h-4 w-4" /> 返回创意工坊
         </Link>
@@ -268,7 +276,7 @@ export const PipelineStudioPage = () => {
           <Sparkles className="h-9 w-9 text-primary" />
           多媒体流水线
         </h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           一键串联图片、视频、文章生成，流式查看进度
         </p>
       </div>
@@ -278,7 +286,7 @@ export const PipelineStudioPage = () => {
         <Card className="hover-lift h-fit p-5">
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 创作提示词 <span className="text-red-500">*</span>
               </label>
               <Textarea
@@ -291,7 +299,7 @@ export const PipelineStudioPage = () => {
             </div>
 
             <div>
-              <span className="mb-2 block text-sm font-medium text-gray-700">
+              <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 流水线步骤
               </span>
               <div className="space-y-2">
@@ -304,7 +312,7 @@ export const PipelineStudioPage = () => {
                       className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
                         checked
                           ? 'border-primary bg-primary/5'
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                       } ${isRunning ? 'opacity-60' : ''}`}
                     >
                       <input
@@ -315,7 +323,7 @@ export const PipelineStudioPage = () => {
                         className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                       />
                       <Icon className="h-5 w-5 text-primary" />
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {opt.label}
                       </span>
                     </label>
@@ -345,7 +353,7 @@ export const PipelineStudioPage = () => {
         {/* 进度 & 结果区 */}
         <div className="space-y-4">
           {errorMsg && (
-            <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
               {errorMsg}
             </div>
           )}
@@ -375,7 +383,7 @@ export const PipelineStudioPage = () => {
           {assets.length > 0 && (
             <Card className="hover-lift p-5">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-base font-bold text-gray-900">
+                <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-gray-100">
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
                   流水线产物（共 {assets.length} 项）
                 </h3>
@@ -402,10 +410,22 @@ export const PipelineStudioPage = () => {
 
 function StatusBadge({ status }: { status: StepStatus }) {
   const config: Record<StepStatus, { text: string; cls: string }> = {
-    pending: { text: STATUS_LABEL.pending, cls: 'bg-gray-100 text-gray-500' },
-    running: { text: STATUS_LABEL.running, cls: 'bg-blue-50 text-blue-600' },
-    done: { text: STATUS_LABEL.done, cls: 'bg-green-50 text-green-600' },
-    failed: { text: STATUS_LABEL.failed, cls: 'bg-red-50 text-red-600' },
+    pending: {
+      text: STATUS_LABEL.pending,
+      cls: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    },
+    running: {
+      text: STATUS_LABEL.running,
+      cls: 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400',
+    },
+    done: {
+      text: STATUS_LABEL.done,
+      cls: 'bg-green-50 text-green-600 dark:bg-green-950/50 dark:text-green-400',
+    },
+    failed: {
+      text: STATUS_LABEL.failed,
+      cls: 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400',
+    },
   }
   const c = config[status]
   return (
@@ -431,6 +451,7 @@ function StepCard({
   const status: StepStatus = state?.status ?? 'pending'
   const progress = state?.progress ?? 0
   const result = state?.result
+  const stepError = state?.error
   const { label, Icon } = getStepMeta(step)
 
   return (
@@ -440,7 +461,9 @@ function StepCard({
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
             <Icon className="h-5 w-5" />
           </div>
-          <span className="text-sm font-semibold text-gray-800">{label}</span>
+          <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            {label}
+          </span>
         </div>
         <StatusBadge status={status} />
       </div>
@@ -448,13 +471,13 @@ function StepCard({
       {/* 进行中：进度条 */}
       {status === 'running' && (
         <div className="mb-1">
-          <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+          <div className="mb-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
             <span>{progress}%</span>
             <span className="flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" /> 生成中
             </span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
             <div
               className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
               style={{ width: `${progress}%` }}
@@ -464,27 +487,36 @@ function StepCard({
       )}
 
       {/* 完成：预览 */}
-      {status === 'done' && result && <ResultPreview result={result} />}
+      {status === 'done' && result && (
+        <ResultPreview step={step} result={result} />
+      )}
 
-      {/* 失败：重试 */}
+      {/* 失败：错误信息 + 重试 */}
       {status === 'failed' && (
-        <Button size="sm" variant="outline" onClick={onRetry}>
-          <RotateCcw className="h-4 w-4" /> 重试
-        </Button>
+        <div className="space-y-2">
+          {stepError && (
+            <p className="text-xs text-red-500 dark:text-red-400">{stepError}</p>
+          )}
+          <Button size="sm" variant="outline" onClick={onRetry}>
+            <RotateCcw className="h-4 w-4" /> 重试
+          </Button>
+        </div>
       )}
 
       {/* 待处理 */}
       {status === 'pending' && (
-        <p className="text-xs text-gray-400">等待执行…</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">等待执行…</p>
       )}
     </Card>
   )
 }
 
 function ResultPreview({
+  step,
   result,
 }: {
-  result: { url?: string; content?: string }
+  step: string
+  result: { url?: string; content?: string; taskId?: string }
 }) {
   const [imgLoaded, setImgLoaded] = useState(false)
 
@@ -492,9 +524,38 @@ function ResultPreview({
     setImgLoaded(false)
   }, [result.url])
 
+  // 视频任务已提交：显示跳转卡片
+  if (step === 'video' && result.taskId && !result.url) {
+    return (
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-950/40">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-500">
+            <Video className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              视频任务已提交
+            </p>
+            <p className="mt-1 text-xs text-blue-600/80 dark:text-blue-400/80">
+              任务 ID：<code className="font-mono">{result.taskId}</code>
+            </p>
+            <p className="mt-1 text-xs text-blue-600/70 dark:text-blue-400/70">
+              视频生成需要 3-5 分钟，请前往视频工坊查看进度
+            </p>
+            <Button asChild size="sm" variant="outline" className="mt-3">
+              <Link to="/studio/video">
+                <ExternalLink className="h-3.5 w-3.5" /> 前往视频工坊
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (result.url) {
     return (
-      <div className="relative aspect-[3/2] overflow-hidden rounded-lg bg-gray-50">
+      <div className="relative aspect-[3/2] overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
         {!imgLoaded && <Skeleton className="absolute inset-0" />}
         <img
           src={result.url}
@@ -509,7 +570,7 @@ function ResultPreview({
   }
   if (result.content) {
     return (
-      <div className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-xs leading-relaxed text-gray-700">
+      <div className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-xs leading-relaxed text-gray-700 dark:bg-gray-800 dark:text-gray-300">
         {result.content}
       </div>
     )
@@ -526,13 +587,29 @@ function AssetItem({ asset }: { asset: PipelineAsset }) {
   }, [asset.url])
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200">
-      <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2">
+    <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
         <Icon className="h-4 w-4 text-primary" />
-        <span className="text-sm font-medium text-gray-700">{label}</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {label}
+        </span>
       </div>
-      {asset.url ? (
-        <div className="relative aspect-[3/2] bg-gray-50">
+      {asset.taskId && !asset.url ? (
+        <div className="p-3">
+          <p className="text-xs text-gray-600 dark:text-gray-400">
+            视频任务已提交
+          </p>
+          <code className="mt-1 block font-mono text-xs text-gray-500 dark:text-gray-500">
+            {asset.taskId}
+          </code>
+          <Button asChild size="sm" variant="link" className="mt-1 h-auto p-0">
+            <Link to="/studio/video">
+              前往视频工坊查看 <ExternalLink className="h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
+      ) : asset.url ? (
+        <div className="relative aspect-[3/2] bg-gray-50 dark:bg-gray-800">
           {!imgLoaded && <Skeleton className="absolute inset-0" />}
           <img
             src={asset.url}
@@ -544,7 +621,7 @@ function AssetItem({ asset }: { asset: PipelineAsset }) {
           />
         </div>
       ) : asset.content ? (
-        <p className="max-h-32 overflow-auto whitespace-pre-wrap p-3 text-xs leading-relaxed text-gray-700">
+        <p className="max-h-32 overflow-auto whitespace-pre-wrap p-3 text-xs leading-relaxed text-gray-700 dark:text-gray-300">
           {asset.content}
         </p>
       ) : null}

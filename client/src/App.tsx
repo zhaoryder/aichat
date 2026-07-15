@@ -5,6 +5,7 @@ import { FavoritesProvider } from './hooks/useFavorites'
 import { ThemeProvider } from './hooks/useTheme'
 import { Layout } from './components/layout/Layout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import { HomePage } from './pages/HomePage'
@@ -55,7 +56,9 @@ export default function App() {
                 path="/chat/:agentId"
                 element={
                   <ProtectedRoute>
-                    <ChatPage />
+                    <ErrorBoundary>
+                      <ChatPage />
+                    </ErrorBoundary>
                   </ProtectedRoute>
                 }
               />

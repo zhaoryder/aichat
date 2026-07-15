@@ -377,7 +377,7 @@ export function ProfilePageV3() {
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <h1 className="truncate text-3xl font-extrabold text-gray-900">
+              <h1 className="truncate text-3xl font-extrabold text-gray-900 dark:text-gray-100">
                 {displayName}
               </h1>
               <p className="mt-1 truncate text-sm text-muted-foreground">
@@ -385,7 +385,7 @@ export function ProfilePageV3() {
               </p>
               {/* 装扮徽章 */}
               <div className="mt-2 flex flex-wrap gap-2">
-                <Badge className="bg-amber-500/20 text-amber-700">⭐ 创作者</Badge>
+                <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300">⭐ 创作者</Badge>
                 {isOwner && (
                   <Badge className="bg-primary/20 text-primary">👑 主人</Badge>
                 )}
@@ -409,11 +409,11 @@ export function ProfilePageV3() {
       {/* ============ 作品网格 ============ */}
       <section className="mb-12">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {isOwner ? '我的作品' : 'TA 的作品'}
           </h2>
           {works.length > 0 && (
-            <span className="text-sm text-gray-500">{works.length} 件</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{works.length} 件</span>
           )}
         </div>
         {worksLoading ? (
@@ -445,9 +445,9 @@ export function ProfilePageV3() {
       {isOwner && (
         <section className="mb-12">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">我的收藏</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">我的收藏</h2>
             {favoriteAgents.length > 0 && (
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 {favoriteAgents.length} 个
               </span>
             )}
@@ -472,9 +472,9 @@ export function ProfilePageV3() {
       {isOwner && (
         <section className="mb-12">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">我的团队</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">我的团队</h2>
             {teams.length > 0 && (
-              <span className="text-sm text-gray-500">{teams.length} 个</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{teams.length} 个</span>
             )}
           </div>
           {teamsLoading ? (
@@ -500,9 +500,9 @@ export function ProfilePageV3() {
       {/* ============ 成就徽章（横向滚动） ============ */}
       <section className="mb-12">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">成就徽章</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">成就徽章</h2>
           {mergedAchievements.length > 0 && (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
               {mergedAchievements.filter((a) => a.unlocked).length} /{' '}
               {mergedAchievements.length}
             </span>
@@ -569,11 +569,11 @@ function WorkCard({ work }: { work: CreativeWork }) {
           <Badge variant="default" className="shrink-0">
             {WORK_TYPE_LABEL[work.type] ?? work.type}
           </Badge>
-          <h3 className="truncate text-sm font-semibold text-gray-900">
+          <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
             {work.title || '未命名作品'}
           </h3>
         </div>
-        <p className="mt-1.5 text-xs text-gray-500">
+        <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
           创建于 {formatRelativeTime(work.created_at)}
         </p>
       </div>
@@ -587,7 +587,7 @@ function AgentMiniCard({ agent }: { agent: AgentConfig }) {
   return (
     <a
       href={`/chat/${agent.id}`}
-      className="hover-lift block rounded-xl border border-gray-100 bg-white p-4 text-center shadow-sm transition-transform duration-300 ease-out hover:scale-[1.02]"
+      className="hover-lift block rounded-xl border border-gray-100 bg-white p-4 text-center shadow-sm transition-transform duration-300 ease-out hover:scale-[1.02] dark:border-gray-800 dark:bg-gray-900"
     >
       <div
         className="mx-auto flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold text-white"
@@ -595,10 +595,10 @@ function AgentMiniCard({ agent }: { agent: AgentConfig }) {
       >
         {initial}
       </div>
-      <h3 className="mt-3 truncate text-sm font-semibold text-gray-900">
+      <h3 className="mt-3 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
         {agent.name}
       </h3>
-      <p className="mt-1 line-clamp-2 text-xs text-gray-500">{agent.tagline}</p>
+      <p className="mt-1 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{agent.tagline}</p>
     </a>
   )
 }
@@ -610,10 +610,10 @@ function TeamCard({ team }: { team: AgentTeam }) {
     <Card className="hover-lift p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-bold text-gray-900">
+          <h3 className="truncate font-bold text-gray-900 dark:text-gray-100">
             {team.name || '未命名团队'}
           </h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             创建于 {formatDate(team.created_at)}
           </p>
         </div>

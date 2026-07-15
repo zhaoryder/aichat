@@ -174,11 +174,11 @@ export const ArticleStudioPage = () => {
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6">
-        <Link to="/studio" className="text-sm text-gray-500 hover:text-primary">
+        <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">
           ← 返回创意工坊
         </Link>
-        <h1 className="mt-2 text-3xl font-extrabold text-gray-900">搞笑文章</h1>
-        <p className="mt-1 text-sm text-gray-500">让 AI 写一篇长文，有梗有反转</p>
+        <h1 className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-gray-100">搞笑文章</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">让 AI 写一篇长文，有梗有反转</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
@@ -186,8 +186,8 @@ export const ArticleStudioPage = () => {
         <Card className="h-fit p-5">
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                主题 <span className="text-red-500">*</span>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                主题 <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <Input
                 value={topic}
@@ -205,7 +205,7 @@ export const ArticleStudioPage = () => {
               disabled={streaming}
             />
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">字数</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">字数</label>
               <div className="flex gap-2">
                 {WORD_COUNTS.map((n) => (
                   <button
@@ -217,7 +217,7 @@ export const ArticleStudioPage = () => {
                       'flex-1 rounded-lg border py-2 text-sm transition-colors',
                       wordCount === n
                         ? 'border-primary bg-primary/15 text-primary'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300',
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600',
                     )}
                   >
                     {n}
@@ -246,7 +246,7 @@ export const ArticleStudioPage = () => {
         {/* 输出区 */}
         <Card className="flex min-h-[400px] flex-col">
           {error && (
-            <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600">
+            <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
               {error}
             </div>
           )}
@@ -267,7 +267,7 @@ export const ArticleStudioPage = () => {
               </div>
 
               {done && fullText && !streaming && (
-                <div className="space-y-3 border-t border-gray-100 p-4">
+                <div className="space-y-3 border-t border-gray-100 p-4 dark:border-gray-800">
                   {/* 配图 */}
                   {illustration && (
                     <img
@@ -291,7 +291,7 @@ export const ArticleStudioPage = () => {
                     <Button size="sm" variant="outline" onClick={handleDownload}>
                       下载 md
                     </Button>
-                    <span className="ml-auto text-xs text-gray-400">
+                    <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
                       共 {fullText.length} 字
                     </span>
                   </div>
@@ -326,13 +326,13 @@ function ArticleMarkdown({ content, streaming }: { content: string; streaming: b
       )
     } else if (trimmed.startsWith('## ')) {
       blocks.push(
-        <h3 key={`h-${i}`} className="mt-4 mb-2 text-xl font-bold text-gray-900">
+        <h3 key={`h-${i}`} className="mt-4 mb-2 text-xl font-bold text-gray-900 dark:text-gray-100">
           {trimmed.slice(3)}
         </h3>,
       )
     } else if (trimmed.startsWith('### ')) {
       blocks.push(
-        <h4 key={`h-${i}`} className="mt-3 mb-2 text-lg font-semibold text-gray-800">
+        <h4 key={`h-${i}`} className="mt-3 mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">
           {trimmed.slice(4)}
         </h4>,
       )
@@ -341,14 +341,14 @@ function ArticleMarkdown({ content, streaming }: { content: string; streaming: b
       blocks.push(
         <blockquote
           key={`q-${i}`}
-          className="my-4 rounded-lg bg-primary/15 px-4 py-3 text-base font-medium text-gray-800 ring-1 ring-primary/30"
+          className="my-4 rounded-lg bg-primary/15 px-4 py-3 text-base font-medium text-gray-800 dark:text-gray-200 ring-1 ring-primary/30"
         >
           {renderInline(trimmed.slice(2))}
         </blockquote>,
       )
     } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       blocks.push(
-        <div key={`li-${i}`} className="flex gap-2 py-0.5 text-sm text-gray-700">
+        <div key={`li-${i}`} className="flex gap-2 py-0.5 text-sm text-gray-700 dark:text-gray-300">
           <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
           <span>{renderInline(trimmed.slice(2))}</span>
         </div>,
@@ -357,7 +357,7 @@ function ArticleMarkdown({ content, streaming }: { content: string; streaming: b
       blocks.push(<div key={`br-${i}`} className="h-3" />)
     } else {
       blocks.push(
-        <p key={`p-${i}`} className="py-1 text-sm leading-7 text-gray-700">
+        <p key={`p-${i}`} className="py-1 text-sm leading-7 text-gray-700 dark:text-gray-300">
           {renderInline(trimmed)}
         </p>,
       )
@@ -383,7 +383,7 @@ function renderInline(text: string): React.ReactNode {
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
       return (
-        <strong key={i} className="font-bold text-gray-900">
+        <strong key={i} className="font-bold text-gray-900 dark:text-gray-100">
           {part.slice(2, -2)}
         </strong>
       )

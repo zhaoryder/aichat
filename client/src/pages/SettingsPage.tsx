@@ -129,7 +129,7 @@ export function SettingsPage() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-6xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold text-gray-900">
+      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
         <Palette className="h-6 w-6 text-primary" />
         个性化装扮
       </h1>
@@ -139,8 +139,8 @@ export function SettingsPage() {
         <div className="space-y-6 lg:col-span-2">
           {/* 1. 主题模板 */}
           <Card className="p-6">
-            <h2 className="mb-1 text-lg font-bold text-gray-900">主题模板</h2>
-            <p className="mb-4 text-sm text-gray-500">选择一套内置配色方案。</p>
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">主题模板</h2>
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">选择一套内置配色方案。</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {THEMES.map((t) => {
                 const active = theme?.theme_id === t.id
@@ -161,9 +161,9 @@ export function SettingsPage() {
                     >
                       {active && <Check className="h-6 w-6 text-white" />}
                     </div>
-                    <span className="text-sm font-medium text-gray-700">{t.name}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.name}</span>
                     <span
-                      className="absolute right-2 top-2 h-3 w-3 rounded-full border border-gray-200"
+                      className="absolute right-2 top-2 h-3 w-3 rounded-full border border-gray-200 dark:border-gray-700"
                       style={{ backgroundColor: t.background }}
                       title="背景色"
                     />
@@ -175,8 +175,8 @@ export function SettingsPage() {
 
           {/* 2. 自定义颜色 */}
           <Card className="p-6">
-            <h2 className="mb-1 text-lg font-bold text-gray-900">自定义颜色</h2>
-            <p className="mb-4 text-sm text-gray-500">
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">自定义颜色</h2>
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
               覆盖当前主题的默认颜色，清除输入框则恢复主题色。
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -199,8 +199,8 @@ export function SettingsPage() {
 
           {/* 3. 气泡样式 */}
           <Card className="p-6">
-            <h2 className="mb-1 text-lg font-bold text-gray-900">气泡样式</h2>
-            <p className="mb-4 text-sm text-gray-500">选择对话消息气泡的圆角风格。</p>
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">气泡样式</h2>
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">选择对话消息气泡的圆角风格。</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {BUBBLE_STYLES.map((b) => {
                 const active = currentBubbleStyle === b.id
@@ -221,7 +221,7 @@ export function SettingsPage() {
                         BUBBLE_RADIUS[b.id],
                       )}
                     />
-                    <span className="text-sm font-medium text-gray-700">{b.name}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{b.name}</span>
                     {active && (
                       <Check className="absolute right-2 top-2 h-4 w-4 text-primary" />
                     )}
@@ -233,8 +233,8 @@ export function SettingsPage() {
 
           {/* 4. 加载动画 */}
           <Card className="p-6">
-            <h2 className="mb-1 text-lg font-bold text-gray-900">加载动画</h2>
-            <p className="mb-4 text-sm text-gray-500">AI 思考时的加载动画样式。</p>
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">加载动画</h2>
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">AI 思考时的加载动画样式。</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {LOADING_ANIMS.map((a) => {
                 const active = currentLoadingAnim === a.id
@@ -250,7 +250,7 @@ export function SettingsPage() {
                     )}
                   >
                     <LoadingPreview anim={a.id} />
-                    <span className="text-sm font-medium text-gray-700">{a.name}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{a.name}</span>
                     {active && (
                       <Check className="absolute right-2 top-2 h-4 w-4 text-primary" />
                     )}
@@ -365,13 +365,13 @@ function ColorPicker({
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       <div className="flex items-center gap-2">
         <input
           type="color"
           value={colorValue}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-12 shrink-0 cursor-pointer rounded border border-gray-200 bg-transparent p-1"
+          className="h-10 w-12 shrink-0 cursor-pointer rounded border border-gray-200 dark:border-gray-700 bg-transparent p-1"
           aria-label={`${label} 颜色选择`}
         />
         <input
@@ -385,13 +385,13 @@ function ColorPicker({
               onChange(v)
             }
           }}
-          className="h-10 flex-1 rounded border border-gray-200 px-3 text-sm font-mono"
+          className="h-10 flex-1 rounded border border-gray-200 dark:border-gray-700 px-3 text-sm font-mono"
           aria-label={`${label} 十六进制值`}
         />
         {value && (
           <button
             onClick={onClear}
-            className="shrink-0 text-xs text-gray-400 transition-colors hover:text-gray-600"
+            className="shrink-0 text-xs text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
             title="清除（恢复主题色）"
           >
             清除

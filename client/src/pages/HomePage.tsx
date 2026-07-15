@@ -84,7 +84,7 @@ export const HomePage = () => {
         <h1 className="bg-gradient-to-r from-primary via-amber-400 to-orange-500 bg-clip-text text-4xl font-extrabold text-transparent sm:text-5xl md:text-6xl">
           AI 搞笑工坊
         </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-base text-gray-600 sm:text-lg">
+        <p className="mx-auto mt-5 max-w-2xl text-base text-gray-600 sm:text-lg dark:text-gray-400">
           和 300+ 位穿越时空的&ldquo;灵魂人物&rdquo;聊聊天——从孔子到马斯克，从林黛玉到 C 罗，每一位都会用专属的毒舌与梗陪你整活。
         </p>
         <div className="mt-8 flex justify-center">
@@ -104,11 +104,11 @@ export const HomePage = () => {
       {/* 我的收藏区块：仅已登录用户显示 */}
       {user && (
         <section className="mx-auto max-w-7xl px-4 pb-10">
-          <h2 className="mb-6 text-lg font-semibold text-gray-800">我的收藏</h2>
+          <h2 className="mb-6 text-lg font-semibold text-gray-800 dark:text-gray-200">我的收藏</h2>
           {favoritesLoading ? (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
                   <Skeleton className="h-12 w-12 rounded-full" />
                   <Skeleton className="mt-3 h-4 w-24" />
                   <Skeleton className="mt-2 h-3 w-32" />
@@ -124,13 +124,13 @@ export const HomePage = () => {
                       <AgentAvatar agent={agent} size="md" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="truncate font-bold text-gray-900">{agent.name}</h3>
+                          <h3 className="truncate font-bold text-gray-900 dark:text-gray-100">{agent.name}</h3>
                           <Badge variant="default" className="shrink-0">{agent.era}</Badge>
                         </div>
-                        <p className="mt-0.5 text-xs text-gray-500">{agent.title}</p>
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{agent.title}</p>
                       </div>
                     </div>
-                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">
+                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                       &ldquo;{agent.tagline}&rdquo;
                     </p>
                     <div className="mt-4 flex items-center justify-end">
@@ -167,7 +167,7 @@ export const HomePage = () => {
       {/* 热门精选：取前 30 个作为精选（spec §5.3） */}
       <section className="mx-auto max-w-7xl px-4 pb-20">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">热门精选</h2>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">热门精选</h2>
           <Button
             variant="outline"
             size="sm"
@@ -181,7 +181,7 @@ export const HomePage = () => {
           // 首次加载骨架屏
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex items-start gap-4">
                   <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
                   <div className="min-w-0 flex-1 space-y-2">
@@ -212,13 +212,13 @@ export const HomePage = () => {
                       <AgentAvatar agent={agent} size="md" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="truncate font-bold text-gray-900">{agent.name}</h3>
+                          <h3 className="truncate font-bold text-gray-900 dark:text-gray-100">{agent.name}</h3>
                           <Badge variant="default" className="shrink-0">{agent.era}</Badge>
                         </div>
-                        <p className="mt-0.5 text-xs text-gray-500">{agent.title}</p>
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{agent.title}</p>
                       </div>
                     </div>
-                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600">
+                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                       &ldquo;{agent.tagline}&rdquo;
                     </p>
                     <div className="mt-4 flex items-center justify-end">

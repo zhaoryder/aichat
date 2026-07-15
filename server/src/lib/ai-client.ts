@@ -161,9 +161,67 @@ export async function chatCompletion(
   }
 }
 
-// ----------------------------------------------------------------------
-// 流式对话函数
-// ----------------------------------------------------------------------
+/**
+ * 直接调用 Agnes Chat Completions API（绕过 agent 注入，使用调用方提供的 system prompt）。
+ * 用于生成 JSON/结构化文本等不需要 agent 框架的场景（如表情包台词、海报文案）。
+ *
+ * @param systemPrompt 自定义 system prompt（完全替代 agent 的 systemPrompt）
+ * @param userPrompt 用户输入
+ * @param options.model 可选模型名（默认 agnes-2.0-flash）
+ * @returns 模型回复的文本内容
+ */
+export async function callAgnesChat(
+  systemPrompt: string,
+  userPrompt: string,
+  options?: { model?: string; signal?: AbortSignal }
+): Promise<string> {
+  const client = getClient()
+  const model = options?.model || AGNES_MODEL
+
+  const timeoutController = new AbortController()
+  let internalTimedOut = false
+  const timeoutTimer = setTimeout(() => {
+    internalTimedOut = true
+    timeoutController.abort(new Error('__AI_CLIENT_INTERNAL_TIMEOUT__'))
+  }, DEFAULT_TIMEOUT_MS)
+
+  const externalSignal = options?.signal
+  const onExternalAbort = () => {
+    if (!timeoutController.signal.aborted) {
+      timeoutController.abort(externalSignal?.reason ?? new Error('用户取消'))
+    }
+  }
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort()
+    else externalSignal.addEventListener('abort', onExternalAbort)
+  }
+
+  try {
+    const response = await client.chat.completions.create(
+      {
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.8,
+      },
+      { signal: timeoutController.signal }
+    )
+    const content = response.choices?.[0]?.message?.content ?? ''
+    return content
+  } catch (err) {
+    throw classifyError(err, {
+      internalTimedOut,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+    })
+  } finally {
+    clearTimeout(timeoutTimer)
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort)
+    }
+  }
+}
 
 /**
  * 调用 Agnes 模型生成回复（流式）。
@@ -477,8 +535,8 @@ export async function submitVideoTask(
       })
 
       if (response.status === 429) {
-        // 限流：指数退避重试
-        const waitMs = Math.min(2000 * Math.pow(2, attempt), 8000)
+        // 限流：快速退避重试（500ms/1s/2s，共 3.5s）
+        const waitMs = Math.min(500 * Math.pow(2, attempt), 2000)
         await new Promise((resolve) => setTimeout(resolve, waitMs))
         lastError = new AIRequestError(
           `视频生成服务繁忙（已自动重试 ${attempt + 1}/${MAX_RETRIES}）`

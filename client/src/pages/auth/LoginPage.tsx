@@ -55,7 +55,7 @@ export default function LoginPage() {
           <h1 className="bg-gradient-to-r from-primary to-amber-500 bg-clip-text text-2xl font-extrabold text-transparent">
             欢迎登录
           </h1>
-          <p className="mt-2 text-sm text-gray-500">AI 搞笑工坊，等你来玩</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">AI 搞笑工坊，等你来玩</p>
         </CardHeader>
         <CardContent>
           {registered && (
@@ -66,7 +66,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 邮箱
               </label>
               <Input
@@ -80,7 +80,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 密码
               </label>
               <Input
@@ -94,7 +94,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">{error}</div>
             )}
 
             <Button
@@ -107,7 +107,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-gray-500">
+          <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
             还没有账号？{' '}
             <Link to="/auth/register" className="font-medium text-primary hover:underline">
               去注册

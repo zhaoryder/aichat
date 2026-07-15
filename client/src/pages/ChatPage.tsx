@@ -91,7 +91,7 @@ export const ChatPage = () => {
   if (status === 'error' || !agent) {
     return (
       <div className="flex h-[calc(100dvh-4rem)] flex-col items-center justify-center gap-3 text-center">
-        <p className="text-base text-gray-700">{errorMsg || '未找到该智能体'}</p>
+        <p className="text-base text-gray-700 dark:text-gray-300">{errorMsg || '未找到该智能体'}</p>
         <Button asChild variant="outline">
           <Link to="/">返回首页</Link>
         </Button>

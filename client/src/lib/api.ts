@@ -20,9 +20,13 @@ function buildUrl(path: string): string {
  * 统一 API 请求封装。
  * - 自动注入 Authorization: Bearer <access_token>
  * - 默认 Content-Type: application/json
+ * - 默认 30 秒超时（可通过 options.timeoutMs 配置，或传 signal 自定义）
  * - 统一错误处理：非 2xx 状态码时抛出带后端 message 的 Error
  */
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit & { timeoutMs?: number } = {},
+): Promise<T> {
   const token = await getAccessToken()
 
   const headers: Record<string, string> = {
@@ -31,7 +35,31 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(buildUrl(path), { ...options, headers })
+  // 超时控制：默认 30 秒，传 signal 时跳过
+  const timeoutMs = options.timeoutMs ?? 30000
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  // 合并外部 signal
+  if (options.signal) {
+    if (options.signal.aborted) controller.abort()
+    else options.signal.addEventListener('abort', () => controller.abort())
+  }
+
+  let res: Response
+  try {
+    res = await fetch(buildUrl(path), {
+      ...options,
+      headers,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    clearTimeout(timer)
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`请求超时（${timeoutMs / 1000}s）`)
+    }
+    throw err
+  }
+  clearTimeout(timer)
 
   // 204 No Content 等无内容响应
   if (res.status === 204) return undefined as T

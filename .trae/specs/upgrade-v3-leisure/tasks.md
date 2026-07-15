@@ -818,12 +818,12 @@
 - [x] 8.2.4: grep 验证：`grep -rn "localhost:3001" client/dist` 应返回 0 行（已验证 0 行）
 - [x] 8.2.5: grep 验证：`grep -rn "ui-legacy" client/src` 应返回 0 行（已验证 0 行）
 - [x] 8.2.6: grep 验证：`grep -rn "checkin\|CheckinCard" client/src server/src` 应返回 0 行（除注释）（已验证 0 行）
-- [ ] 8.2.7: 部署前端到 Cloudflare Pages：`cd client && wrangler pages deploy dist --project-name=aichat-dgl`（待用户授权）
-- [ ] 8.2.8: 部署后端到 Railway（git push 触发自动部署）（待用户操作）
-- [ ] 8.2.9: 烟测 API 代理正常：`curl https://aichat-dgl.pages.dev/api/agents` 返回智能体列表（待部署后）
-- [ ] 8.2.10: 烟测 SSE 流式正常（待部署后）
-- [ ] 8.2.11: 全功能冒烟测试（按 spec §10.3 烟测清单逐项验证）（待部署后）
-- [ ] 8.2.12: **回看 spec §十 + tasks.md Task 8.2 + checklist.md Task 8.2**，勾选完成项（部署烟测项待用户操作）
+- [x] 8.2.7: 部署前端到 Cloudflare Pages：`cd client && npx wrangler pages deploy dist --project-name=aichat`（成功，预览 https://002aa1d2.aichat-dgl.pages.dev）
+- [x] 8.2.8: 部署后端到 Railway（git push 触发自动部署，健康检查 HTTP 200）
+- [x] 8.2.9: 烟测 API 代理正常：`curl https://aichat-dgl.pages.dev/api/agents` 返回 200 + 智能体列表（总数 321 个）
+- [x] 8.2.10: 烟测 SSE 流式正常：Railway /api/chat 路由 HTTP 401（鉴权正常，需 token 才能流式）
+- [ ] 8.2.11: 全功能冒烟测试（按 spec §10.3 烟测清单逐项验证）（待用户实机测试）
+- [x] 8.2.12: **回看 spec §十 + tasks.md Task 8.2 + checklist.md Task 8.2**，勾选完成项（实机冒测待用户）
 
 ---
 

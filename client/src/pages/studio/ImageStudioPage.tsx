@@ -1,4 +1,4 @@
-// 图片工坊：CogView4 文生图
+// 图片工坊：Agnes Image 文生图
 // - 表单：描述 / 风格 / 数量(1-4)
 // - 画廊网格：点击放大（Dialog）、单独下载、全部下载
 // - 表情包字幕（Canvas 合成）：drawImage + fillText → toDataURL 下载
@@ -175,11 +175,11 @@ export const ImageStudioPage = () => {
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6">
-        <Link to="/studio" className="text-sm text-gray-500 hover:text-primary">
+        <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">
           ← 返回创意工坊
         </Link>
-        <h1 className="mt-2 text-3xl font-extrabold text-gray-900">搞笑图片</h1>
-        <p className="mt-1 text-sm text-gray-500">CogView4 文生图，还能合成表情包字幕</p>
+        <h1 className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-gray-100">搞笑图片</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Agnes Image 文生图，还能合成表情包字幕</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[320px_1fr] lg:grid-cols-[360px_1fr]">
@@ -187,8 +187,8 @@ export const ImageStudioPage = () => {
         <Card className="h-fit p-5">
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                描述 <span className="text-red-500">*</span>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                描述 <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <Textarea
                 value={prompt}
@@ -207,7 +207,7 @@ export const ImageStudioPage = () => {
               disabled={loading}
             />
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 数量
               </label>
               <div className="flex gap-2">
@@ -221,7 +221,7 @@ export const ImageStudioPage = () => {
                       'h-10 w-10 rounded-lg border text-sm transition-colors',
                       count === n
                         ? 'border-primary bg-primary/15 text-primary'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300',
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600',
                     )}
                   >
                     {n}
@@ -230,8 +230,8 @@ export const ImageStudioPage = () => {
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                表情包字幕 <span className="text-gray-400">（可选，合成到图上）</span>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                表情包字幕 <span className="text-gray-400 dark:text-gray-500">（可选，合成到图上）</span>
               </label>
               <Input
                 value={caption}
@@ -240,13 +240,13 @@ export const ImageStudioPage = () => {
                 disabled={loading}
               />
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
                 checked={publishToGallery}
                 onChange={(e) => setPublishToGallery(e.target.checked)}
                 disabled={loading}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-gray-600"
               />
               发布到广场
             </label>
@@ -263,7 +263,7 @@ export const ImageStudioPage = () => {
         {/* 画廊 */}
         <Card className="flex min-h-[400px] flex-col">
           {error && (
-            <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600">
+            <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
               {error}
             </div>
           )}
@@ -271,9 +271,9 @@ export const ImageStudioPage = () => {
           {loading ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
               <Spinner className="h-10 w-10" />
-              <p className="text-sm font-medium text-gray-600">AI 正在绘画…</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">AI 正在绘画…</p>
               {/* indeterminate shimmer 进度条 */}
-              <div className="mt-2 h-1 w-full max-w-md overflow-hidden rounded-full bg-gray-200">
+              <div className="mt-2 h-1 w-full max-w-md overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                 <div className="h-full w-full animate-shimmer rounded-full bg-gradient-to-r from-transparent via-primary to-transparent bg-[length:200%_100%]" />
               </div>
             </div>
@@ -291,7 +291,7 @@ export const ImageStudioPage = () => {
                 </div>
               )}
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm text-gray-500">共 {images.length} 张</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">共 {images.length} 张</span>
                 {images.length > 0 && (
                   <Button size="sm" variant="outline" onClick={downloadAll}>
                     全部下载
@@ -300,8 +300,8 @@ export const ImageStudioPage = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {images.map((img, i) => (
-                  <div key={i} className="group overflow-hidden rounded-lg ring-1 ring-gray-200">
-                    <div className="relative aspect-square overflow-hidden bg-gray-50">
+                  <div key={i} className="group overflow-hidden rounded-lg ring-1 ring-gray-200 dark:ring-gray-700">
+                    <div className="relative aspect-square overflow-hidden bg-gray-50 dark:bg-gray-800/50">
                       {!loadedUrls[img.url] && (
                         <Skeleton className="absolute inset-0" />
                       )}
@@ -318,7 +318,7 @@ export const ImageStudioPage = () => {
                         onClick={() => setPreviewUrl(img.url)}
                       />
                     </div>
-                    <div className="flex items-center gap-2 border-t border-gray-100 p-2">
+                    <div className="flex items-center gap-2 border-t border-gray-100 p-2 dark:border-gray-800">
                       <Button
                         size="sm"
                         variant="outline"
