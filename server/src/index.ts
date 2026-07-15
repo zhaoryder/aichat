@@ -23,6 +23,9 @@ import { teamsRouter } from './routes/teams'
 import { roomsRouter } from './routes/rooms'
 import { themesRouter } from './routes/themes'
 import { snapshotsRouter } from './routes/snapshots'
+import { feedRouter } from './routes/feed'
+import { followRouter } from './routes/follow'
+import { notificationsRouter } from './routes/notifications'
 import './lib/ai-feed-cron'
 
 const app = express()
@@ -59,6 +62,10 @@ app.use('/api/teams', teamsRouter)
 app.use('/api/rooms', roomsRouter)
 app.use('/api/themes', themesRouter)
 app.use('/api/snapshots', snapshotsRouter)
+app.use('/api/feed', feedRouter)
+app.use('/api/posts', feedRouter)
+app.use('/api/follow', followRouter)
+app.use('/api/notifications', notificationsRouter)
 
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`)

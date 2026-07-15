@@ -1,14 +1,17 @@
 import { Outlet } from 'react-router-dom'
-import { Navbar } from './Navbar'
+import { Sidebar, BottomTabBar } from './Sidebar'
+import { RightSidebar } from './RightSidebar'
 
-// 主布局：顶部导航 + 主内容区（子路由通过 Outlet 渲染）
+/** 主布局：三栏（左 Sidebar + 主内容 + 右推荐栏），移动端底部 Tab Bar */
 export function Layout() {
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <Navbar />
-      <main className="flex-1 overflow-y-auto">
+    <div className="flex min-h-dvh bg-background">
+      <Sidebar />
+      <main className="flex min-w-0 flex-1 flex-col pb-14 lg:pb-0">
         <Outlet />
       </main>
+      <RightSidebar />
+      <BottomTabBar />
     </div>
   )
 }

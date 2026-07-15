@@ -135,7 +135,7 @@ export function LeaderboardPage() {
           {entries.length > 0 && (
             <div className="rounded-lg border bg-card p-4 shadow-sm">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Trophy className="h-4 w-4 text-amber-500" />
+                <Trophy className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                 TOP 5 可视化
               </h2>
               <ResponsiveContainer width="100%" height={240}>

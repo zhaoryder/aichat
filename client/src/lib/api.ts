@@ -366,3 +366,150 @@ export async function shareSnapshotApi(
     method: 'POST',
   })
 }
+
+// =====================================================================
+// 社媒 API（信息流 / 动态 / 关注 / 互动 / 通知）
+// =====================================================================
+
+/** 动态类型 */
+export type PostType = 'text' | 'conversation_share' | 'project_share' | 'image_share' | 'repost'
+
+/** 动态（Post） */
+export interface Post {
+  id: string
+  user_id: string
+  type: PostType
+  content: string
+  metadata: Record<string, unknown>
+  repost_of: string | null
+  created_at: string
+  author: { id: string; nickname: string; avatar_url: string | null }
+  like_count: number
+  comment_count: number
+  liked: boolean
+}
+
+/** 评论 */
+export interface Comment {
+  id: string
+  post_id: string
+  user_id: string
+  content: string
+  created_at: string
+  author: { id: string; nickname: string; avatar_url: string | null }
+}
+
+/** 通知 */
+export interface AppNotification {
+  id: string
+  user_id: string
+  type: 'follow' | 'like' | 'comment' | 'repost' | 'system'
+  actor_id: string | null
+  target_id: string | null
+  target_type: string | null
+  read: boolean
+  created_at: string
+  actor: { id: string; nickname: string; avatar_url: string | null } | null
+}
+
+/** 获取首页信息流 */
+export async function getFeed(page = 1): Promise<{ posts: Post[]; page: number; hasMore: boolean }> {
+  return apiFetch(`/feed?page=${page}`)
+}
+
+/** 获取探索页热门内容 */
+export async function getExploreFeed(): Promise<{ posts: Post[]; agents: Array<Record<string, unknown>> }> {
+  return apiFetch('/feed/explore')
+}
+
+/** 发布动态 */
+export async function createPost(data: {
+  type: PostType
+  content?: string
+  metadata?: Record<string, unknown>
+  repost_of?: string
+}): Promise<{ post: Post }> {
+  return apiFetch('/posts', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+/** 获取动态详情 */
+export async function getPost(id: string): Promise<{ post: Post }> {
+  return apiFetch(`/posts/${id}`)
+}
+
+/** 删除动态 */
+export async function deletePost(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/posts/${id}`, { method: 'DELETE' })
+}
+
+/** 获取用户主页动态 */
+export async function getUserPosts(userId: string, page = 1): Promise<{ posts: Post[]; page: number; hasMore: boolean }> {
+  return apiFetch(`/posts/user/${userId}?page=${page}`)
+}
+
+/** 点赞 / 取消点赞 */
+export async function toggleLike(postId: string): Promise<{ liked: boolean }> {
+  return apiFetch(`/posts/likes/${postId}`, { method: 'POST' })
+}
+
+/** 发表评论 */
+export async function createComment(postId: string, content: string): Promise<{ comment: Comment }> {
+  return apiFetch('/comments', {
+    method: 'POST',
+    body: JSON.stringify({ postId, content }),
+  })
+}
+
+/** 获取评论列表 */
+export async function getComments(postId: string): Promise<{ comments: Comment[] }> {
+  return apiFetch(`/comments/${postId}`)
+}
+
+/** 转发 */
+export async function repost(id: string, content?: string): Promise<{ post: Post }> {
+  return apiFetch(`/posts/${id}/repost`, {
+    method: 'POST',
+    body: JSON.stringify({ content: content || '' }),
+  })
+}
+
+/** 关注 / 取关用户 */
+export async function toggleFollowUser(targetId: string): Promise<{ following: boolean }> {
+  return apiFetch(`/follow/${targetId}`, { method: 'POST' })
+}
+
+/** 关注 / 取关智能体 */
+export async function toggleFollowAgent(agentId: string): Promise<{ following: boolean }> {
+  return apiFetch(`/follow/agent/${agentId}`, { method: 'POST' })
+}
+
+/** 检查是否已关注 */
+export async function getFollowStatus(targetId: string): Promise<{ following: boolean }> {
+  return apiFetch(`/follow/status/${targetId}`)
+}
+
+/** 获取关注 / 粉丝数 */
+export async function getFollowStats(userId: string): Promise<{ following: number; followers: number }> {
+  return apiFetch(`/follow/stats/${userId}`)
+}
+
+/** 获取通知列表 */
+export async function getNotifications(page = 1): Promise<{ notifications: AppNotification[]; unread: number; hasMore: boolean }> {
+  return apiFetch(`/notifications?page=${page}`)
+}
+
+/** 获取未读通知数 */
+export async function getUnreadCount(): Promise<{ unread: number }> {
+  return apiFetch('/notifications/unread-count')
+}
+
+/** 标记通知已读 */
+export async function markNotificationsRead(ids?: string[]): Promise<{ success: boolean }> {
+  return apiFetch('/notifications/read', {
+    method: 'PATCH',
+    body: JSON.stringify({ ids }),
+  })
+}

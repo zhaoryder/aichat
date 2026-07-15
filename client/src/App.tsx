@@ -40,6 +40,8 @@ import { LeaderboardPage } from './pages/LeaderboardPage'
 import { AIFeedPage } from './pages/AIFeedPage'
 import { EmoWallPage } from './pages/EmoWallPage'
 import { CardsPage } from './pages/CardsPage'
+import { ExplorePage } from './pages/ExplorePage'
+import { NotificationsPage } from './pages/NotificationsPage'
 
 // 应用根组件：AuthProvider 包裹在 BrowserRouter 外层
 export default function App() {
@@ -52,6 +54,16 @@ export default function App() {
             {/* 带主布局的页面 */}
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
+              <Route path="/explore" element={<ExplorePage />} />
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute>
+                    <NotificationsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/post/:id" element={<HomePage />} />
               <Route
                 path="/chat/:agentId"
                 element={

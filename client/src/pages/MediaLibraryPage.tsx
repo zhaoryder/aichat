@@ -367,7 +367,7 @@ function MediaCard({ asset, onCopyUrl, onDownload, onDelete }: MediaCardProps) {
             <button
               type="button"
               onClick={onCopyUrl}
-              className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-indigo-500"
+              className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-indigo-500 dark:hover:text-indigo-400"
               title="复制 URL"
             >
               <Link className="h-3 w-3" />
