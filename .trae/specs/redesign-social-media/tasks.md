@@ -69,10 +69,10 @@
   - [x] SubTask 9.2: Sidebar 通知角标（未读数）
   - [x] SubTask 9.3: 点击通知跳转到对应动态 / 主页
 
-- [ ] Task 10: 分享功能整合（下一阶段实现）
-  - [ ] SubTask 10.1: ChatWindow 对话页"分享"按钮 → 创建 conversation_share 类型 Post
-  - [ ] SubTask 10.2: VibeCodePage"分享到社区"按钮 → 创建 project_share 类型 Post
-  - [ ] SubTask 10.3: Studio 作品页"分享"按钮 → 创建 image_share Post
+- [x] Task 10: 分享功能整合
+  - [x] SubTask 10.1: ChatWindow 对话页"分享"按钮 → 创建 conversation_share 类型 Post
+  - [x] SubTask 10.2: VibeCodePage"分享到社区"按钮 → 创建 project_share 类型 Post
+  - [x] SubTask 10.3: Studio 作品页"分享"按钮 → 创建 image_share Post
 
 ## Phase 4: 路由与收尾
 

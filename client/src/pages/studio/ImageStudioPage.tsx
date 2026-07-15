@@ -4,7 +4,9 @@
 // - 表情包字幕（Canvas 合成）：drawImage + fillText → toDataURL 下载
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { apiFetch, publishImageToGallery } from '@/lib/api'
+import { Share2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { apiFetch, publishImageToGallery, createPost } from '@/lib/api'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -42,6 +44,27 @@ export const ImageStudioPage = () => {
 
   // 图片加载状态：url → 是否已加载
   const [loadedUrls, setLoadedUrls] = useState<Record<string, boolean>>({})
+
+  // 分享中的图片 URL（防止重复点击）
+  const [sharingUrls, setSharingUrls] = useState<Record<string, boolean>>({})
+
+  // 分享到社区信息流（image_share 类型 Post）
+  async function handleShareToCommunity(url: string, index: number) {
+    if (sharingUrls[url]) return
+    setSharingUrls((prev) => ({ ...prev, [url]: true }))
+    try {
+      await createPost({
+        type: 'image_share',
+        content: prompt.trim() ? `AI 绘画：${prompt.trim().slice(0, 100)}` : `分享一张 AI 生成图（第 ${index + 1} 张）`,
+        metadata: { url, prompt: prompt.trim(), style },
+      })
+      toast.success('已分享到社区！')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '分享失败，请重试')
+    } finally {
+      setSharingUrls((prev) => ({ ...prev, [url]: false }))
+    }
+  }
 
   async function handleGenerate() {
     const trimmed = prompt.trim()
@@ -332,6 +355,16 @@ export const ImageStudioPage = () => {
                         <a href={img.url} target="_blank" rel="noreferrer">
                           新窗口
                         </a>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleShareToCommunity(img.url, i)}
+                        disabled={!!sharingUrls[img.url]}
+                        title="分享到社区信息流"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                        {sharingUrls[img.url] ? '分享中...' : '分享到社区'}
                       </Button>
                     </div>
                   </div>

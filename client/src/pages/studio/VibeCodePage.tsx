@@ -56,6 +56,7 @@ import {
   FileText,
   Terminal,
   ExternalLink,
+  Share2,
 } from 'lucide-react'
 import {
   AssistantRuntimeProvider,
@@ -76,6 +77,7 @@ import {
   listSnapshotsApi,
   restoreSnapshotApi,
   getSnapshotDiffApi,
+  createPost,
   type VibeProject,
   type SnapshotDiff,
 } from '@/lib/api'
@@ -1229,6 +1231,37 @@ export const VibeCodePage = () => {
     }
   }, [code, saveTitle, savePublic, lastPrompt, loadProjects])
 
+  // 分享到社区：将当前 Vibe Code 项目作为 project_share 类型动态发布
+  const [shareLoading, setShareLoading] = useState(false)
+  const handleShareToCommunity = useCallback(async () => {
+    if (!code) {
+      toast.info('请先生成代码后再分享')
+      return
+    }
+    if (shareLoading) return
+    setShareLoading(true)
+    try {
+      const title = lastPrompt.slice(0, 60) || '未命名 Vibe Code 项目'
+      // 代码截断到 8000 字（避免数据库字段过大）
+      const codeSnippet = code.length > 8000 ? code.slice(0, 8000) + '\n// ...' : code
+      await createPost({
+        type: 'project_share',
+        content: `分享了一个 Vibe Code 项目：${title}`,
+        metadata: {
+          title,
+          description: lastPrompt,
+          code: codeSnippet,
+          language: 'html',
+        },
+      })
+      toast.success('已分享到社区！')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '分享失败，请重试')
+    } finally {
+      setShareLoading(false)
+    }
+  }, [code, lastPrompt, shareLoading])
+
   // 手动修复：发送一条 user 消息让 Agent 修复
   const handleFix = async () => {
     const errDesc = fixError.trim() || '运行时错误，请检查并修复代码中的问题'
@@ -1612,6 +1645,18 @@ export const VibeCodePage = () => {
           >
             <Save className="h-4 w-4" />
             <span className="hidden sm:inline">保存</span>
+          </Button>
+
+          {/* 分享到社区 */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleShareToCommunity}
+            disabled={isStreaming || shareLoading || !code}
+            title="分享到社区信息流"
+          >
+            <Share2 className="h-4 w-4" />
+            <span className="hidden sm:inline">{shareLoading ? '分享中...' : '分享到社区'}</span>
           </Button>
         </>
       )}

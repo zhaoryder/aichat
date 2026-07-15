@@ -61,10 +61,10 @@
 - [x] 点击通知跳转到对应页面
 - [x] 标记已读功能正常
 
-## 分享整合（下一阶段实现）
-- [ ] ChatWindow 对话页分享按钮创建 conversation_share Post
-- [ ] VibeCodePage 分享按钮创建 project_share Post
-- [ ] Studio 作品页分享按钮创建 image_share Post
+## 分享整合
+- [x] ChatWindow 对话页分享按钮创建 conversation_share Post（含对话预览 + agentId 元数据）
+- [x] VibeCodePage 分享按钮创建 project_share Post（含代码 + 标题 + 描述）
+- [x] Studio 作品页分享按钮创建 image_share Post（每张图独立分享，含 url + prompt + style）
 
 ## 路由
 - [x] 新增 `/explore`、`/notifications`、`/post/:id` 路由

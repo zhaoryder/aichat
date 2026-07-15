@@ -32,7 +32,7 @@ import {
   type ExternalStoreAdapter,
   type ThreadMessageLike,
 } from '@assistant-ui/react'
-import { apiStream } from '@/lib/api'
+import { apiStream, createPost } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/Markdown'
 import { Button } from '@/components/ui/button'
@@ -385,13 +385,42 @@ export function ChatWindow({
     [agent.id, conversationId, isLoading],
   )
 
-  // 分享按钮（UI 就绪；/api/share 由后端 Task 25-27 实现）
-  const handleShare = useCallback(() => {
-    if (!conversationIdRef.current) return
-    setShareCopied(true)
-    window.setTimeout(() => setShareCopied(false), 2000)
-    toast.success('分享链接已复制！')
-  }, [])
+  // 分享按钮：将当前对话分享到社区（conversation_share 类型 Post）
+  const [shareLoading, setShareLoading] = useState(false)
+  const handleShare = useCallback(async () => {
+    const cid = conversationIdRef.current
+    if (!cid) {
+      toast.info('请先发起对话后再分享')
+      return
+    }
+    if (shareLoading) return
+    setShareLoading(true)
+    try {
+      // 生成对话预览：取最近 3 条消息拼接（截断 200 字）
+      const recent = messages.slice(-3)
+      const preview = recent
+        .map((m) => `${m.role === 'user' ? '我' : agent.name}: ${m.content}`)
+        .join('\n')
+        .slice(0, 200)
+      await createPost({
+        type: 'conversation_share',
+        content: `我和 ${agent.name} 聊了聊`,
+        metadata: {
+          conversationId: cid,
+          agentId: agent.id,
+          agentName: agent.name,
+          preview,
+        },
+      })
+      setShareCopied(true)
+      window.setTimeout(() => setShareCopied(false), 2000)
+      toast.success('已分享到社区！')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '分享失败，请重试')
+    } finally {
+      setShareLoading(false)
+    }
+  }, [messages, agent.id, agent.name, shareLoading])
 
   // 收藏按钮：调 useFavorites().toggleFavorite（POST /favorite），全局状态同步
   const handleFavorite = useCallback(async () => {
@@ -510,7 +539,7 @@ export function ChatWindow({
             <button
               type="button"
               onClick={handleShare}
-              disabled={!conversationId}
+              disabled={!conversationId || shareLoading}
               aria-label="分享对话"
               className="inline-flex size-8 items-center justify-center rounded-full text-gray-400 dark:text-gray-500 transition-colors hover:bg-muted hover:text-gray-700 dark:hover:text-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
             >
