@@ -30,8 +30,10 @@ const AGNES_API_BASE = process.env.AGNES_API_BASE
 // 默认模型 agnes-2.0-flash；可通过 AGNES_MODEL 覆盖
 const AGNES_MODEL = process.env.AGNES_MODEL || 'agnes-2.0-flash'
 
-/** 默认请求超时（毫秒） */
-const DEFAULT_TIMEOUT_MS = 30_000
+/** 非流式请求超时（毫秒） */
+const DEFAULT_TIMEOUT_MS = 60_000
+/** 流式请求超时（毫秒）—— 流式可能持续较长 */
+const STREAM_TIMEOUT_MS = 120_000
 
 if (!AGNES_API_KEY || !AGNES_API_BASE) {
   // 不在此处抛错（避免模块加载即失败），改由 chatCompletion 调用时检查并抛出友好错误。
@@ -252,13 +254,13 @@ export async function* chatCompletionStream(
     agent.systemPrompt +
     '\n\n【平台通用搞笑基准】你是搞笑AI平台的智能体，核心使命是让用户笑。无论什么场景，都要保持幽默。不要引用过时的网络热梗或网络流行语，所有幽默必须是原创的。'
 
-  // 3. 构造超时控制（同 chatCompletion 的逻辑）
+  // 3. 构造超时控制（流式用 120s）
   const timeoutController = new AbortController()
   let internalTimedOut = false
   const timeoutTimer = setTimeout(() => {
     internalTimedOut = true
     timeoutController.abort(new Error('__AI_CLIENT_INTERNAL_TIMEOUT__'))
-  }, DEFAULT_TIMEOUT_MS)
+  }, STREAM_TIMEOUT_MS)
 
   const externalSignal = options?.signal
   const onExternalAbort = () => {
@@ -292,7 +294,7 @@ export async function* chatCompletionStream(
     }
 
   } catch (err) {
-    throw classifyError(err, { internalTimedOut, timeoutMs: DEFAULT_TIMEOUT_MS })
+    throw classifyError(err, { internalTimedOut, timeoutMs: STREAM_TIMEOUT_MS })
   } finally {
     clearTimeout(timeoutTimer)
     if (externalSignal) {
@@ -326,7 +328,7 @@ export async function* chatCompletionStreamWithSystemPrompt(
   const timeoutTimer = setTimeout(() => {
     internalTimedOut = true
     timeoutController.abort(new Error('__AI_CLIENT_INTERNAL_TIMEOUT__'))
-  }, DEFAULT_TIMEOUT_MS)
+  }, STREAM_TIMEOUT_MS)
 
   const externalSignal = options?.signal
   const onExternalAbort = () => {
@@ -359,7 +361,7 @@ export async function* chatCompletionStreamWithSystemPrompt(
       if (delta) yield delta
     }
   } catch (err) {
-    throw classifyError(err, { internalTimedOut, timeoutMs: DEFAULT_TIMEOUT_MS })
+    throw classifyError(err, { internalTimedOut, timeoutMs: STREAM_TIMEOUT_MS })
   } finally {
     clearTimeout(timeoutTimer)
     if (externalSignal) {

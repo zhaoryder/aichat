@@ -37,6 +37,12 @@ export const chatRouter = Router()
 /** 用户消息作为对话标题时的最大长度 */
 const TITLE_MAX_LENGTH = 20
 
+/** 检测用户消息是否可能需要工具调用（搜索/画图/视频） */
+const TOOL_KEYWORDS = /搜索|搜一下|搜搜|查一下|查查|最新新闻|今天的新闻|天气|画一|画张|画个|画图|绘图|生成图|生成视频|做个视频|生成动画|帮我画|给我画/i
+function mightNeedTools(message: string): boolean {
+  return TOOL_KEYWORDS.test(message)
+}
+
 interface ChatRequestBody {
   conversationId?: string
   agentId: string
@@ -122,7 +128,6 @@ chatRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
 
     let fullReply = ''
     try {
-      // === 轻度 Agent：先尝试工具调用 ===
       const agent = getAgentById(agentId)
       const systemPrompt = agent
         ? agent.systemPrompt +
@@ -130,67 +135,75 @@ chatRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
           chatToolsSystemPromptSuffix
         : chatToolsSystemPromptSuffix
 
-      const toolMessages = [
-        { role: 'system' as const, content: systemPrompt },
-        ...history.map((m) => ({ role: m.role, content: m.content })),
-      ]
+      const shouldTryTools = mightNeedTools(message)
 
-      const toolResult = await chatWithTools(toolMessages, chatToolDefinitions, {
-        signal: abortController.signal,
-      })
-
-      let streamHistory = history
-
-      if (toolResult.toolCalls && toolResult.toolCalls.length > 0) {
-        // AI 决定调用工具
-        for (const tc of toolResult.toolCalls) {
-          // 推送 tool_call 事件
-          sendEvent(res, 'tool_call', {
-            id: tc.id,
-            name: tc.name,
-            args: tc.arguments,
-          })
-
-          // 执行工具
-          const execResult = await executeChatTool(tc.name, tc.arguments)
-
-          // 推送 tool_result 事件
-          sendEvent(res, 'tool_result', {
-            id: tc.id,
-            name: tc.name,
-            result: execResult.success ? execResult.result : { error: execResult.error },
-          })
-        }
-
-        // 将工具结果加入历史，让 AI 生成最终回复
-        streamHistory = [
-          ...history,
-          { role: 'assistant' as const, content: toolResult.content || '正在为您处理...' },
-          {
-            role: 'user' as const,
-            content: `工具调用已完成，请根据上述工具返回的结果，用你的人格特色给用户一个完整的回复。`,
-          },
+      if (shouldTryTools) {
+        // === 工具路径：先非流式检查是否需要工具 ===
+        const toolMessages = [
+          { role: 'system' as const, content: systemPrompt },
+          ...history.map((m) => ({ role: m.role, content: m.content })),
         ]
 
-        // 流式生成最终回复
-        const gen = chatCompletionStream(streamHistory, agentId, {
+        const toolResult = await chatWithTools(toolMessages, chatToolDefinitions, {
+          signal: abortController.signal,
+        })
+
+        let streamHistory = history
+
+        if (toolResult.toolCalls && toolResult.toolCalls.length > 0) {
+          // AI 决定调用工具
+          for (const tc of toolResult.toolCalls) {
+            sendEvent(res, 'tool_call', {
+              id: tc.id,
+              name: tc.name,
+              args: tc.arguments,
+            })
+
+            const execResult = await executeChatTool(tc.name, tc.arguments)
+
+            sendEvent(res, 'tool_result', {
+              id: tc.id,
+              name: tc.name,
+              result: execResult.success ? execResult.result : { error: execResult.error },
+            })
+          }
+
+          streamHistory = [
+            ...history,
+            { role: 'assistant' as const, content: toolResult.content || '正在为您处理...' },
+            {
+              role: 'user' as const,
+              content: `工具调用已完成，请根据上述工具返回的结果，用你的人格特色给用户一个完整的回复。`,
+            },
+          ]
+
+          // 流式生成最终回复
+          const gen = chatCompletionStream(streamHistory, agentId, {
+            signal: abortController.signal,
+          })
+          for await (const token of gen) {
+            fullReply += token
+            sendEvent(res, 'token', { c: token })
+          }
+        } else {
+          // 工具路径但 AI 没调工具：把已有文本用真流式重发
+          // 直接用 chatCompletionStream 真流式输出（而非假分块）
+          const gen = chatCompletionStream(history, agentId, {
+            signal: abortController.signal,
+          })
+          for await (const token of gen) {
+            fullReply += token
+            sendEvent(res, 'token', { c: token })
+          }
+        }
+      } else {
+        // === 普通对话路径：直接真流式输出 ===
+        const gen = chatCompletionStream(history, agentId, {
           signal: abortController.signal,
         })
         for await (const token of gen) {
           fullReply += token
           sendEvent(res, 'token', { c: token })
-        }
-      } else {
-        // 无工具调用，直接发送 AI 的文本回复（分块模拟流式）
-        const content = toolResult.content || ''
-        if (content) {
-          // 分块发送（每 20 字一块），模拟流式体验
-          const chunkSize = 20
-          for (let i = 0; i < content.length; i += chunkSize) {
-            const chunk = content.slice(i, i + chunkSize)
-            fullReply += chunk
-            sendEvent(res, 'token', { c: chunk })
-          }
         }
       }
 
