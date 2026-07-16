@@ -1,13 +1,14 @@
 // =====================================================================
-// TeamToggle：AI Teamwork 多角色协作开关 + 角色选择面板
+// TeamToggle：AI Teamwork 多角色协作开关 + Popover 角色选择
 // ---------------------------------------------------------------------
 // - Switch 开关：开启后启用 Teamwork 模式（mode='team'）
-// - 6 个角色 chips（多选）：
+// - 开启后显示 "N/6" 紧凑摘要按钮，点击弹出 Popover 显示 6 角色 chips
+// - 6 个角色（多选，Leader 必选）：
 //     Leader 紫 / Planner 蓝 / Coder 绿 / Executor 橙 / Reviewer 红 / Reporter 灰
-//   每个角色配对应颜色 + 图标
 // - 默认选中 Leader + Coder（与后端 startTeamSession 默认一致）
-// - 显示团队配置摘要（已选 N/6 角色）
 // - 暗色模式适配
+// - 设计：toolbar 中只保留 Switch + 紧凑摘要（约 120px），
+//   角色选择面板在 Popover 中弹出，避免横向挤压 toolbar 导致布局错乱
 // =====================================================================
 
 import {
@@ -23,6 +24,11 @@ import {
 import type { TeamRole } from '@shared/types'
 import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 // ---------------------------------------------------------------------
 // 角色元数据：图标 + 配色
@@ -163,44 +169,86 @@ export function TeamToggle({
         aria-label="切换 Teamwork 模式"
       />
 
-      {/* 角色选择面板：仅在启用时展开 */}
+      {/* 紧凑摘要按钮：开启后显示 "N/6"，点击弹出 Popover 角色选择面板 */}
       {enabled && (
-        <div className="ml-1 flex items-center gap-1 border-l border-purple-200/50 dark:border-purple-800/60 pl-1.5">
-          {ALL_ROLES.map((role) => {
-            const meta = ROLE_META[role]
-            const Icon = meta.icon
-            const isSelected = roles.includes(role)
-            const isLeader = role === 'leader'
-            return (
-              <button
-                key={role}
-                type="button"
-                onClick={() => toggleRole(role)}
-                disabled={disabled || isLeader}
-                title={`${meta.label}：${meta.desc}${isLeader ? '（必选）' : ''}`}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all duration-300 ease-out',
-                  isSelected
-                    ? cn(meta.bg, meta.text, meta.border, 'shadow-sm hover:scale-[1.05]')
-                    : 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/60',
-                  isLeader && 'cursor-default',
-                  disabled && 'cursor-not-allowed',
-                )}
-              >
-                <Icon className="h-3 w-3" />
-                <span className="hidden md:inline">{meta.label}</span>
-              </button>
-            )
-          })}
-
-          {/* 配置摘要：N/6 */}
-          <span
-            className="ml-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400 tabular-nums"
-            aria-live="polite"
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              disabled={disabled}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md border border-purple-300/60 dark:border-purple-700/60 bg-white dark:bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:text-purple-300 tabular-nums transition-all hover:scale-[1.03] hover:shadow-sm',
+                disabled && 'cursor-not-allowed opacity-60',
+              )}
+              aria-label="选择团队角色"
+            >
+              <span>{selectedCount}/6</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-72 p-3"
+            align="end"
+            sideOffset={4}
           >
-            {selectedCount}/6
-          </span>
-        </div>
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+              <Users className="h-3.5 w-3.5 text-purple-500" />
+              <span>团队角色配置</span>
+            </div>
+            <p className="mb-3 text-[10px] text-gray-500 dark:text-gray-400">
+              Leader 始终必选，其余可自由组合
+            </p>
+            {/* 6 角色 chips：2 列 x 3 行网格布局 */}
+            <div className="grid grid-cols-2 gap-2">
+              {ALL_ROLES.map((role) => {
+                const meta = ROLE_META[role]
+                const Icon = meta.icon
+                const isSelected = roles.includes(role)
+                const isLeader = role === 'leader'
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => toggleRole(role)}
+                    disabled={disabled || isLeader}
+                    title={`${meta.label}：${meta.desc}${isLeader ? '（必选）' : ''}`}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-medium transition-all duration-200 ease-out',
+                      isSelected
+                        ? cn(meta.bg, meta.text, meta.border, 'shadow-sm hover:scale-[1.02]')
+                        : 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/60',
+                      isLeader && 'cursor-default',
+                      disabled && 'cursor-not-allowed',
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{meta.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+            {/* 当前已选角色摘要 */}
+            <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-gray-100 dark:border-gray-800 pt-2">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">已选：</span>
+              {roles.map((role) => {
+                const meta = ROLE_META[role]
+                const Icon = meta.icon
+                return (
+                  <span
+                    key={role}
+                    className={cn(
+                      'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                      meta.bg,
+                      meta.text,
+                    )}
+                  >
+                    <Icon className="h-2.5 w-2.5" />
+                    {meta.label}
+                  </span>
+                )
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   )

@@ -2465,7 +2465,7 @@ export const VibeCodePage = () => {
 
   // ----- 渲染：工具栏 -----
   const renderToolbar = () => (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap min-w-0 justify-end">
       {/* Plan Mode 开关（Batch B） */}
       <div
         className={cn(
@@ -2681,7 +2681,7 @@ export const VibeCodePage = () => {
           <AICollaboratorPicker specialty="vibe-code" value={aiCollaborator} onChange={setAiCollaborator} />
         </div>
         {/* 顶部工具栏 */}
-        <header className="shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <header className="shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
           <div className="flex items-center justify-between gap-2 px-3 py-2">
             <div className="flex items-center gap-2 min-w-0">
               <Link
@@ -2769,21 +2769,26 @@ export const VibeCodePage = () => {
             )}>
               {renderLeftPanel()}
             </aside>
-            {/* 中栏：文件树 + 代码 */}
+            {/* 中栏：文件树 + 代码（仅 preview 模式渲染 CodeArea，避免与右栏重复） */}
             <section className="hidden lg:flex w-[260px] xl:w-[300px] shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="flex h-[40%] flex-col overflow-hidden border-b border-gray-200 dark:border-gray-700">
+              <div className={cn(
+                "flex flex-col overflow-hidden border-b border-gray-200 dark:border-gray-700",
+                viewMode === 'preview' ? "h-[40%]" : "h-full"
+              )}>
                 <FileTree
                   webcontainer={sandboxRef.current}
                   onFileSelect={(path, content) => setSelectedFile({ path, content })}
                 />
               </div>
-              <div className="flex-1 overflow-hidden">
-                <CodeArea
-                  code={selectedFile?.content ?? code}
-                  streaming={isStreaming}
-                  codeRef={codeRef}
-                />
-              </div>
+              {viewMode === 'preview' && (
+                <div className="flex-1 overflow-hidden">
+                  <CodeArea
+                    code={selectedFile?.content ?? code}
+                    streaming={isStreaming}
+                    codeRef={codeRef}
+                  />
+                </div>
+              )}
             </section>
             {/* 右栏：预览 + 终端抽屉 */}
             <main className="flex flex-1 flex-col overflow-hidden">
