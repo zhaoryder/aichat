@@ -2,7 +2,7 @@ import type { Config } from 'tailwindcss'
 import animate from 'tailwindcss-animate'
 import typography from '@tailwindcss/typography'
 
-// Tailwind 配置：GitHub dark 主题 + shadcn/ui 语义令牌 + 高级动画系统
+// Tailwind 配置：极简白底主题 + shadcn/ui 语义令牌 + 精致动画
 export default {
   darkMode: ['class'],
   content: ['./src/**/*.{ts,tsx}'],
@@ -10,7 +10,7 @@ export default {
     container: {
       center: true,
       padding: '2rem',
-      screens: { '2xl': '1400px' },
+      screens: { '2xl': '1280px' },
     },
     extend: {
       colors: {
@@ -48,25 +48,7 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // GitHub dark 扩展色（直接使用 hex 值）
         warning: 'hsl(var(--warning))',
-        gh: {
-          bg: 'var(--gh-bg)',
-          'bg-overlay': 'var(--gh-bg-overlay)',
-          'bg-inset': 'var(--gh-bg-inset)',
-          border: 'var(--gh-border)',
-          'border-muted': 'var(--gh-border-muted)',
-          fg: 'var(--gh-fg)',
-          'fg-muted': 'var(--gh-fg-muted)',
-          'fg-subtle': 'var(--gh-fg-subtle)',
-          blue: 'var(--gh-blue)',
-          green: 'var(--gh-green)',
-          red: 'var(--gh-red)',
-          yellow: 'var(--gh-yellow)',
-          purple: 'var(--gh-purple)',
-          pink: 'var(--gh-pink)',
-          orange: 'var(--gh-orange)',
-        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -74,17 +56,8 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        mono: [
-          'SF Mono',
-          'JetBrains Mono',
-          'Menlo',
-          'Monaco',
-          'Consolas',
-          'Liberation Mono',
-          'Courier New',
-          'monospace',
-        ],
         sans: [
+          'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
           'SF Pro Text',
@@ -92,17 +65,24 @@ export default {
           'Microsoft YaHei',
           'sans-serif',
         ],
+        mono: [
+          'JetBrains Mono',
+          'SF Mono',
+          'Menlo',
+          'Monaco',
+          'Consolas',
+          'monospace',
+        ],
       },
       animation: {
-        'fade-in': 'fade-in 0.3s ease-out',
-        'fade-up': 'fade-up 0.4s ease-out',
-        'slide-up': 'slide-up 0.4s ease-out',
-        'slide-in': 'slide-in 0.35s ease-out',
-        'scale-in': 'scale-in 0.3s ease-out',
-        'bounce-in': 'bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+        'fade-in': 'fade-in 0.25s ease-out',
+        'fade-up': 'fade-up 0.3s ease-out',
+        'slide-up': 'slide-up 0.3s ease-out',
+        'slide-in': 'slide-in 0.25s ease-out',
+        'scale-in': 'scale-in 0.25s ease-out',
+        'bounce-in': 'bounce-in 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
         'bounce-dot': 'bounce-dot 1.4s ease-in-out infinite',
         'pulse-cursor': 'pulse-cursor 1s ease-in-out infinite',
-        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
         shimmer: 'shimmer 2s linear infinite',
       },
       keyframes: {
@@ -111,24 +91,24 @@ export default {
           to: { opacity: '1' },
         },
         'fade-up': {
-          from: { opacity: '0', transform: 'translateY(12px)' },
+          from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
         'slide-up': {
-          from: { opacity: '0', transform: 'translateY(10px)' },
+          from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
         'slide-in': {
-          from: { opacity: '0', transform: 'translateX(-12px)' },
+          from: { opacity: '0', transform: 'translateX(-8px)' },
           to: { opacity: '1', transform: 'translateX(0)' },
         },
         'scale-in': {
-          from: { opacity: '0', transform: 'scale(0.95)' },
+          from: { opacity: '0', transform: 'scale(0.97)' },
           to: { opacity: '1', transform: 'scale(1)' },
         },
         'bounce-in': {
-          '0%': { opacity: '0', transform: 'scale(0.8)' },
-          '60%': { opacity: '1', transform: 'scale(1.05)' },
+          '0%': { opacity: '0', transform: 'scale(0.85)' },
+          '60%': { opacity: '1', transform: 'scale(1.02)' },
           '100%': { transform: 'scale(1)' },
         },
         'bounce-dot': {
@@ -138,10 +118,6 @@ export default {
         'pulse-cursor': {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0' },
-        },
-        'pulse-glow': {
-          '0%, 100%': { boxShadow: '0 0 0 0 rgba(63, 185, 80, 0.4)' },
-          '50%': { boxShadow: '0 0 0 8px rgba(63, 185, 80, 0)' },
         },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },

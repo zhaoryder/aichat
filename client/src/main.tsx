@@ -12,7 +12,7 @@ const queryClient = new QueryClient()
 // React 应用入口：ThemeProvider → QueryClientProvider → App
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <QueryClientProvider client={queryClient}>
         <App />
         <Toaster />

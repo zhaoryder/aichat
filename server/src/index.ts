@@ -28,6 +28,7 @@ import { followRouter } from './routes/follow'
 import { notificationsRouter } from './routes/notifications'
 import { internalRouter } from './routes/internal'
 import { liveRouter } from './routes/live'
+import { dailyRouter } from './routes/daily'
 import './lib/ai-feed-cron'
 
 const app = express()
@@ -70,6 +71,7 @@ app.use('/api/follow', followRouter)
 app.use('/api/notifications', notificationsRouter)
 app.use('/api/internal', internalRouter)
 app.use('/api/live', liveRouter)
+app.use('/api/daily', dailyRouter)
 
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`)

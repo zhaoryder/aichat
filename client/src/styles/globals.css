@@ -3,146 +3,124 @@
 @tailwind utilities;
 
 /* =====================================================================
- * AI Lab v3 主题系统 — GitHub Dark Primer
- * 灵感来源：GitHub.com / VS Code Dark+ / Shadcn UI 语义令牌
- * 设计原则：所有页面默认 dark，配色统一为 GitHub dark 调色板
+ * AI Lab v4 主题系统 — Minimal Light
+ * 灵感来源：Linear / Vercel / Notion
+ * 设计原则：白底为主，大面积留白，克制配色，精致动画
+ * 完美支持深色模式切换
  * ===================================================================== */
 
 @layer base {
   :root {
-    /* GitHub dark 默认（亮色作为辅助） */
-    --background: 215 28% 7%;        /* #0d1117 */
-    --foreground: 210 67% 96%;      /* #f0f6fc */
-    --card: 213 24% 11%;            /* #161b22 */
-    --card-foreground: 210 67% 96%;
-    --popover: 213 24% 11%;
-    --popover-foreground: 210 67% 96%;
-    --primary: 212 100% 67%;        /* #58a6ff GitHub blue */
-    --primary-foreground: 215 28% 7%;
-    --primary-hover: 212 100% 72%;
-    --secondary: 213 12% 18%;      /* #21262d */
-    --secondary-foreground: 210 67% 96%;
-    --muted: 213 12% 18%;
-    --muted-foreground: 213 9% 58%; /* #8b949e */
-    --accent: 128 49% 49%;         /* #3fb950 GitHub green */
-    --accent-foreground: 215 28% 7%;
-    --destructive: 2 93% 63%;       /* #f85149 GitHub red */
-    --destructive-foreground: 0 0% 100%;
-    --warning: 40 72% 48%;         /* #d29922 GitHub yellow */
-    --border: 213 12% 21%;          /* #30363d */
-    --input: 213 12% 21%;
-    --ring: 212 100% 67%;
-    --radius: 0.375rem;             /* 6px */
-
-    /* GitHub dark 扩展色（直接 hex，便于特殊样式使用） */
-    --gh-bg: #0d1117;
-    --gh-bg-overlay: #161b22;
-    --gh-bg-inset: #010409;
-    --gh-border: #30363d;
-    --gh-border-muted: #21262d;
-    --gh-fg: #f0f6fc;
-    --gh-fg-muted: #8b949e;
-    --gh-fg-subtle: #6e7681;
-    --gh-blue: #58a6ff;
-    --gh-blue-emphasis: #1f6feb;
-    --gh-green: #3fb950;
-    --gh-green-emphasis: #238636;
-    --gh-red: #f85149;
-    --gh-red-emphasis: #da3633;
-    --gh-yellow: #d29922;
-    --gh-purple: #bc8cff;
-    --gh-pink: #f778ba;
-    --gh-orange: #db6d28;
+    /* Light theme — 极简白底 */
+    --background: 0 0% 100%;           /* #ffffff */
+    --foreground: 0 0% 9%;             /* #171717 */
+    --card: 0 0% 100%;                 /* #ffffff */
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 9%;                /* #171717 黑色按钮 */
+    --primary-foreground: 0 0% 98%;    /* #fafafa */
+    --secondary: 0 0% 96%;             /* #f5f5f5 */
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;                 /* #f5f5f5 */
+    --muted-foreground: 0 0% 45%;      /* #737373 */
+    --accent: 239 84% 67%;             /* #6366f1 indigo */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;         /* #e11d48 */
+    --destructive-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;            /* #f59e0b */
+    --border: 0 0% 90%;                /* #e5e5e5 */
+    --input: 0 0% 90%;
+    --ring: 239 84% 67%;              /* #6366f1 */
+    --radius: 0.5rem;                 /* 8px */
   }
 
-  /* 兼容 .dark class（也走 GitHub dark，保持一致） */
+  /* Dark theme — 完美深色模式 */
   .dark {
-    --background: 215 28% 7%;
-    --foreground: 210 67% 96%;
-    --card: 213 24% 11%;
-    --card-foreground: 210 67% 96%;
-    --popover: 213 24% 11%;
-    --popover-foreground: 210 67% 96%;
-    --primary: 212 100% 67%;
-    --primary-foreground: 215 28% 7%;
-    --primary-hover: 212 100% 72%;
-    --secondary: 213 12% 18%;
-    --secondary-foreground: 210 67% 96%;
-    --muted: 213 12% 18%;
-    --muted-foreground: 213 9% 58%;
-    --accent: 128 49% 49%;
-    --accent-foreground: 215 28% 7%;
-    --destructive: 2 93% 63%;
-    --destructive-foreground: 0 0% 100%;
-    --warning: 40 72% 48%;
-    --border: 213 12% 21%;
-    --input: 213 12% 21%;
-    --ring: 212 100% 67%;
+    --background: 0 0% 4%;             /* #0a0a0a */
+    --foreground: 0 0% 98%;            /* #fafafa */
+    --card: 0 0% 7%;                   /* #121212 */
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;              /* #fafafa 白色按钮 */
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14%;             /* #242424 */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 64%;      /* #a3a3a3 */
+    --accent: 239 84% 67%;            /* #6366f1 */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --border: 0 0% 14%;               /* #242424 */
+    --input: 0 0% 14%;
+    --ring: 239 84% 67%;
   }
 }
 
 @layer base {
   html {
+    color-scheme: light;
+  }
+  html.dark {
     color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', 'JetBrains Mono',
-      'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace,
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text',
       'PingFang SC', 'Microsoft YaHei', sans-serif;
     font-feature-settings: 'cv01', 'cv03', 'cv04', 'cv11';
-    background-color: var(--gh-bg);
-    color: var(--gh-fg);
   }
-  /* 所有滚动条 GitHub 风 */
+  /* 极简滚动条 */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--gh-bg);
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--gh-border);
-    border-radius: 6px;
-    border: 2px solid var(--gh-bg);
+    background: hsl(var(--border));
+    border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--gh-fg-subtle);
+    background: hsl(var(--muted-foreground));
   }
-  /* 选中文本 GitHub 风 */
+  /* 选中文本 */
   ::selection {
-    background-color: rgba(56, 139, 253, 0.4);
-    color: var(--gh-fg);
+    background-color: hsl(var(--accent) / 0.15);
+    color: hsl(var(--foreground));
   }
 }
 
 /* =====================================================================
- * 动画系统（spec §4.5.2 — 0.3-0.5s ease-out，细腻高级）
+ * 动画系统 — 200-300ms ease-out，细腻高级
  * ===================================================================== */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes slide-in {
-  from { opacity: 0; transform: translateX(-12px); }
+  from { opacity: 0; transform: translateX(-8px); }
   to { opacity: 1; transform: translateX(0); }
 }
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
 }
 @keyframes bounce-in {
-  0% { opacity: 0; transform: scale(0.8); }
-  60% { opacity: 1; transform: scale(1.05); }
+  0% { opacity: 0; transform: scale(0.85); }
+  60% { opacity: 1; transform: scale(1.02); }
   100% { transform: scale(1); }
 }
 @keyframes bounce-dot {
@@ -157,110 +135,104 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(63, 185, 80, 0); }
-}
 @keyframes slide-up-fade {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.animate-fade-in { animation: fade-in 0.3s ease-out; }
-.animate-fade-up { animation: fade-up 0.4s ease-out; }
-.animate-slide-up { animation: slide-up 0.4s ease-out; }
-.animate-slide-in { animation: slide-in 0.35s ease-out; }
-.animate-scale-in { animation: scale-in 0.3s ease-out; }
-.animate-bounce-in { animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+.animate-fade-in { animation: fade-in 0.25s ease-out; }
+.animate-fade-up { animation: fade-up 0.3s ease-out; }
+.animate-slide-up { animation: slide-up 0.3s ease-out; }
+.animate-slide-in { animation: slide-in 0.25s ease-out; }
+.animate-scale-in { animation: scale-in 0.25s ease-out; }
+.animate-bounce-in { animation: bounce-in 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
 .animate-bounce-dot { animation: bounce-dot 1.4s ease-in-out infinite; }
 .animate-pulse-cursor { animation: pulse-cursor 1s ease-in-out infinite; }
-.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
-.animate-slide-up-fade { animation: slide-up-fade 0.3s ease-out; }
+.animate-slide-up-fade { animation: slide-up-fade 0.25s ease-out; }
 
 /* 流式光标 */
 .animate-pulse-cursor::after {
   content: '▋';
   display: inline-block;
   margin-left: 2px;
-  color: hsl(var(--primary));
+  color: hsl(var(--accent));
   font-weight: 600;
   animation: pulse-cursor 1s ease-in-out infinite;
 }
 
 /* 滚动条 */
 .scrollbar-thin::-webkit-scrollbar { width: 6px; }
-.scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-gray-700 rounded-full; }
+.scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-muted-foreground/30 rounded-full; }
 .scrollbar-thin::-webkit-scrollbar-track { @apply bg-transparent; }
 
-/* Markdown 代码块：GitHub dark 风格 */
+/* Markdown 代码块：极简风格 */
 .prose {
-  color: var(--gh-fg);
+  color: hsl(var(--foreground));
 }
 .prose pre {
-  background: var(--gh-bg-inset);
+  background: hsl(var(--muted));
   padding: 0.75rem 1rem;
-  border-radius: 0.375rem;
-  border: 1px solid var(--gh-border);
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border));
   overflow-x: auto;
 }
 .prose pre code {
   background: transparent;
   padding: 0;
   font-size: 0.85em;
-  font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
 }
 .prose :not(pre) > code {
-  background: var(--gh-border-muted);
-  color: var(--gh-fg);
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
   font-size: 0.85em;
-  font-weight: 600;
+  font-weight: 500;
 }
 .prose a {
-  color: var(--gh-blue);
+  color: hsl(var(--accent));
   text-decoration: none;
 }
 .prose a:hover {
   text-decoration: underline;
 }
 .prose h1, .prose h2, .prose h3 {
-  border-color: var(--gh-border);
-  color: var(--gh-fg);
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
 }
 .prose blockquote {
-  border-left-color: var(--gh-border);
-  color: var(--gh-fg-muted);
+  border-left-color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
 }
 
 /* =====================================================================
- * hover-lift 卡片悬停动画（spec §4.5.2）
- * 0.3-0.5s ease-out，scale 1.02-1.05，shadow blur +2-4px
+ * hover-lift 卡片悬停动画
+ * 0.3s ease-out，scale 1.02，shadow 细腻变化
  * ===================================================================== */
 @layer utilities {
   .hover-lift {
-    transition: transform 0.35s ease-out, box-shadow 0.35s ease-out;
+    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
     will-change: transform, box-shadow;
   }
   .hover-lift:hover {
     transform: scale(1.02);
-    box-shadow: 0 6px 20px rgba(56, 139, 253, 0.12),
-                0 2px 6px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06),
+                0 1px 3px rgba(0, 0, 0, 0.04);
   }
   .hover-lift-strong:hover {
-    transform: scale(1.04);
-    box-shadow: 0 10px 28px rgba(56, 139, 253, 0.2),
-                0 4px 10px rgba(0, 0, 0, 0.4);
+    transform: scale(1.03);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1),
+                0 2px 6px rgba(0, 0, 0, 0.06);
   }
   .hover-lift-subtle:hover {
-    transform: scale(1.015);
-    box-shadow: 0 4px 12px rgba(56, 139, 253, 0.08),
-                0 1px 4px rgba(0, 0, 0, 0.2);
+    transform: scale(1.01);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
-  /* 文本渐变（GitHub logo 风） */
+  /* 文本渐变 */
   .text-gradient {
-    background: linear-gradient(135deg, #58a6ff 0%, #bc8cff 50%, #f778ba 100%);
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -268,34 +240,17 @@
 
   /* 玻璃拟态卡片 */
   .glass-card {
-    background: rgba(22, 27, 34, 0.7);
+    background: hsl(var(--card) / 0.8);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--gh-border);
+    border: 1px solid hsl(var(--border));
   }
 
-  /* GitHub 风按钮悬浮 */
-  .btn-gh-hover {
-    transition: all 0.2s ease-out;
-  }
-  .btn-gh-hover:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
-
-  /* 网格背景（GitHub 风格） */
+  /* 网格背景 */
   .bg-grid {
     background-image:
-      linear-gradient(rgba(48, 54, 61, 0.4) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(48, 54, 61, 0.4) 1px, transparent 1px);
-    background-size: 24px 24px;
-  }
-
-  /* 微弱发光效果 */
-  .glow-blue {
-    box-shadow: 0 0 20px rgba(88, 166, 255, 0.15);
-  }
-  .glow-green {
-    box-shadow: 0 0 20px rgba(63, 185, 80, 0.2);
+      linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Home, Compass, MessageCircle, Sparkles, Bell, User, LogOut, Plus, Heart, Trophy, Users, Layers, Radio } from 'lucide-react'
+import { Home, Sparkles, Plus, MessageCircle, User, LogOut, Bell } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { getUnreadCount } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-/** 桌面端左侧 Sidebar 导航 */
+/** 桌面端左侧 Sidebar 导航 — 极简白底风格 */
 export function Sidebar() {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
@@ -43,35 +43,30 @@ export function Sidebar() {
 
   const navItems = [
     { to: '/', label: '首页', icon: Home, end: true },
-    { to: '/explore', label: '探索', icon: Compass, end: false },
-    { to: '/agents', label: '智能体', icon: MessageCircle, end: false },
-    { to: '/live', label: 'AI 直播', icon: Radio, end: false },
-    { to: '/publish', label: '发布作品', icon: Sparkles, end: false },
+    { to: '/daily', label: '灵感', icon: Sparkles, end: false },
+    { to: '/chat', label: '聊天', icon: MessageCircle, end: false },
   ]
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-16 flex-col items-center gap-1 border-r border-gray-200 bg-white py-4 dark:border-gray-800 dark:bg-gray-900 lg:flex lg:w-60 lg:items-stretch lg:px-3">
+    <aside className="sticky top-0 z-30 hidden h-dvh w-16 flex-col items-center border-r border-[hsl(var(--border))] bg-[hsl(var(--background))] py-4 lg:flex lg:w-56 lg:items-stretch lg:px-3">
       {/* Logo */}
       <Link
         to="/"
-        className="mb-4 flex items-center justify-center lg:justify-start lg:px-2"
+        className="mb-6 flex items-center justify-center lg:justify-start lg:px-3"
       >
-        <span className="bg-gradient-to-r from-primary to-amber-500 bg-clip-text text-lg font-extrabold text-transparent lg:text-xl">
+        <span className="text-lg font-bold tracking-tight text-[hsl(var(--foreground))] lg:text-xl">
           AI Lab
         </span>
       </Link>
 
-      {/* 发布按钮（GitHub green accent，导航到 /publish） */}
-      {user && (
-        <Button
-          onClick={() => navigate('/publish')}
-          variant="success"
-          className="mb-4 hidden h-12 items-center justify-center gap-2 rounded-full shadow-md transition-all duration-300 ease-out hover:scale-[1.05] hover:shadow-[0_8px_24px_rgba(63,185,80,0.35)] lg:flex"
-        >
-          <Plus className="h-5 w-5" />
-          <span>发布作品</span>
-        </Button>
-      )}
+      {/* 发布按钮 — 极简黑色圆角按钮 */}
+      <Button
+        onClick={() => navigate('/publish')}
+        className="mb-4 hidden h-10 items-center justify-center gap-2 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm transition-all duration-300 ease-out hover:scale-[1.02] hover:shadow-md lg:flex lg:px-6"
+      >
+        <Plus className="h-4 w-4" />
+        <span className="text-sm font-medium">发布作品</span>
+      </Button>
 
       {/* 主导航 */}
       <nav className="flex flex-1 flex-col gap-1">
@@ -82,10 +77,10 @@ export function Sidebar() {
             end={item.end}
             className={({ isActive }) =>
               cn(
-                'flex items-center justify-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start',
+                'flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out lg:justify-start',
                 isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100',
+                  ? 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
+                  : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted)/0.5)] hover:text-[hsl(var(--foreground))]',
               )
             }
           >
@@ -94,23 +89,23 @@ export function Sidebar() {
           </NavLink>
         ))}
 
-        {/* 通知 */}
+        {/* 通知（带未读 badge） */}
         {user && (
           <NavLink
             to="/notifications"
             className={({ isActive }) =>
               cn(
-                'flex items-center justify-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start',
+                'flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out lg:justify-start',
                 isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100',
+                  ? 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
+                  : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted)/0.5)] hover:text-[hsl(var(--foreground))]',
               )
             }
           >
             <div className="relative">
               <Bell className="h-5 w-5 shrink-0" />
               {unread > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[hsl(var(--destructive))] px-1 text-[10px] font-bold text-[hsl(var(--destructive-foreground))]">
                   {unread > 99 ? '99+' : unread}
                 </span>
               )}
@@ -119,65 +114,58 @@ export function Sidebar() {
           </NavLink>
         )}
 
-        {/* 更多入口 */}
-        <div className="mt-2 hidden border-t border-gray-200 pt-2 dark:border-gray-800 lg:block">
+        {/* 我 */}
+        {user ? (
           <NavLink
-            to="/forum"
+            to="/profile"
             className={({ isActive }) =>
               cn(
-                'flex items-center justify-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start',
+                'flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out lg:justify-start',
                 isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100',
+                  ? 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
+                  : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted)/0.5)] hover:text-[hsl(var(--foreground))]',
               )
             }
           >
-            <Layers className="h-5 w-5 shrink-0" />
-            <span>论坛</span>
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="bg-[hsl(var(--muted))] text-xs">
+                {profile?.nickname?.[0]?.toUpperCase() ?? 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden lg:inline truncate">{profile?.nickname || '我'}</span>
           </NavLink>
+        ) : (
           <NavLink
-            to="/rooms"
+            to="/auth/login"
             className={({ isActive }) =>
               cn(
-                'flex items-center justify-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start',
+                'flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out lg:justify-start',
                 isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100',
+                  ? 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
+                  : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted)/0.5)] hover:text-[hsl(var(--foreground))]',
               )
             }
           >
-            <Users className="h-5 w-5 shrink-0" />
-            <span>联机房间</span>
+            <User className="h-5 w-5 shrink-0" />
+            <span className="hidden lg:inline">登录</span>
           </NavLink>
-          <NavLink
-            to="/leaderboard"
-            className={({ isActive }) =>
-              cn(
-                'flex items-center justify-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start',
-                isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100',
-              )
-            }
-          >
-            <Trophy className="h-5 w-5 shrink-0" />
-            <span>排行榜</span>
-          </NavLink>
-        </div>
+        )}
       </nav>
 
-      {/* 底部：主题切换 + 用户 */}
-      <div className="flex flex-col items-center gap-2 border-t border-gray-200 pt-2 dark:border-gray-800 lg:items-stretch lg:px-1">
-        <div className="flex items-center justify-center lg:justify-start lg:gap-3 lg:px-2">
+      {/* 底部：主题切换 + 用户菜单 */}
+      <div className="flex flex-col items-center gap-2 border-t border-[hsl(var(--border))] pt-2 lg:items-stretch lg:px-1">
+        <div className="flex items-center justify-center lg:justify-start lg:px-3">
           <ThemeToggle />
         </div>
 
-        {user ? (
+        {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center justify-center gap-2 rounded-xl p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 lg:justify-start">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>{profile?.nickname?.[0]?.toUpperCase() ?? 'U'}</AvatarFallback>
+              <button className="flex items-center justify-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-[hsl(var(--muted))] lg:justify-start lg:px-3">
+                <Avatar className="h-7 w-7">
+                  <AvatarFallback className="bg-[hsl(var(--muted))] text-xs">
+                    {profile?.nickname?.[0]?.toUpperCase() ?? 'U'}
+                  </AvatarFallback>
                 </Avatar>
                 <span className="hidden truncate text-sm lg:inline">{profile?.nickname || '用户'}</span>
               </button>
@@ -186,18 +174,13 @@ export function Sidebar() {
               <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="/profile">
-                  <User className="mr-2 h-4 w-4" />个人主页
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
                 <Link to="/settings">
-                  <Heart className="mr-2 h-4 w-4" />个性化装扮
+                  <User className="mr-2 h-4 w-4" />设置
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/admin">
-                  <Layers className="mr-2 h-4 w-4" />管理后台
+                  <Sparkles className="mr-2 h-4 w-4" />管理后台
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -212,17 +195,13 @@ export function Sidebar() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : (
-          <Button asChild size="sm" className="hidden lg:flex">
-            <Link to="/auth/login">登录</Link>
-          </Button>
         )}
       </div>
     </aside>
   )
 }
 
-/** 移动端底部 Tab Bar */
+/** 移动端底部 Tab Bar — 5 项 + 中间凸起 + 按钮 */
 export function BottomTabBar() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -242,62 +221,74 @@ export function BottomTabBar() {
     return () => clearTimeout(timer)
   }, [user])
 
-  const tabs = [
-    { to: '/', label: '首页', icon: Home, end: true },
-    { to: '/explore', label: '探索', icon: Compass, end: false },
-    { to: '/publish', label: '发布', icon: Plus, end: false, isAction: true },
-    ...(user
-      ? [{ to: '/live', label: '直播', icon: Radio, end: false }]
-      : []),
-    ...(user
-      ? [{ to: '/notifications', label: '通知', icon: Bell, end: false, badge: unread }]
-      : []),
-    ...(user
-      ? [{ to: '/profile', label: '我的', icon: User, end: false }]
-      : [{ to: '/auth/login', label: '登录', icon: User, end: false }]),
-  ]
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 lg:hidden">
-      {tabs.map((tab) => {
-        if (tab.isAction) {
-          return (
-            <button
-              key={tab.label}
-              onClick={() => navigate('/publish')}
-              className="flex flex-col items-center gap-0.5"
-              aria-label="发布作品"
-            >
-              <div className="flex h-10 w-10 -translate-y-2 items-center justify-center rounded-full bg-accent text-white shadow-[0_4px_16px_rgba(63,185,80,0.45)] transition-all duration-300 ease-out hover:scale-110 hover:shadow-[0_6px_24px_rgba(63,185,80,0.6)]">
-                <tab.icon className="h-6 w-6" />
-              </div>
-            </button>
-          )
-        }
-        return (
-          <NavLink
-            key={tab.label}
-            to={tab.to}
-            end={tab.end}
-            className={({ isActive }) =>
-              cn(
-                'flex flex-col items-center gap-0.5 text-xs',
-                isActive ? 'text-primary' : 'text-gray-500 dark:text-gray-400',
-              )
-            }
-          >
-            <div className="relative">
-              <tab.icon className="h-5 w-5" />
-              {tab.badge && tab.badge > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-                  {tab.badge > 99 ? '99+' : tab.badge}
-                </span>
-              )}
-            </div>
-            <span>{tab.label}</span>
-          </NavLink>
-        )
-      })}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-[hsl(var(--border))] bg-[hsl(var(--background))/0.95] backdrop-blur-md lg:hidden">
+      {/* 首页 */}
+      <TabItem to="/" label="首页" icon={Home} end />
+
+      {/* 灵感 */}
+      <TabItem to="/daily" label="灵感" icon={Sparkles} />
+
+      {/* + 发布（中间凸起） */}
+      <button
+        onClick={() => navigate('/publish')}
+        className="flex flex-col items-center"
+        aria-label="发布作品"
+      >
+        <div className="flex h-12 w-12 -translate-y-3 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-lg transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl">
+          <Plus className="h-6 w-6" />
+        </div>
+      </button>
+
+      {/* 聊天 */}
+      <TabItem to="/chat" label="聊天" icon={MessageCircle} />
+
+      {/* 我 */}
+      {user ? (
+        <TabItem to="/profile" label="我" icon={User} badge={unread} />
+      ) : (
+        <TabItem to="/auth/login" label="登录" icon={User} />
+      )}
     </nav>
+  )
+}
+
+/** Tab 项组件 */
+function TabItem({
+  to,
+  label,
+  icon: Icon,
+  end,
+  badge,
+}: {
+  to: string
+  label: string
+  icon: typeof Home
+  end?: boolean
+  badge?: number
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        cn(
+          'flex flex-col items-center gap-0.5 text-xs transition-colors',
+          isActive
+            ? 'text-[hsl(var(--foreground))]'
+            : 'text-[hsl(var(--muted-foreground))]',
+        )
+      }
+    >
+      <div className="relative">
+        <Icon className="h-5 w-5" />
+        {badge && badge > 0 && (
+          <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[hsl(var(--destructive))] px-1 text-[9px] font-bold text-[hsl(var(--destructive-foreground))]">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </div>
+      <span>{label}</span>
+    </NavLink>
   )
 }

@@ -44,6 +44,8 @@ import { ExplorePage } from './pages/ExplorePage'
 import { NotificationsPage } from './pages/NotificationsPage'
 import { LiveListPage } from './pages/LiveListPage'
 import { LiveWatchPage } from './pages/LiveWatchPage'
+import { DailyInspirationPage } from './pages/DailyInspirationPage'
+import { ChatListPage } from './pages/ChatListPage'
 import { TopicsPage } from './pages/TopicsPage'
 import { ChallengesPage } from './pages/ChallengesPage'
 
@@ -58,6 +60,7 @@ export default function App() {
             {/* 带主布局的页面 */}
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
+              <Route path="/daily" element={<DailyInspirationPage />} />
               <Route path="/explore" element={<ExplorePage />} />
               <Route
                 path="/notifications"
@@ -68,6 +71,7 @@ export default function App() {
                 }
               />
               <Route path="/post/:id" element={<HomePage />} />
+              <Route path="/chat" element={<ChatListPage />} />
               <Route
                 path="/chat/:agentId"
                 element={
