@@ -658,18 +658,31 @@ vibeCodeRouter.post(
         }
       }
 
+      // ---- Fallback：AI 未调用 writeFile 但文本中含 ```html 代码块 ----
+      // 某些模型不支持 tool calling，会直接在回复中输出代码块。
+      // 此时模拟一个 writeFile tool_call + tool_result 事件，
+      // 让前端 extractLatestCode 能提取到代码并显示在 iframe 中。
+      if (!latestCode && assistantText) {
+        const htmlMatch = assistantText.match(/```html\n([\s\S]*?)\n```/)
+        if (htmlMatch && htmlMatch[1]) {
+          latestCode = htmlMatch[1]
+          sendEvent(res, 'tool_call', {
+            id: 'fallback-writeFile',
+            name: 'writeFile',
+            args: { path: 'index.html', content: latestCode },
+          })
+          sendEvent(res, 'tool_result', {
+            id: 'fallback-writeFile',
+            name: 'writeFile',
+            result: { success: true, path: 'index.html', size: latestCode.length },
+          })
+        }
+      }
+
       // ---- 自动创建快照（Task 7.2）----
       // 流式结束后，基于本次生成/修改的代码自动创建一个快照。
       // 失败静默处理，不影响主流程。
       try {
-        // 优先使用 writeFile 工具调用的 content
-        // 若没有（如纯文本回复），尝试从 assistant 文本中提取 ```html 代码块
-        if (!latestCode && assistantText) {
-          const htmlMatch = assistantText.match(/```html\n([\s\S]*?)\n```/)
-          if (htmlMatch && htmlMatch[1]) {
-            latestCode = htmlMatch[1]
-          }
-        }
         if (latestCode) {
           const snapshotProjectId = projectId || `default-${user.id}`
           await createSnapshot({

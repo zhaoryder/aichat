@@ -88,6 +88,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Markdown } from '@/components/Markdown'
 import {
   Dialog,
   DialogContent,
@@ -552,7 +553,8 @@ function AssistantMessage() {
           ) : (
             <MessagePrimitive.Parts
               components={{
-                Text: ({ text }) => (text ? <span className="whitespace-pre-wrap">{text}</span> : null),
+                Text: ({ text }) =>
+                  text ? <Markdown content={text} /> : null,
               }}
             />
           )}
