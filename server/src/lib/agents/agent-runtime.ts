@@ -19,7 +19,7 @@ import type {
   AgentState,
   AIMemory,
   Emotions,
-} from '../../../../shared/ai-creators/types'
+} from '../../../shared/ai-creators/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { callAgnesChat } from '../ai-client'
 import { AIRequestError, AIRateLimitError } from '../ai-types'

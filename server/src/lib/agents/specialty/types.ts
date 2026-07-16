@@ -4,7 +4,7 @@
 // 8 个专长 Agent 的统一接口，便于 agent-runtime / agent-graph / studio route 复用
 // =====================================================================
 
-import type { AICreatorConfig, AICreatorSpecialty } from '../../../../../shared/ai-creators/types'
+import type { AICreatorConfig, AICreatorSpecialty } from '../../../../shared/ai-creators/types'
 import type { ToolResult } from '../agent-tools'
 
 /** Specialty Agent 输入 */

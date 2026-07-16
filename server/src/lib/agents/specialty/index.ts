@@ -4,7 +4,7 @@
 // 统一导出 8 个专长 Agent 实例 + 工厂函数
 // =====================================================================
 
-import type { AICreatorSpecialty } from '../../../../../shared/ai-creators/types'
+import type { AICreatorSpecialty } from '../../../../shared/ai-creators/types'
 import type { SpecialtyAgent } from './types'
 import { ImageAgent } from './image-agent'
 import { VideoAgent } from './video-agent'

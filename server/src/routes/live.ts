@@ -10,7 +10,7 @@
 import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
 import { supabase } from '../lib/supabase'
-import { getAICreatorById } from '../../../shared/ai-creators'
+import { getAICreatorById } from '../../shared/ai-creators'
 
 export const liveRouter = Router()
 

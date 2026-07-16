@@ -39,7 +39,7 @@ import {
   updateCreativeWork,
 } from '../lib/queries'
 import { getAgentById } from '../../shared/agents'
-import { getAICreatorById } from '../../../shared/ai-creators'
+import { getAICreatorById } from '../../shared/ai-creators'
 import type { ChatMessage, CreativeWork } from '../../shared/types'
 import { addMediaAsset } from '../lib/media-asset'
 

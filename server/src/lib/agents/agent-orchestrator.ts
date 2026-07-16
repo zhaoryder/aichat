@@ -6,8 +6,8 @@
 // 失败静默：单次 runOnce 抛错只 console.error，不影响下一轮
 // =====================================================================
 
-import { AI_CREATORS, pickRandomAICreator } from '../../../../shared/ai-creators'
-import type { AICreatorConfig } from '../../../../shared/ai-creators/types'
+import { AI_CREATORS, pickRandomAICreator } from '../../../shared/ai-creators'
+import type { AICreatorConfig } from '../../../shared/ai-creators/types'
 import { AIAgent } from './agent-runtime'
 import { supabase } from '../supabase'
 

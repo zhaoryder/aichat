@@ -6,7 +6,7 @@
 //   的多分支条件流转），可切换为 LangGraph StateGraph 实现
 // =====================================================================
 
-import type { AICreatorConfig } from '../../../../shared/ai-creators/types'
+import type { AICreatorConfig } from '../../../shared/ai-creators/types'
 import { getSpecialtyAgent } from './specialty'
 import * as tools from './agent-tools'
 import type { SpecialtyOutput } from './specialty/types'
