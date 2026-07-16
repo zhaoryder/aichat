@@ -21,9 +21,13 @@ import type { Skill, UserSkill, SkillManifest } from '../../shared/types'
 // ---------------------------------------------------------------------
 // 内置工具名 → Vercel AI SDK tool 实现的映射
 // ---------------------------------------------------------------------
-// webSearch / generateImage / generateVideo / executeCode 复用 vibe-tools.ts
-// bash / writeFile / readFile / saveMemory / recallMemory 为 stub（无 execute），
-// 实际执行由前端 WebContainer 桥接（Batch D 实现）
+// 所有内置工具都复用 vibe-tools.ts 的真实实现（带 execute）：
+// - webSearch / generateImage / generateVideo / executeCode：联网/生成类
+// - writeFile / readFile：写入/读取 Vibe 项目文件（内存映射 + 持久化）
+//   即使前端 WebContainer 桥接可用，后端也必须能兜底执行，
+//   避免前端未拦截 tool_call 时 AI 流中断（"html 写入失败"根因）
+// - saveMemory / recallMemory / listMemory：长期记忆
+// - bash：仍为 stub（前端 WebContainer 桥接，后端无法执行 shell）
 
 /** bash 工具 stub：仅 schema，无 execute（前端 WebContainer 桥接） */
 const bashToolStub = tool({
@@ -32,25 +36,7 @@ const bashToolStub = tool({
     command: z.string().describe('要执行的 shell 命令'),
   }),
   // 无 execute：实际由前端 WebContainer 执行并通过 tool_result 事件回传结果
-})
-
-/** writeFile 工具 stub：仅 schema，无 execute（前端 WebContainer 桥接） */
-const writeFileToolStub = tool({
-  description: '写入文件到当前 Vibe 项目（前端 WebContainer 沙箱内执行）',
-  inputSchema: z.object({
-    path: z.string().describe('文件相对路径，如 index.html / styles.css / app.js'),
-    content: z.string().describe('文件完整内容'),
-  }),
-  // 无 execute：实际由前端 WebContainer 执行
-})
-
-/** readFile 工具 stub：仅 schema，无 execute（前端 WebContainer 桥接） */
-const readFileToolStub = tool({
-  description: '读取当前 Vibe 项目的文件内容（前端 WebContainer 沙箱内执行）',
-  inputSchema: z.object({
-    path: z.string().describe('文件相对路径'),
-  }),
-  // 无 execute：实际由前端 WebContainer 执行
+  // 后端无法执行 shell，若前端未拦截则 AI 会收到 tool_call 无 result 的提示
 })
 
 /** saveMemory 工具：Batch E1 实现，复用 vibe-tools.ts 的真实实现（带 execute） */
@@ -71,8 +57,10 @@ const BUILTIN_TOOL_IMPLEMENTATIONS: ToolSet = {
   generateVideo: vibeCodeTools.generateVideo,
   executeCode: vibeCodeTools.executeCode,
   bash: bashToolStub,
-  writeFile: writeFileToolStub,
-  readFile: readFileToolStub,
+  // writeFile / readFile 复用 vibe-tools.ts 真实实现（带 execute）
+  // 即使前端 WebContainer 未启用或浏览器不支持，后端也能兜底执行写入
+  writeFile: vibeCodeTools.writeFile,
+  readFile: vibeCodeTools.readFile,
   saveMemory: vibeCodeTools.saveMemory,
   recallMemory: vibeCodeTools.recallMemory,
   listMemory: vibeCodeTools.listMemory,

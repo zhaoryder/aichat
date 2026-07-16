@@ -2462,10 +2462,7 @@ export const VibeCodePage = () => {
             setPlanMode(checked)
             // 关闭 Plan Mode 时不强制清空 plan（让用户仍可看到历史 plan）
             // 但开启时若已有 plan，保留
-            // Plan 与 Teamwork 互斥：开启 Plan 时关闭 Teamwork
-            if (checked && teamMode) {
-              setTeamMode(false)
-            }
+            // Plan 与 Teamwork 可共存：Teamwork 团队可围绕 Plan 协作
           }}
           disabled={isStreaming || planExecuting}
           className="scale-90"
@@ -2476,8 +2473,7 @@ export const VibeCodePage = () => {
       <TeamToggle
         enabled={teamMode}
         onToggle={(v) => {
-          // Plan 与 Teamwork 互斥
-          if (v && planMode) setPlanMode(false)
+          // Plan 与 Teamwork 可共存：Teamwork 团队可围绕 Plan 协作
           setTeamMode(v)
           // 关闭 Teamwork 时清空 sessionId（下次开启是新会话）
           if (!v) setTeamSessionId(null)
