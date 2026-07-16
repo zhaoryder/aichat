@@ -8,12 +8,11 @@
 
 import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
-import { createClient } from '@supabase/supabase-js'
 import { chatCompletion } from '../lib/ai-client'
 import { getAgentById } from '../../shared/agents'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // 随机昵称生成
 const ADJECTIVES = ['深夜', '凌晨', 'emo', '失眠', '做梦', '清醒', '迷茫', '空虚', '孤独', '寂寞']

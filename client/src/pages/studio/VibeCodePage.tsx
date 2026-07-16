@@ -570,8 +570,17 @@ function VibeComposer({
 }) {
   const [value, setValue] = useState('')
 
+  // 提交后清空输入框
+  const handleSubmit = () => {
+    // 用 setTimeout 确保此轮 submit 事件处理完后再清空，避免干扰 form 提交
+    setTimeout(() => setValue(''), 0)
+  }
+
   return (
-    <ComposerPrimitive.Root className="flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800 p-3">
+    <ComposerPrimitive.Root
+      className="flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800 p-3"
+      onSubmit={handleSubmit}
+    >
       <ComposerPrimitive.Input
         asChild
         value={value}
@@ -976,7 +985,14 @@ export const VibeCodePage = () => {
         )
 
         if (!response.body) {
-          setMessages((prev) => prev.filter((m) => m.id !== aiMsgId))
+          // 不删除 AI 消息，显示错误
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? { ...m, content: '⚠️ 未收到响应流', isStreaming: false }
+                : m,
+            ),
+          )
           return
         }
 
@@ -1069,13 +1085,22 @@ export const VibeCodePage = () => {
                   prev.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m)),
                 )
               } else if (currentEvent === 'error') {
+                const errMsg = data.error || 'AI 回复失败'
                 if (!receivedAnyToken) {
-                  setMessages((prev) => prev.filter((m) => m.id !== aiMsgId))
+                  // 之前未收到任何 token：把错误信息写入 AI 消息内容，让用户看到具体原因
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === aiMsgId
+                        ? { ...m, content: `⚠️ ${errMsg}`, isStreaming: false }
+                        : m,
+                    ),
+                  )
                 } else {
                   setMessages((prev) =>
                     prev.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m)),
                   )
                 }
+                toast.error(errMsg)
               }
             }
           }
@@ -1112,8 +1137,16 @@ export const VibeCodePage = () => {
           )
           return
         }
-        setMessages((prev) => prev.filter((m) => m.id !== aiMsgId))
-        toast.error(err instanceof Error ? err.message : '发送失败')
+        // 不再删除 AI 消息，而是把错误信息显示在消息中，方便用户排查
+        const errMsg = err instanceof Error ? err.message : '发送失败'
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMsgId
+              ? { ...m, content: `⚠️ ${errMsg}`, isStreaming: false }
+              : m,
+          ),
+        )
+        toast.error(errMsg)
       } finally {
         setIsLoading(false)
         if (abortControllerRef.current === controller) {

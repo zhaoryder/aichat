@@ -9,12 +9,9 @@
 
 import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 // GET /api/gallery/images - 分页获取公开图片
 router.get('/images', async (req: Request, res: Response) => {

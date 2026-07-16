@@ -13,7 +13,6 @@
 // =====================================================================
 
 import { Router, Request, Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
 import { streamText, isStepCount } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { authMiddleware } from '../middleware/auth'
@@ -25,13 +24,10 @@ import {
 import { setSSEHeaders, sendEvent } from '../lib/sse'
 import { vibeCodeTools, setVibeContext } from '../lib/vibe-tools'
 import { createSnapshot } from '../lib/queries'
+import { supabase } from '../lib/supabase'
 import type { ChatMessage } from '../../shared/types'
 
 export const vibeCodeRouter = Router()
-
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 /** vibe coding agent 的系统提示词（不注入搞笑基准，输出纯净代码） */
 const VIBE_CODE_SYSTEM_PROMPT = `你是一个 vibe coding agent。用户会用自然语言描述需求，你需要生成一个完整的、可直接运行的 HTML 文件代码。
@@ -552,14 +548,16 @@ vibeCodeRouter.post(
       baseURL: process.env.AGNES_API_BASE!,
     })
 
-    // 构造 model messages：系统消息 + 用户/助手消息
-    const messages = [
-      { role: 'system' as const, content: STREAM_SYSTEM_PROMPT },
-      ...simpleMessages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content as string,
-      })),
-    ]
+    // 模型名从环境变量读取，默认 agnes-2.0-flash（生产环境）
+    // 本地若配置了智谱（AGNES_MODEL=glm-4-flash），也能正常测试
+    const modelName = process.env.AGNES_MODEL || 'agnes-2.0-flash'
+
+    // 构造 model messages：仅包含 user/assistant 消息
+    // Vercel AI SDK v7 不允许 messages 中包含 role: 'system'，必须用 system 选项
+    const messages = simpleMessages.map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content as string,
+    }))
 
     // 设置 SSE 响应头
     setSSEHeaders(res)
@@ -574,7 +572,10 @@ vibeCodeRouter.post(
 
     try {
       const result = streamText({
-        model: openai('agnes-2.0-flash'),
+        // 使用 .chat() 走 /chat/completions 端点（OpenAI 兼容服务都支持）
+        // 不能用 openai(modelName)，那会用 /responses 端点，仅 OpenAI 官方支持
+        model: openai.chat(modelName),
+        system: STREAM_SYSTEM_PROMPT,
         messages,
         tools: vibeCodeTools,
         // ai v7：用 stopWhen: isStepCount(N) 替代旧 maxSteps

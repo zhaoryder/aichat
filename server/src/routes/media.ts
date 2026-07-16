@@ -8,14 +8,10 @@
 // =====================================================================
 
 import { Router, Request, Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
 import { authMiddleware } from '../middleware/auth'
+import { supabase } from '../lib/supabase'
 
 export const mediaRouter = Router()
-
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 /** 合法的素材类型 */
 const VALID_TYPES = ['image', 'video', 'audio'] as const

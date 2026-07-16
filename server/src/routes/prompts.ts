@@ -12,10 +12,9 @@
 
 import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // GET /api/prompts - 列表
 router.get('/', async (req: Request, res: Response) => {

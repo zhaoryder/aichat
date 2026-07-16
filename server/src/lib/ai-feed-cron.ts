@@ -6,9 +6,7 @@
 
 import { chatCompletion } from './ai-client'
 import { agents, getAgentById } from '../../shared/agents'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+import { supabase } from './supabase'
 
 // 每小时让随机智能体发一条朋友圈
 export async function generateAIPost() {

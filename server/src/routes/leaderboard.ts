@@ -7,11 +7,10 @@
 // =====================================================================
 
 import { Router, Request, Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
 import { agents } from '../../shared/agents'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // 构建 agent_id → name 映射
 const agentNameMap = new Map<string, string>(agents.map((a) => [a.id, a.name]))
