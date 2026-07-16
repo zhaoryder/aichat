@@ -57,6 +57,7 @@ import {
   Terminal,
   ExternalLink,
   Share2,
+  Square,
 } from 'lucide-react'
 import {
   AssistantRuntimeProvider,
@@ -567,10 +568,14 @@ function AssistantMessage() {
 /** 输入框（底部） */
 function VibeComposer({
   disabled,
+  isStreaming,
+  onStop,
   value,
   onChange,
 }: {
   disabled: boolean
+  isStreaming: boolean
+  onStop: () => void
   value: string
   onChange: (v: string) => void
 }) {
@@ -609,15 +614,27 @@ function VibeComposer({
             </button>
           ))}
         </div>
-        <ComposerPrimitive.Send asChild>
+        {isStreaming ? (
           <Button
-            type="submit"
-            disabled={disabled || !value.trim()}
+            type="button"
+            onClick={onStop}
+            variant="destructive"
             className="gap-1.5 transition-transform duration-300 ease-out hover:scale-[1.02]"
           >
-            发送
+            <Square className="h-3.5 w-3.5 fill-current" />
+            停止生成
           </Button>
-        </ComposerPrimitive.Send>
+        ) : (
+          <ComposerPrimitive.Send asChild>
+            <Button
+              type="submit"
+              disabled={disabled || !value.trim()}
+              className="gap-1.5 transition-transform duration-300 ease-out hover:scale-[1.02]"
+            >
+              发送
+            </Button>
+          </ComposerPrimitive.Send>
+        )}
       </div>
     </ComposerPrimitive.Root>
   )
@@ -1379,7 +1396,13 @@ export const VibeCodePage = () => {
         </ThreadPrimitive.Viewport>
 
         {/* Composer（输入框在底部，spec §6.3） */}
-        <VibeComposer disabled={isStreaming} value={composerValue} onChange={setComposerValue} />
+        <VibeComposer
+          disabled={isStreaming}
+          isStreaming={isStreaming}
+          onStop={() => abortControllerRef.current?.abort()}
+          value={composerValue}
+          onChange={setComposerValue}
+        />
       </ThreadPrimitive.Root>
 
       {/* 历史项目 */}
