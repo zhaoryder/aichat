@@ -87,10 +87,12 @@ export function PostCard({ post, onDelete }: { post: Post; onDelete?: (id: strin
     }
   }, [post.id, user, onDelete])
 
-  // 是否有媒体内容（图片类型）
-  const imageUrl = post.type === 'image_share'
-    ? (post.metadata as { url?: string })?.url
-    : null
+  // 媒体图片：优先 image_share 的 url，其次 metadata.cover_url（自动配图）
+  const imageUrl =
+    post.type === 'image_share'
+      ? (post.metadata as { url?: string })?.url
+      : (post.metadata as { cover_url?: string })?.cover_url ||
+        (post.metadata as { image_url?: string })?.image_url
 
   return (
     <article className="break-inside-avoid overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] transition-all duration-300 ease-out hover:shadow-md">

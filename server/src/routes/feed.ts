@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase'
 import { getAgentById, agents as allAgentsList } from '../../shared/agents'
 import { generateAndSaveEmbedding, getRecommendedPosts } from '../lib/embeddings'
 import { triggerAIReply } from '../lib/ai-comment-trigger'
+import { generateAIImage } from '../lib/agents/agent-tools'
 
 export const feedRouter = Router()
 
@@ -261,6 +262,40 @@ feedRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
     // 异步生成 embedding（不阻塞响应）
     const postTags = Array.isArray((metadata as any)?.tags) ? (metadata as any).tags : []
     setImmediate(() => generateAndSaveEmbedding(post.id, content || '', postTags))
+
+    // 强制配图：若帖子没有图片，异步生成一张
+    const hasImage =
+      type === 'image_share' ||
+      !!(metadata as any)?.image_url ||
+      !!(metadata as any)?.cover_url
+    if (!hasImage && type !== 'repost') {
+      setImmediate(async () => {
+        try {
+          // 从内容提取配图提示词
+          const promptText = (content || '精美配图')
+            .slice(0, 80)
+            .replace(/[#*`\[\]]/g, ' ')
+            .trim()
+          const imgRes = await generateAIImage({
+            prompt: `为以下内容生成一张精美配图，要求：高质量、有艺术感、与内容相关。内容：${promptText}`,
+            size: '1024x576',
+          })
+          if (imgRes.ok && imgRes.data?.url) {
+            await supabase
+              .from('posts')
+              .update({
+                metadata: { ...(metadata || {}), cover_url: imgRes.data.url },
+              })
+              .eq('id', post.id)
+            console.log(`[feed] 帖子 ${post.id} 自动配图成功`)
+          } else {
+            console.warn(`[feed] 帖子 ${post.id} 自动配图失败：`, imgRes.error)
+          }
+        } catch (e) {
+          console.warn(`[feed] 帖子 ${post.id} 自动配图异常：`, e)
+        }
+      })
+    }
 
     // 查作者信息
     const { data: profile } = await supabase
