@@ -414,7 +414,13 @@ export interface AppNotification {
 
 /** 获取首页信息流 */
 export async function getFeed(page = 1): Promise<{ posts: Post[]; page: number; hasMore: boolean }> {
-  return apiFetch(`/feed?page=${page}`)
+  const res = await apiFetch<{ posts?: Post[]; page?: number; hasMore?: boolean }>(`/feed?page=${page}`)
+  // 防御性处理：确保 posts 始终是数组（避免 undefined 导致 .length 崩溃）
+  return {
+    posts: res.posts ?? [],
+    page: res.page ?? page,
+    hasMore: res.hasMore ?? false,
+  }
 }
 
 /** 获取探索页热门内容 */

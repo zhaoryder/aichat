@@ -565,26 +565,19 @@ function AssistantMessage() {
 /** 输入框（底部） */
 function VibeComposer({
   disabled,
+  value,
+  onChange,
 }: {
   disabled: boolean
+  value: string
+  onChange: (v: string) => void
 }) {
-  const [value, setValue] = useState('')
-
-  // 提交后清空输入框
-  const handleSubmit = () => {
-    // 用 setTimeout 确保此轮 submit 事件处理完后再清空，避免干扰 form 提交
-    setTimeout(() => setValue(''), 0)
-  }
-
   return (
-    <ComposerPrimitive.Root
-      className="flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800 p-3"
-      onSubmit={handleSubmit}
-    >
+    <ComposerPrimitive.Root className="flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800 p-3">
       <ComposerPrimitive.Input
         asChild
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
@@ -606,7 +599,7 @@ function VibeComposer({
             <button
               key={ex}
               type="button"
-              onClick={() => setValue(ex)}
+              onClick={() => onChange(ex)}
               disabled={disabled}
               className="rounded-full border border-gray-200 dark:border-gray-700 px-2.5 py-0.5 text-xs text-gray-500 dark:text-gray-400 transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
             >
@@ -641,6 +634,7 @@ export const VibeCodePage = () => {
   // ----- 消息状态 + 流式状态（手动管理，对接 POST /api/vibe-code/stream） -----
   const [messages, setMessages] = useState<VibeMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [composerValue, setComposerValue] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // ----- 从 messages 中提取最新代码（writeFile 工具调用的 args.content） -----
@@ -937,6 +931,9 @@ export const VibeCodePage = () => {
     async (text: string) => {
       const trimmed = text.trim()
       if (!trimmed || isLoading) return
+
+      // 立即清空输入框
+      setComposerValue('')
 
       // 构造发送给后端的 messages（包含历史 + 本次 user 消息）
       const userMsg: VibeMessage = {
@@ -1380,7 +1377,7 @@ export const VibeCodePage = () => {
         </ThreadPrimitive.Viewport>
 
         {/* Composer（输入框在底部，spec §6.3） */}
-        <VibeComposer disabled={isStreaming} />
+        <VibeComposer disabled={isStreaming} value={composerValue} onChange={setComposerValue} />
       </ThreadPrimitive.Root>
 
       {/* 历史项目 */}
