@@ -423,7 +423,7 @@ export interface TeamSession {
   /** 启用的角色列表 */
   roles: TeamRole[]
   /** 当前正在执行的角色 */
-  current_role: TeamRole | null
+  current_role_name: TeamRole | null
   /** 会话状态：active / paused / completed / failed */
   status: 'active' | 'paused' | 'completed' | 'failed'
   /** 完整对话历史 */

@@ -14,7 +14,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ---------------------------------------------------------------------
 -- 用户开启 Teamwork 后，创建一个 team_session 记录整个协作过程：
 --   - roles：选中的角色列表（如 ['leader','coder','reviewer']）
---   - current_role：当前正在执行的角色
+--   - current_role_name：当前正在执行的角色
 --   - transcript：完整对话历史（含每条消息的 agent_role）
 --   - status：active / paused / completed / failed
 -- =====================================================================
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.team_sessions (
     plan_id       UUID REFERENCES public.plans(id) ON DELETE SET NULL,
     goal          TEXT NOT NULL,
     roles         JSONB NOT NULL DEFAULT '[]'::jsonb,
-    current_role  TEXT,
+    current_role_name  TEXT,
     status        TEXT NOT NULL DEFAULT 'active'
                       CHECK (status IN ('active','paused','completed','failed')),
     transcript    JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -66,7 +66,7 @@ CREATE TRIGGER trg_team_session_updated
 -- =====================================================================
 -- 表清单：
 --   1. team_sessions  ✅ AI Teamwork 多角色协作会话
---      + roles JSONB / current_role / status 状态机 / transcript JSONB
+--      + roles JSONB / current_role_name / status 状态机 / transcript JSONB
 -- + RLS：仅本人可读写
 -- + 索引：team_sessions.user_id / team_sessions.status
 -- + updated_at 触发器

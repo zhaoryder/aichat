@@ -48,14 +48,14 @@ const MAX_LEADER_ROUNDS = 12
 // ---------------------------------------------------------------------
 
 function rowToSession(row: Record<string, unknown>): TeamSession {
-  const currentRole = row.current_role as TeamRole | null | undefined
+  const currentRole = row.current_role_name as TeamRole | null | undefined
   return {
     id: row.id as string,
     user_id: row.user_id as string,
     plan_id: (row.plan_id as string | null) ?? null,
     goal: row.goal as string,
     roles: (row.roles as TeamRole[]) ?? [],
-    current_role: currentRole ?? null,
+    current_role_name: currentRole ?? null,
     status: (row.status as TeamSession['status']) ?? 'active',
     transcript: (row.transcript as TeamMessage[]) ?? [],
     created_at: row.created_at as string,
@@ -89,7 +89,7 @@ async function appendTranscript(
     .eq('id', sessionId)
 }
 
-/** 更新 session 的 current_role 与 status */
+/** 更新 session 的 current_role_name 与 status */
 async function updateSessionState(
   sessionId: string,
   currentRole: TeamRole | null,
@@ -98,7 +98,7 @@ async function updateSessionState(
   await supabase
     .from('team_sessions')
     .update({
-      current_role: currentRole,
+      current_role_name: currentRole,
       status,
     })
     .eq('id', sessionId)
@@ -146,7 +146,7 @@ export async function startTeamSession(
       user_id: userId,
       goal,
       roles,
-      current_role: null,
+      current_role_name: null,
       status: 'active',
       transcript: [],
     })
@@ -262,7 +262,7 @@ export async function runTeamStep(
       const nextRole = decision.nextRole
       const task = decision.task
 
-      // 更新 current_role
+      // 更新 current_role_name
       await updateSessionState(sessionId, nextRole, 'active')
 
       // SSE 推送 role 事件（前端按 role 创建新消息占位）

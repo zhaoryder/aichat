@@ -100,7 +100,7 @@ create table if not exists public.team_sessions (
   plan_id uuid references public.plans(id) on delete set null,
   goal text not null,
   roles jsonb not null default '[]'::jsonb,
-  current_role text,
+  current_role_name text,
   status text not null default 'active' check(status in ('active','paused','completed','failed')),
   transcript jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
