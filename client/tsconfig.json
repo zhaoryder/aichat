@@ -18,9 +18,11 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["./shared/*"]
+      "@shared/*": ["./shared/*"],
+      "@ai-creators": ["../shared/ai-creators/index"],
+      "@ai-creators/*": ["../shared/ai-creators/*"]
     }
   },
-  "include": ["src", "shared"],
+  "include": ["src", "shared", "../shared/ai-creators"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -17,6 +17,8 @@ import { Router, Request, Response } from 'express'
 import { authMiddleware } from '../middleware/auth'
 import { supabase } from '../lib/supabase'
 import { getAgentById, agents as allAgentsList } from '../../shared/agents'
+import { generateAndSaveEmbedding, getRecommendedPosts } from '../lib/embeddings'
+import { triggerAIReply } from '../lib/ai-comment-trigger'
 
 export const feedRouter = Router()
 
@@ -105,6 +107,31 @@ feedRouter.get('/', async (req: Request, res: Response) => {
 
     let posts: any[] = []
 
+    // 1. 置顶帖（is_pinned = true）始终在最前（仅第 1 页加载）
+    if (page === 1) {
+      const { data: pinnedPosts } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('is_pinned', true)
+        .order('created_at', { ascending: false })
+        .limit(5)
+      posts.push(...(pinnedPosts || []))
+    }
+
+    // 2. 推流帖（is_promoted = true AND promoted_until > now）紧随其后（仅第 1 页）
+    if (page === 1) {
+      const { data: promotedPosts } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('is_promoted', true)
+        .gt('promoted_until', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(10)
+      // 去重：避免与置顶帖重复
+      const existingIds = new Set(posts.map((p) => p.id))
+      posts.push(...(promotedPosts || []).filter((p) => !existingIds.has(p.id)))
+    }
+
     if (userId) {
       // 登录用户：关注的人的动态 + 推荐内容（混合）
       // 先查关注的用户
@@ -115,9 +142,10 @@ feedRouter.get('/', async (req: Request, res: Response) => {
         .eq('followee_type', 'user')
 
       const followingIds = following?.map((f) => f.followee_id as string) ?? []
+      const existingIds = new Set(posts.map((p) => p.id))
 
       if (followingIds.length > 0) {
-        // 有关注的人：查关注用户的动态 + 补充推荐
+        // 有关注的人：查关注用户的动态
         const { data: followingPosts } = await supabase
           .from('posts')
           .select('*')
@@ -125,40 +153,40 @@ feedRouter.get('/', async (req: Request, res: Response) => {
           .order('created_at', { ascending: false })
           .range(offset, offset + PAGE_SIZE - 1)
 
-        posts = followingPosts ?? []
+        // 去重后追加
+        posts.push(...(followingPosts || []).filter((p) => !existingIds.has(p.id)))
+      }
 
-        // 如果不够一页，补充热门推荐
-        if (posts.length < PAGE_SIZE) {
-          const need = PAGE_SIZE - posts.length
-          const excludeIds = posts.map((p) => p.id)
-          const { data: recommended } = await supabase
-            .from('posts')
-            .select('*')
-            .not('user_id', 'in', `(${followingIds.join(',')})`)
-            .order('created_at', { ascending: false })
-            .range(0, need - 1)
+      // 不够一页时，用向量推荐补足
+      if (posts.length < PAGE_SIZE) {
+        const need = PAGE_SIZE - posts.length
+        const excludeIds = posts.map((p) => p.id)
+        const recommended = await getRecommendedPosts(userId, need, excludeIds)
+        posts.push(...recommended)
+      }
 
-          if (recommended && recommended.length > 0) {
-            posts = [...posts, ...recommended]
-          }
-        }
-      } else {
-        // 没有关注的人：查全部最新动态
-        const { data: allPosts } = await supabase
+      // 仍不够，用时间倒序兜底
+      if (posts.length < PAGE_SIZE) {
+        const need = PAGE_SIZE - posts.length
+        const excludeIds = posts.map((p) => p.id)
+        const { data: restPosts } = await supabase
           .from('posts')
           .select('*')
           .order('created_at', { ascending: false })
-          .range(offset, offset + PAGE_SIZE - 1)
-        posts = allPosts ?? []
+          .range(0, need - 1)
+        if (restPosts) {
+          posts.push(...restPosts.filter((p) => !excludeIds.includes(p.id)))
+        }
       }
     } else {
-      // 未登录用户：查全部公开动态
+      // 未登录用户：查全部公开动态（按时间倒序）
+      const existingIds = new Set(posts.map((p) => p.id))
       const { data: allPosts } = await supabase
         .from('posts')
         .select('*')
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1)
-      posts = allPosts ?? []
+      posts.push(...(allPosts || []).filter((p) => !existingIds.has(p.id)))
     }
 
     const enrichedPosts = await fetchPostsWithMetaSimple(posts, userId)
@@ -229,6 +257,10 @@ feedRouter.post('/', authMiddleware, async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+
+    // 异步生成 embedding（不阻塞响应）
+    const postTags = Array.isArray((metadata as any)?.tags) ? (metadata as any).tags : []
+    setImmediate(() => generateAndSaveEmbedding(post.id, content || '', postTags))
 
     // 查作者信息
     const { data: profile } = await supabase
@@ -422,6 +454,9 @@ feedRouter.post('/comments', authMiddleware, async (req: Request, res: Response)
         target_id: postId,
         target_type: 'post',
       })
+
+      // 异步触发 AI 自动回复（不阻塞响应）
+      setImmediate(() => triggerAIReply(postId, comment.id))
     }
 
     res.json({

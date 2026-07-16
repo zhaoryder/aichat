@@ -65,7 +65,10 @@ function getStepMeta(key: string): { label: string; Icon: typeof FileText } {
   return { label: key, Icon: FileText }
 }
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const PipelineStudioPage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   const { user, loading: authLoading } = useAuth()
   const [prompt, setPrompt] = useState('')
   const [selectedSteps, setSelectedSteps] = useState<StepKey[]>([
@@ -264,6 +267,7 @@ export const PipelineStudioPage = () => {
 
   return (
     <div className="animate-fade-in mx-auto max-w-6xl px-4 py-8">
+      <AICollaboratorPicker value={aiCollaborator} onChange={setAiCollaborator} />
       {/* Header */}
       <div className="mb-8">
         <Link

@@ -16,7 +16,10 @@ import { ARTICLE_STYLES } from '@shared/presets'
 
 const WORD_COUNTS = [400, 800, 1200] as const
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const ArticleStudioPage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   const [topic, setTopic] = useState('')
   const [style, setStyle] = useState<string>('杂文')
   const [wordCount, setWordCount] = useState(800)
@@ -173,6 +176,7 @@ export const ArticleStudioPage = () => {
 
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
+      <AICollaboratorPicker specialty="article" value={aiCollaborator} onChange={setAiCollaborator} />
       <div className="mb-6">
         <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">
           ← 返回创意工坊

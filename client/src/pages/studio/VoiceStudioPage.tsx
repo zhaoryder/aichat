@@ -27,7 +27,10 @@ const PRESETS: { id: string; label: string; rate: number; pitch: number; desc: s
   { id: 'robot', label: '机械音', rate: 0.85, pitch: 0.5, desc: '低沉机械感' },
 ]
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const VoiceStudioPage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [presetId, setPresetId] = useState('default')
   const [voiceURI, setVoiceURI] = useState('') // 选中系统音色 URI
@@ -115,6 +118,7 @@ export const VoiceStudioPage = () => {
 
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
+      <AICollaboratorPicker specialty="voice" value={aiCollaborator} onChange={setAiCollaborator} />
       <div className="mb-6">
         <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">
           ← 返回创意工坊

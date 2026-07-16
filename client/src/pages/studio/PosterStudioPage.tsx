@@ -54,7 +54,10 @@ interface GenerateResponse {
   prompt?: string
 }
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const PosterStudioPage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   const { user } = useAuth()
 
   const [title, setTitle] = useState('')
@@ -137,6 +140,7 @@ export const PosterStudioPage = () => {
 
   return (
     <div className="animate-fade-in mx-auto max-w-6xl px-4 py-8">
+      <AICollaboratorPicker specialty="poster" value={aiCollaborator} onChange={setAiCollaborator} />
       {/* 头部：返回链接 + 渐变标题 */}
       <header className="mb-8">
         <Link

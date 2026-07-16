@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, './shared'),
+      '@ai-creators': path.resolve(__dirname, '../shared/ai-creators'),
     },
   },
   server: {

@@ -23,7 +23,10 @@ interface ImageItem {
   url: string
 }
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const ImageStudioPage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState<string>('')
   const [count, setCount] = useState(1)
@@ -197,6 +200,7 @@ export const ImageStudioPage = () => {
 
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
+      <AICollaboratorPicker specialty="image" value={aiCollaborator} onChange={setAiCollaborator} />
       <div className="mb-6">
         <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">
           ← 返回创意工坊

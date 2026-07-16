@@ -52,7 +52,10 @@ function phaseToStageIndex(phase: VideoPhase): number {
   }
 }
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const VideoStudioPage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState('')
   const [duration, setDuration] = useState<5 | 10>(5)
@@ -184,6 +187,7 @@ export const VideoStudioPage = () => {
 
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
+      <AICollaboratorPicker specialty="video" value={aiCollaborator} onChange={setAiCollaborator} />
       <div className="mb-6">
         <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">
           ← 返回创意工坊

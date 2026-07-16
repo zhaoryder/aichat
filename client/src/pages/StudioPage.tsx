@@ -1,4 +1,4 @@
-// 创意工坊首页：9 个功能入口卡片 + 我的作品列表
+// 发布作品首页：9 个功能入口卡片 + 我的作品列表 + AI 协作者推荐
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -11,6 +11,7 @@ import {
   Palette,
   Smile,
   Workflow,
+  Sparkles,
 } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
@@ -34,7 +35,7 @@ const STUDIO_ENTRIES: {
     title: '网页工程',
     desc: 'Vibe Coding 自然语言生成代码',
     icon: <Code2 className="h-7 w-7" />,
-    gradient: 'from-indigo-500 to-blue-500',
+    gradient: 'from-blue-500 to-cyan-500',
   },
   {
     to: '/studio/image',
@@ -156,25 +157,31 @@ export const StudioPage = () => {
     <div className="animate-fade-in mx-auto max-w-6xl px-4 py-8">
       {/* 标题 */}
       <header className="mb-8 text-center">
-        <h1 className="bg-gradient-to-r from-primary via-amber-400 to-orange-500 bg-clip-text text-4xl font-extrabold text-transparent sm:text-5xl">
-          创意工坊
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-xs font-medium text-accent">
+          <Sparkles className="h-3.5 w-3.5" />
+          让 AI 创作，分享给世界
+        </div>
+        <h1 className="text-gradient text-4xl font-extrabold tracking-tight sm:text-5xl">
+          发布作品
         </h1>
-        <p className="mt-3 text-base text-gray-600 dark:text-gray-400">用 AI 创造搞笑作品</p>
+        <p className="mt-3 text-base text-muted-foreground">
+          选一个 AI 协作者，开启你的创作 pipeline — 剧本 / 分镜 / 图 / 视频 / 配音 / 剪辑
+        </p>
       </header>
 
-      {/* 6 个功能入口卡片网格 */}
+      {/* 9 个功能入口卡片网格 */}
       <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {STUDIO_ENTRIES.map((entry) => (
           <Link key={entry.to} to={entry.to}>
             <Card
-              className="hover-lift flex h-full items-start gap-4 p-6 transition-transform duration-300 ease-out hover:scale-[1.02]"
+              className="hover-lift flex h-full items-start gap-4 p-6"
             >
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
                 {entry.icon}
               </div>
               <div className="min-w-0">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{entry.title}</h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{entry.desc}</p>
+                <h3 className="text-lg font-semibold text-foreground">{entry.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{entry.desc}</p>
               </div>
             </Card>
           </Link>
@@ -184,9 +191,9 @@ export const StudioPage = () => {
       {/* 我的作品 */}
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">我的作品</h2>
+          <h2 className="text-xl font-bold text-foreground">我的作品</h2>
           {user && works.length > 0 && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">共 {works.length} 件</span>
+            <span className="text-sm text-muted-foreground">共 {works.length} 件</span>
           )}
         </div>
 
@@ -219,7 +226,7 @@ export const StudioPage = () => {
             ))}
           </div>
         ) : error ? (
-          <Card className="p-6 text-center text-sm text-red-500 dark:text-red-400">{error}</Card>
+          <Card className="p-6 text-center text-sm text-destructive">{error}</Card>
         ) : works.length === 0 ? (
           <Card className="p-8">
             <EmptyState
@@ -235,11 +242,11 @@ export const StudioPage = () => {
                   <div className="min-w-0 flex-1">
                     <div className="mb-1.5 flex items-center gap-2">
                       <Badge variant="default">{TYPE_LABEL[work.type]}</Badge>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         {formatRelativeTime(work.created_at)}
                       </span>
                     </div>
-                    <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                    <p className="truncate text-sm font-medium text-foreground">
                       {work.title || '未命名作品'}
                     </p>
                   </div>

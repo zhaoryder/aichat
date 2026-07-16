@@ -39,6 +39,7 @@ import {
   updateCreativeWork,
 } from '../lib/queries'
 import { getAgentById } from '../../shared/agents'
+import { getAICreatorById } from '../../../shared/ai-creators'
 import type { ChatMessage, CreativeWork } from '../../shared/types'
 import { addMediaAsset } from '../lib/media-asset'
 
@@ -933,6 +934,62 @@ studioRouter.post('/generate', authMiddleware, async (req: Request, res: Respons
     return
   }
   res.status(400).json({ error: `不支持的类型：${type ?? '(空)'}` })
+})
+
+// =====================================================================
+// AI 协作者生成端点
+// ---------------------------------------------------------------------
+// POST /api/studio/generate-with-agent
+// 与选定的 AI 创作者协作生成作品
+// =====================================================================
+studioRouter.post('/generate-with-agent', authMiddleware, async (req: Request, res: Response) => {
+  const { ai_creator_id, params } = req.body as {
+    ai_creator_id: string
+    task_type?: string
+    params: Record<string, unknown>
+  }
+
+  try {
+    // 1. 查找 AI creator 配置
+    const creator = getAICreatorById(ai_creator_id)
+    if (!creator) {
+      res.status(404).json({ error: 'AI 创作者不存在' })
+      return
+    }
+
+    // 2. 调用 specialty agent
+    const { getSpecialtyAgent } = await import('../lib/agents/specialty')
+    const { llmComplete } = await import('../lib/agents/agent-tools')
+    const agent = getSpecialtyAgent(creator.specialty)
+
+    const topic = (params.topic as string) || (params.prompt as string) || '随机主题'
+    const contentHint = params.content_hint as string | undefined
+
+    const result = await agent.generate({
+      creator,
+      topic,
+      contentHint,
+      llm: async (system, user) => llmComplete({ system_prompt: system, user_prompt: user }),
+    })
+
+    // 3. 返回结果（前端自己决定是否调 publish）
+    res.json({
+      ok: true,
+      content: result.content,
+      metadata: result.metadata,
+      pipeline_metadata: result.pipelineMetadata,
+      post_type: result.postType,
+      ai_creator: {
+        id: creator.id,
+        nickname: creator.nickname,
+        specialty: creator.specialty,
+        style: creator.style,
+      },
+    })
+  } catch (err) {
+    console.error('[api/studio/generate-with-agent] 异常：', err)
+    res.status(500).json({ error: 'AI 协作生成失败' })
+  }
 })
 
 // =====================================================================

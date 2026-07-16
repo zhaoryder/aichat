@@ -26,6 +26,8 @@ import { snapshotsRouter } from './routes/snapshots'
 import { feedRouter } from './routes/feed'
 import { followRouter } from './routes/follow'
 import { notificationsRouter } from './routes/notifications'
+import { internalRouter } from './routes/internal'
+import { liveRouter } from './routes/live'
 import './lib/ai-feed-cron'
 
 const app = express()
@@ -66,6 +68,8 @@ app.use('/api/feed', feedRouter)
 app.use('/api/posts', feedRouter)
 app.use('/api/follow', followRouter)
 app.use('/api/notifications', notificationsRouter)
+app.use('/api/internal', internalRouter)
+app.use('/api/live', liveRouter)
 
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`)

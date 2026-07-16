@@ -623,7 +623,10 @@ function VibeComposer({
 // 主组件
 // ---------------------------------------------------------------------
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const VibeCodePage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   const { user } = useAuth()
 
   // ----- 消息状态 + 流式状态（手动管理，对接 POST /api/vibe-code/stream） -----
@@ -1675,6 +1678,10 @@ export const VibeCodePage = () => {
       <ExecuteCodeToolUI />
 
       <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+        {/* AI 协作者选择器 */}
+        <div className="shrink-0 border-b border-gray-200 bg-white/80 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/80">
+          <AICollaboratorPicker specialty="vibe-code" value={aiCollaborator} onChange={setAiCollaborator} />
+        </div>
         {/* 顶部工具栏 */}
         <header className="shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
           <div className="flex items-center justify-between gap-2 px-3 py-2">

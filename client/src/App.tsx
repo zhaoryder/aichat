@@ -42,6 +42,10 @@ import { EmoWallPage } from './pages/EmoWallPage'
 import { CardsPage } from './pages/CardsPage'
 import { ExplorePage } from './pages/ExplorePage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { LiveListPage } from './pages/LiveListPage'
+import { LiveWatchPage } from './pages/LiveWatchPage'
+import { TopicsPage } from './pages/TopicsPage'
+import { ChallengesPage } from './pages/ChallengesPage'
 
 // 应用根组件：AuthProvider 包裹在 BrowserRouter 外层
 export default function App() {
@@ -93,7 +97,12 @@ export default function App() {
               />
               <Route path="/forum" element={<ForumPage />} />
               <Route path="/forum/topic/:id" element={<ForumTopicPage />} />
-              <Route path="/studio" element={<StudioPage />} />
+              <Route path="/studio" element={<Navigate to="/publish" replace />} />
+              <Route path="/publish" element={<StudioPage />} />
+              <Route path="/live" element={<LiveListPage />} />
+              <Route path="/live/:id" element={<LiveWatchPage />} />
+              <Route path="/topics" element={<TopicsPage />} />
+              <Route path="/challenges" element={<ChallengesPage />} />
               {/* 2.0 新功能页面 */}
               <Route path="/gallery" element={<GalleryPage />} />
               <Route path="/prompts" element={<PromptMarketPage />} />

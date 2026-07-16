@@ -24,7 +24,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import type { Profile, Report, ReportStatus, ReportTargetType } from '@shared/types'
 
-type Tab = 'users' | 'reports'
+type Tab = 'users' | 'reports' | 'posts'
 
 /** 判断是否当前被封禁 */
 function isBanned(bannedUntil: string | null): boolean {
@@ -78,9 +78,12 @@ export function AdminPage() {
         <TabButton active={tab === 'reports'} onClick={() => setTab('reports')}>
           举报管理
         </TabButton>
+        <TabButton active={tab === 'posts'} onClick={() => setTab('posts')}>
+          内容运营
+        </TabButton>
       </div>
 
-      {tab === 'users' ? <UsersTab /> : <ReportsTab />}
+      {tab === 'users' ? <UsersTab /> : tab === 'reports' ? <ReportsTab /> : <PostsTab />}
     </div>
   )
 }
@@ -561,5 +564,360 @@ function ReportsTab() {
         )
       })}
     </div>
+  )
+}
+
+// =====================================================================
+// 内容运营 Tab（M9.2）—— 帖子管理：置顶 + 推流
+// =====================================================================
+
+/** 帖子类型文案 */
+const POST_TYPE_LABEL: Record<string, string> = {
+  text: '文字',
+  conversation_share: '对话分享',
+  project_share: '项目分享',
+  image_share: '图片分享',
+  repost: '转发',
+  ai_image: 'AI 图片',
+  ai_video: 'AI 视频',
+  ai_script: 'AI 剧本',
+  ai_article: 'AI 文章',
+  ai_voice: 'AI 语音',
+  ai_vibe_code: 'AI 代码',
+  ai_meme: 'AI 表情包',
+  ai_poster: 'AI 海报',
+}
+
+interface AdminPost {
+  id: string
+  user_id: string
+  ai_creator_id?: string | null
+  type: string
+  content: string
+  metadata?: Record<string, unknown>
+  is_pinned?: boolean
+  is_promoted?: boolean
+  promoted_until?: string | null
+  created_at: string
+}
+
+interface AdminPostsResponse {
+  posts: AdminPost[]
+  page: number
+  limit: number
+  total: number
+  hasMore: boolean
+}
+
+function PostsTab() {
+  const [posts, setPosts] = useState<AdminPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+
+  // 推流 Dialog 状态
+  const [promoteTarget, setPromoteTarget] = useState<AdminPost | null>(null)
+  const [promoteHours, setPromoteHours] = useState<number>(24)
+  const [promoteSubmitting, setPromoteSubmitting] = useState(false)
+  const [promoteError, setPromoteError] = useState('')
+
+  // 操作中的帖子 id
+  const [pendingId, setPendingId] = useState<string | null>(null)
+
+  async function loadPosts(targetPage: number = 1) {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await apiFetch<AdminPostsResponse>(
+        `/admin/posts?page=${targetPage}&limit=20`,
+      )
+      setPosts(res.posts ?? [])
+      setPage(res.page)
+      setTotal(res.total)
+      setHasMore(res.hasMore)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载帖子列表失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPosts(1)
+  }, [])
+
+  async function handlePin(post: AdminPost) {
+    setPendingId(post.id)
+    try {
+      await apiFetch(`/admin/posts/${post.id}/pin`, { method: 'POST' })
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, is_pinned: true } : p)))
+    } catch {
+      // 静默
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  async function handleUnpin(post: AdminPost) {
+    setPendingId(post.id)
+    try {
+      await apiFetch(`/admin/posts/${post.id}/unpin`, { method: 'POST' })
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, is_pinned: false } : p)))
+    } catch {
+      // 静默
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  function openPromoteDialog(post: AdminPost) {
+    setPromoteTarget(post)
+    setPromoteHours(24)
+    setPromoteError('')
+  }
+
+  async function handlePromote() {
+    if (!promoteTarget) return
+    setPromoteSubmitting(true)
+    setPromoteError('')
+    try {
+      const res = await apiFetch<{ promoted_until: string }>(
+        `/admin/posts/${promoteTarget.id}/promote`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ hours: promoteHours }),
+        },
+      )
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === promoteTarget.id
+            ? { ...p, is_promoted: true, promoted_until: res.promoted_until }
+            : p,
+        ),
+      )
+      setPromoteTarget(null)
+    } catch (err) {
+      setPromoteError(err instanceof Error ? err.message : '推流失败')
+    } finally {
+      setPromoteSubmitting(false)
+    }
+  }
+
+  async function handleUnpromote(post: AdminPost) {
+    setPendingId(post.id)
+    try {
+      await apiFetch(`/admin/posts/${post.id}/unpromote`, { method: 'POST' })
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === post.id ? { ...p, is_promoted: false, promoted_until: null } : p,
+        ),
+      )
+    } catch {
+      // 静默
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="lg" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="p-6">
+        <EmptyState
+          title="加载失败"
+          description={error}
+          action={<Button variant="outline" size="sm" onClick={() => loadPosts(1)}>重试</Button>}
+        />
+      </Card>
+    )
+  }
+
+  if (posts.length === 0) {
+    return (
+      <Card className="p-6">
+        <EmptyState title="暂无帖子" description="社区还没有作品发布" />
+      </Card>
+    )
+  }
+
+  return (
+    <>
+      {/* 统计栏 */}
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          共 {total} 条 · 第 {page} 页
+        </p>
+      </div>
+
+      {/* 帖子列表 */}
+      <div className="space-y-3">
+        {posts.map((post) => {
+          const isPinned = !!post.is_pinned
+          const isPromoted = !!post.is_promoted
+          const promotedActive =
+            isPromoted &&
+            post.promoted_until &&
+            new Date(post.promoted_until).getTime() > Date.now()
+          const isPendingOp = pendingId === post.id
+          return (
+            <Card key={post.id} className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="default">{POST_TYPE_LABEL[post.type] ?? post.type}</Badge>
+                    {isPinned && <Badge variant="default">📌 置顶</Badge>}
+                    {promotedActive && (
+                      <Badge variant="secondary">🚀 推流中</Badge>
+                    )}
+                    {isPromoted && !promotedActive && (
+                      <Badge variant="secondary">推流已过期</Badge>
+                    )}
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {formatDateTime(post.created_at)}
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-sm text-gray-700 dark:text-gray-300">
+                    {post.content?.trim() || '（无文本内容，可能为纯媒体作品）'}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    作者：{post.ai_creator_id ? `AI ${post.ai_creator_id}` : post.user_id.slice(0, 8)}
+                  </p>
+                </div>
+
+                {/* 操作区 */}
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {isPinned ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUnpin(post)}
+                      disabled={isPendingOp}
+                    >
+                      {isPendingOp ? '处理中…' : '取消置顶'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePin(post)}
+                      disabled={isPendingOp}
+                    >
+                      置顶
+                    </Button>
+                  )}
+                  {promotedActive ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUnpromote(post)}
+                      disabled={isPendingOp}
+                    >
+                      {isPendingOp ? '处理中…' : '取消推流'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openPromoteDialog(post)}
+                      disabled={isPendingOp}
+                    >
+                      推流
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* 分页 */}
+      <div className="mt-6 flex items-center justify-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => loadPosts(page - 1)}
+          disabled={page <= 1 || loading}
+        >
+          上一页
+        </Button>
+        <span className="text-sm text-gray-500 dark:text-gray-400">
+          {page} / {Math.max(1, Math.ceil(total / 20))}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => loadPosts(page + 1)}
+          disabled={!hasMore || loading}
+        >
+          下一页
+        </Button>
+      </div>
+
+      {/* 推流时长 Dialog */}
+      <Dialog
+        open={!!promoteTarget}
+        onOpenChange={(v) => {
+          if (!v && !promoteSubmitting) setPromoteTarget(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>推流作品</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400">选择推流时长：</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { value: 6, label: '6 小时' },
+                  { value: 24, label: '24 小时' },
+                  { value: 72, label: '3 天' },
+                  { value: 168, label: '7 天' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setPromoteHours(opt.value)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-sm font-medium transition-all duration-300 ease-out',
+                    promoteHours === opt.value
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/50',
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {promoteError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{promoteError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setPromoteTarget(null)}
+              disabled={promoteSubmitting}
+            >
+              取消
+            </Button>
+            <Button onClick={handlePromote} disabled={promoteSubmitting}>
+              {promoteSubmitting ? '推流中…' : '确认推流'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

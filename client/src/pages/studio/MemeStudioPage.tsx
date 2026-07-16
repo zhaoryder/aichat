@@ -63,7 +63,10 @@ interface SuggestResponse {
   text?: string
 }
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const MemeStudioPage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   const { user } = useAuth()
 
   const [topText, setTopText] = useState('')
@@ -213,6 +216,7 @@ export const MemeStudioPage = () => {
 
   return (
     <div className="animate-fade-in mx-auto max-w-6xl px-4 py-8">
+      <AICollaboratorPicker specialty="meme" value={aiCollaborator} onChange={setAiCollaborator} />
       {/* 头部 */}
       <header className="mb-8">
         <Link

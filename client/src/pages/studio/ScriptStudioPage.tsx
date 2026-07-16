@@ -15,7 +15,10 @@ import { SelectWithCustom } from '@/components/SelectWithCustom'
 import { SCRIPT_GENRES } from '@shared/presets'
 import type { AgentConfig } from '@shared/agents'
 
+import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+
 export const ScriptStudioPage = () => {
+  const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
   // 表单状态
   const [topic, setTopic] = useState('')
   const [scene, setScene] = useState('')
@@ -190,6 +193,7 @@ export const ScriptStudioPage = () => {
 
   return (
     <div className="animate-fade-in mx-auto max-w-5xl px-4 py-8">
+      <AICollaboratorPicker specialty="script" value={aiCollaborator} onChange={setAiCollaborator} />
       {/* 顶部导航 */}
       <div className="mb-6">
         <Link to="/studio" className="text-sm text-gray-500 hover:text-primary dark:text-gray-400">

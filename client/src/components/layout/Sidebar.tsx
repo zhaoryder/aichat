@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Home, Compass, MessageCircle, Wrench, Bell, User, LogOut, Plus, Heart, Trophy, Users, Layers } from 'lucide-react'
+import { Home, Compass, MessageCircle, Sparkles, Bell, User, LogOut, Plus, Heart, Trophy, Users, Layers, Radio } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -45,7 +45,8 @@ export function Sidebar() {
     { to: '/', label: '首页', icon: Home, end: true },
     { to: '/explore', label: '探索', icon: Compass, end: false },
     { to: '/agents', label: '智能体', icon: MessageCircle, end: false },
-    { to: '/studio', label: '创意工坊', icon: Wrench, end: false },
+    { to: '/live', label: 'AI 直播', icon: Radio, end: false },
+    { to: '/publish', label: '发布作品', icon: Sparkles, end: false },
   ]
 
   return (
@@ -60,14 +61,15 @@ export function Sidebar() {
         </span>
       </Link>
 
-      {/* 发布按钮 */}
+      {/* 发布按钮（GitHub green accent，导航到 /publish） */}
       {user && (
         <Button
-          onClick={() => navigate('/')}
-          className="mb-4 hidden h-12 items-center justify-center gap-2 rounded-full bg-primary text-black shadow-sm transition-transform hover:scale-[1.02] lg:flex"
+          onClick={() => navigate('/publish')}
+          variant="success"
+          className="mb-4 hidden h-12 items-center justify-center gap-2 rounded-full shadow-md transition-all duration-300 ease-out hover:scale-[1.05] hover:shadow-[0_8px_24px_rgba(63,185,80,0.35)] lg:flex"
         >
           <Plus className="h-5 w-5" />
-          <span>发布</span>
+          <span>发布作品</span>
         </Button>
       )}
 
@@ -243,7 +245,10 @@ export function BottomTabBar() {
   const tabs = [
     { to: '/', label: '首页', icon: Home, end: true },
     { to: '/explore', label: '探索', icon: Compass, end: false },
-    { to: '/', label: '发布', icon: Plus, end: false, isAction: true },
+    { to: '/publish', label: '发布', icon: Plus, end: false, isAction: true },
+    ...(user
+      ? [{ to: '/live', label: '直播', icon: Radio, end: false }]
+      : []),
     ...(user
       ? [{ to: '/notifications', label: '通知', icon: Bell, end: false, badge: unread }]
       : []),
@@ -259,11 +264,12 @@ export function BottomTabBar() {
           return (
             <button
               key={tab.label}
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/publish')}
               className="flex flex-col items-center gap-0.5"
+              aria-label="发布作品"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-black">
-                <tab.icon className="h-5 w-5" />
+              <div className="flex h-10 w-10 -translate-y-2 items-center justify-center rounded-full bg-accent text-white shadow-[0_4px_16px_rgba(63,185,80,0.45)] transition-all duration-300 ease-out hover:scale-110 hover:shadow-[0_6px_24px_rgba(63,185,80,0.6)]">
+                <tab.icon className="h-6 w-6" />
               </div>
             </button>
           )
