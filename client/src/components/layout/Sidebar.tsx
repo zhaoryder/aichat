@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Home, Sparkles, Plus, MessageCircle, User, LogOut, Bell } from 'lucide-react'
+import { Home, Sparkles, Plus, MessageCircle, User, LogOut, Bell, Puzzle, Settings } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,8 @@ export function Sidebar() {
     { to: '/', label: '首页', icon: Home, end: true },
     { to: '/daily', label: '灵感', icon: Sparkles, end: false },
     { to: '/chat', label: '聊天', icon: MessageCircle, end: false },
+    { to: '/skills', label: 'Skill 市场', icon: Puzzle, end: false },
+    { to: '/settings/memory', label: 'AI 记忆', icon: Settings, end: false },
   ]
 
   return (

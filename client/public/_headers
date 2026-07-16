@@ -1,0 +1,23 @@
+# Cloudflare Pages headers
+# 配置 COOP/COEP 以启用 SharedArrayBuffer + crossOriginIsolated
+# WebContainer 沙箱依赖这两项头才能在浏览器中运行
+#
+# 注意：
+#   1. /api/* 路径由 functions/api/_middleware.ts 代理到 Railway 后端，
+#      不添加 COOP/COEP（避免破坏 CORS 与跨域资源加载）
+#   2. 其余路径（HTML / 静态资源）启用 COOP/COEP，使全站 crossOriginIsolated=true
+#   3. Cross-Origin-Resource-Policy 设为 same-site，允许同站资源加载
+
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-site
+
+# API 代理路径不启用 COOP/COEP（CORS 友好）
+/api/*
+  !Cross-Origin-Opener-Policy
+  !Cross-Origin-Embedder-Policy
+  !Cross-Origin-Resource-Policy
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization

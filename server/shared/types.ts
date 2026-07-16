@@ -307,3 +307,189 @@ export interface ForumRating {
   rating: number
   created_at: string
 }
+
+// ---------------------------------------------------------------------
+// Skill 市场（Batch A）
+// ---------------------------------------------------------------------
+
+export type SkillCategory = 'search' | 'media' | 'code' | 'data' | 'utility' | 'custom'
+
+export interface SkillManifest {
+  name: string
+  description: string
+  tools: Array<{
+    name: string
+    description: string
+    parameters: Record<string, unknown>
+  }>
+  systemPrompt?: string
+}
+
+export interface Skill {
+  id: string
+  name: string
+  slug: string
+  description: string
+  category: SkillCategory
+  manifest: SkillManifest
+  author_id: string | null
+  version: string
+  status: 'pending' | 'published' | 'rejected'
+  install_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface UserSkill {
+  user_id: string
+  skill_id: string
+  enabled: boolean
+  config: Record<string, unknown>
+  installed_at: string
+  skill?: Skill
+}
+
+// ---------------------------------------------------------------------
+// Plan Mode（Batch B）
+// ---------------------------------------------------------------------
+
+/**
+ * 团队角色类型（forward declaration，Batch C 团队协作使用）。
+ * 在 Batch B 中仅作为 PlanStep.agent_role 的可选类型出现，
+ * Batch C 会基于此类型扩展多角色协作。
+ */
+export type TeamRole = 'leader' | 'planner' | 'coder' | 'executor' | 'reviewer' | 'reporter'
+
+/** Plan Step 类型：标识该步骤的工作性质 */
+export type PlanStepType = 'code' | 'design' | 'test' | 'research' | 'deploy'
+
+/** Plan Step 状态机：pending → in_progress → completed/skipped/failed */
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed'
+
+/** Plan 单个步骤 */
+export interface PlanStep {
+  /** step 序号（从 1 开始） */
+  id: number
+  title: string
+  type: PlanStepType
+  status: PlanStepStatus
+  /** 可选：由 Batch C 团队模式时指定执行该 step 的角色 */
+  agent_role?: TeamRole
+  /** 该步骤执行结果（step_done 时填充） */
+  result?: string
+  started_at?: string
+  completed_at?: string
+}
+
+/** plans 表：Plan Mode 规划执行 */
+export interface Plan {
+  id: string
+  user_id: string
+  project_id: string | null
+  goal: string
+  steps: PlanStep[]
+  /** 当前执行到的 step 索引（从 0 开始） */
+  current_step: number
+  status: 'draft' | 'planning' | 'ready' | 'executing' | 'paused' | 'completed' | 'failed'
+  mode: 'single' | 'plan' | 'team'
+  created_at: string
+  updated_at: string
+}
+
+// ---------------------------------------------------------------------
+// AI Teamwork（Batch C）
+// ---------------------------------------------------------------------
+
+/** team_sessions 表中的消息记录（transcript JSONB 数组元素） */
+export interface TeamMessage {
+  id: string
+  role: 'user' | 'assistant'
+  /** assistant 消息才有：标识由哪个角色产出 */
+  agent_role?: TeamRole
+  content: string
+  timestamp: string
+  /** 该消息中触发的工具调用（若有） */
+  tool_calls?: Array<{ id: string; name: string; args: Record<string, unknown> }>
+}
+
+/** team_sessions 表：AI Teamwork 多角色协作会话 */
+export interface TeamSession {
+  id: string
+  user_id: string
+  /** 关联的 plan ID（若团队围绕 plan 协作则填） */
+  plan_id: string | null
+  /** 用户描述的目标 */
+  goal: string
+  /** 启用的角色列表 */
+  roles: TeamRole[]
+  /** 当前正在执行的角色 */
+  current_role: TeamRole | null
+  /** 会话状态：active / paused / completed / failed */
+  status: 'active' | 'paused' | 'completed' | 'failed'
+  /** 完整对话历史 */
+  transcript: TeamMessage[]
+  created_at: string
+  updated_at: string
+}
+
+/** 团队配置：用户在 TeamToggle 中选择的角色与模型 */
+export interface TeamConfig {
+  roles: TeamRole[]
+  /** 可选：Leader 使用的模型（默认 agnes-2.0-flash） */
+  leader_model?: string
+  /** 可选：其他成员使用的模型 */
+  member_model?: string
+}
+
+/** Reviewer 角色产出的结构化代码审查结果 */
+export interface CodeReviewResult {
+  /** 安全性评分 0-100 */
+  security: number
+  /** 可维护性评分 0-100 */
+  maintainability: number
+  /** 性能评分 0-100 */
+  performance: number
+  /** 发现的问题列表 */
+  issues: Array<{
+    severity: 'critical' | 'warning' | 'info'
+    message: string
+    /** 可选：问题所在行号 */
+    line?: number
+  }>
+  /** 总体评语 */
+  summary: string
+}
+
+// ---------------------------------------------------------------------
+// Agent Memory 长期记忆（Batch E1）
+// ---------------------------------------------------------------------
+
+/** agent_memory 表：跨会话的长期记忆（key-value 形式） */
+export interface AgentMemory {
+  id: string
+  user_id: string
+  /** 记忆键，如 'ui_framework' / 'language' / 'tech_stack' */
+  key: string
+  /** 记忆值，如 'tailwind' / 'typescript' */
+  value: string
+  /** 来源：'agent'（AI 自动保存）/ 'user'（用户手动添加）/ 'system'（系统默认） */
+  source: 'agent' | 'user' | 'system'
+  created_at: string
+}
+
+/**
+ * AI 自建工具的元数据（Batch E2 Tool Builder）。
+ * 保存在内存 Map 中（不持久化，会话级）。
+ */
+export interface DynamicToolMeta {
+  /** 工具名（唯一，作为工具调用名） */
+  name: string
+  /** 工具描述 */
+  description: string
+  /** JS 代码字符串：function body，接受 (args, context) */
+  implementation: string
+  /** 创建者用户 ID */
+  user_id: string
+  /** 创建时间戳 */
+  created_at: string
+}

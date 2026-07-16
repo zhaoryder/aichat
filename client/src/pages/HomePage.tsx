@@ -124,6 +124,13 @@ export function HomePage() {
           )}
         </div>
       )}
+
+      {/* 版本号 footer（E4.3） */}
+      <footer className="mt-8 border-t border-[hsl(var(--border))] py-4 text-center">
+        <span className="text-xs text-[hsl(var(--muted-foreground))]">
+          AI Lab · v4.0.0 · Agent 超级大升级
+        </span>
+      </footer>
     </div>
   )
 }

@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 
 // 直接 import 根目录 shared/ai-creators（通过 @ai-creators alias）
 import { AI_CREATORS } from '@ai-creators'
-import type { AICreatorSpecialty } from '@ai-creators/types'
+import type { AICreatorSpecialty, Persona } from '@ai-creators/types'
 
 const SPECIALTY_LABELS: Record<AICreatorSpecialty, string> = {
   image: 'AI 绘画',
@@ -25,6 +25,25 @@ const SPECIALTY_LABELS: Record<AICreatorSpecialty, string> = {
   'vibe-code': 'Vibe Code',
   meme: '表情包',
   poster: '海报',
+}
+
+/**
+ * 从 Big Five persona 分数推导简短性格标签（E3.3）。
+ * 取分数 ≥ 0.6 的前 2 个主导特质，输出如 "开放·外向"。
+ * 全部低于 0.6 时返回 "平衡"。
+ */
+function derivePersonaTag(persona: Persona): string {
+  const traits: Array<{ name: string; score: number }> = [
+    { name: '开放', score: persona.openness },
+    { name: '严谨', score: persona.conscientiousness },
+    { name: '外向', score: persona.extraversion },
+    { name: '友善', score: persona.agreeableness },
+    { name: '敏感', score: persona.neuroticism },
+  ]
+  const sorted = [...traits].sort((a, b) => b.score - a.score)
+  const top = sorted.filter((t) => t.score >= 0.6).slice(0, 2)
+  if (top.length === 0) return '平衡'
+  return top.map((t) => t.name).join('·')
 }
 
 interface Props {
@@ -121,6 +140,16 @@ export function AICollaboratorPicker({ specialty, value, onChange }: Props) {
                 <div className="font-medium">{c.nickname}</div>
                 <div className="text-xs text-gray-500">{c.style}</div>
                 <div className="mt-1 flex flex-wrap gap-1">
+                  {/* 性格画像标签（E3.3，紫色） */}
+                  {c.persona && (
+                    <Badge
+                      variant="outline"
+                      className="border-purple-500/30 bg-purple-500/10 text-[10px] text-purple-600 dark:text-purple-400"
+                      title="Big Five 性格画像主导特质"
+                    >
+                      {derivePersonaTag(c.persona)}
+                    </Badge>
+                  )}
                   {c.style_tags.slice(0, 3).map((t) => (
                     <Badge key={t} variant="outline" className="text-[10px]">
                       {t}

@@ -29,6 +29,11 @@ import { notificationsRouter } from './routes/notifications'
 import { internalRouter } from './routes/internal'
 import { liveRouter } from './routes/live'
 import { dailyRouter } from './routes/daily'
+import { skillsRouter } from './routes/skills'
+import { plansRouter } from './routes/plans'
+import { teamRouter } from './routes/team'
+import { sandboxRouter } from './routes/sandbox'
+import { memoryRouter } from './routes/memory'
 import './lib/ai-feed-cron'
 
 const app = express()
@@ -72,6 +77,16 @@ app.use('/api/notifications', notificationsRouter)
 app.use('/api/internal', internalRouter)
 app.use('/api/live', liveRouter)
 app.use('/api/daily', dailyRouter)
+// Skill 市场（含 /skills, /users/me/skills, /admin/skills/:id/publish）
+app.use('/api', skillsRouter)
+// Plan Mode（含 /vibe-code/plan, /plans/:id, /plans/:id/execute 等）
+app.use('/api', plansRouter)
+// AI Teamwork 多角色协作（含 /team/start, /team/:id/message 等）
+app.use('/api', teamRouter)
+// Sandbox 快照分享（含 /sandbox/snapshot, /sandbox/:slug, /sandbox/me, /sandbox/:id）
+app.use('/api/sandbox', sandboxRouter)
+// Agent Memory 长期记忆（Batch E1.4，含 /memory, /memory/:id）
+app.use('/api/memory', memoryRouter)
 
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`)

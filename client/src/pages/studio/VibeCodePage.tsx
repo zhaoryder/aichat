@@ -54,10 +54,17 @@ import {
   Wrench,
   Sparkles,
   FileText,
-  Terminal,
+  Terminal as TerminalIcon,
   ExternalLink,
   Share2,
   Square,
+  AlertTriangle,
+  ListChecks,
+  Crown,
+  ClipboardList,
+  Code2,
+  Play,
+  ShieldCheck,
 } from 'lucide-react'
 import {
   AssistantRuntimeProvider,
@@ -79,10 +86,24 @@ import {
   restoreSnapshotApi,
   getSnapshotDiffApi,
   createPost,
+  updatePlan,
+  pausePlan,
+  skipPlanStep,
+  executePlan,
+  startTeam,
+  sendTeamMessage,
   type VibeProject,
   type SnapshotDiff,
 } from '@/lib/api'
-import type { ProjectSnapshot } from '@shared/types'
+import type {
+  ProjectSnapshot,
+  Plan,
+  PlanStep,
+  TeamRole,
+  CodeReviewResult,
+} from '@shared/types'
+import { TeamToggle } from '@/components/TeamToggle'
+import { CodeReviewCard } from '@/components/CodeReviewCard'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -99,6 +120,8 @@ import {
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { PlanPanel } from '@/components/PlanPanel'
 
 // ---------------------------------------------------------------------
 // 类型 & 常量
@@ -127,6 +150,10 @@ interface VibeMessage {
   content: string
   isStreaming?: boolean
   toolCalls?: ToolCallInfo[]
+  /** Teamwork 模式：标识该 assistant 消息由哪个角色产出 */
+  agentRole?: TeamRole
+  /** Teamwork 模式：Reviewer 角色产出的代码审查结果（仅 reviewer 角色消息有值） */
+  review?: CodeReviewResult
 }
 
 const EXAMPLE_PROMPTS = [
@@ -399,7 +426,7 @@ const ExecuteCodeToolUI = makeAssistantToolUI<
     if (result === undefined) {
       return (
         <div className="my-2 flex items-center gap-2 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 text-xs text-indigo-700 dark:text-indigo-300">
-          <Terminal className="h-3.5 w-3.5" />
+          <TerminalIcon className="h-3.5 w-3.5" />
           执行代码...
           <Loader2 className="h-3 w-3 animate-spin" />
         </div>
@@ -409,7 +436,7 @@ const ExecuteCodeToolUI = makeAssistantToolUI<
     return (
       <div className="my-2 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-2 text-xs">
         <div className="flex items-center gap-1.5 font-medium text-indigo-700 dark:text-indigo-300">
-          <Terminal className="h-3 w-3" />
+          <TerminalIcon className="h-3 w-3" />
           {r.success ? '代码执行结果' : '执行失败'}
         </div>
         {r.success ? (
@@ -476,18 +503,37 @@ function PreviewArea({
   srcDoc,
   iframeKey,
   hasCode,
+  devServerUrl,
 }: {
   srcDoc: string
   iframeKey: number
   hasCode: boolean
+  devServerUrl?: string | null
 }) {
+  // dev server URL 优先（WebContainer dev server），否则降级到 srcDoc
+  const useDevServer = !!devServerUrl
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
       <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-3 py-2">
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">预览</span>
-        {hasCode && <span className="text-xs text-gray-400 dark:text-gray-500">iframe srcDoc</span>}
+        {useDevServer ? (
+          <span className="flex items-center gap-1 text-xs text-emerald-500 dark:text-emerald-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+            dev server
+          </span>
+        ) : (
+          hasCode && <span className="text-xs text-gray-400 dark:text-gray-500">iframe srcDoc</span>
+        )}
       </div>
-      {hasCode ? (
+      {useDevServer ? (
+        <iframe
+          key={`dev-${iframeKey}`}
+          title="vibe-code-preview"
+          src={devServerUrl!}
+          sandbox="allow-scripts allow-modals allow-same-origin allow-forms allow-popups"
+          className="flex-1 w-full border-0 bg-white dark:bg-gray-900"
+        />
+      ) : hasCode ? (
         <iframe
           key={iframeKey}
           title="vibe-code-preview"
@@ -522,7 +568,13 @@ function UserMessage() {
 }
 
 /** AI 消息气泡 */
-function AssistantMessage() {
+function AssistantMessage({
+  agentRole,
+  review,
+}: {
+  agentRole?: TeamRole
+  review?: CodeReviewResult
+}) {
   const isRunning = useMessage((s) => s.status?.type === 'running')
   const hasText = useMessage((s) =>
     s.content.some(
@@ -536,10 +588,40 @@ function AssistantMessage() {
 
   return (
     <MessagePrimitive.Root className="flex gap-2 justify-start animate-slide-up-fade">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white">
-        <Sparkles className="h-3.5 w-3.5" />
+      <div
+        className={cn(
+          'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white transition-colors',
+          agentRole
+            ? ROLE_BADGE_META[agentRole].avatarBg
+            : 'bg-gradient-to-br from-amber-400 to-orange-500',
+        )}
+      >
+        {agentRole ? (
+          (() => {
+            const Icon = ROLE_BADGE_META[agentRole].icon
+            return <Icon className="h-3.5 w-3.5" />
+          })()
+        ) : (
+          <Sparkles className="h-3.5 w-3.5" />
+        )}
       </div>
-      <div className="flex max-w-[80%] flex-col items-start">
+      <div className="flex max-w-[80%] flex-col items-start gap-1">
+        {/* 角色徽章：Teamwork 模式下显示当前消息所属角色 */}
+        {agentRole && (
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+              ROLE_BADGE_META[agentRole].badgeBg,
+              ROLE_BADGE_META[agentRole].text,
+            )}
+          >
+            {(() => {
+              const Icon = ROLE_BADGE_META[agentRole].icon
+              return <Icon className="h-2.5 w-2.5" />
+            })()}
+            {ROLE_BADGE_META[agentRole].label}
+          </span>
+        )}
         <div className="break-words rounded-2xl bg-white dark:bg-gray-900 px-3 py-2 text-sm leading-relaxed text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-gray-100 dark:ring-gray-800">
           {showTypingDots ? (
             <div className="flex items-center gap-1">
@@ -560,9 +642,66 @@ function AssistantMessage() {
             />
           )}
         </div>
+        {/* CodeReviewCard：Reviewer 角色消息附带的代码审查卡片 */}
+        {review && <CodeReviewCard review={review} className="w-full max-w-md" />}
       </div>
     </MessagePrimitive.Root>
   )
+}
+
+/** 角色徽章元数据：图标 + 配色（与 TeamToggle 角色配色保持一致） */
+const ROLE_BADGE_META: Record<
+  TeamRole,
+  {
+    icon: typeof Crown
+    label: string
+    text: string
+    badgeBg: string
+    avatarBg: string
+  }
+> = {
+  leader: {
+    icon: Crown,
+    label: 'Leader',
+    text: 'text-purple-600 dark:text-purple-300',
+    badgeBg: 'bg-purple-100 dark:bg-purple-950/60',
+    avatarBg: 'bg-gradient-to-br from-purple-500 to-purple-700',
+  },
+  planner: {
+    icon: ClipboardList,
+    label: 'Planner',
+    text: 'text-blue-600 dark:text-blue-300',
+    badgeBg: 'bg-blue-100 dark:bg-blue-950/60',
+    avatarBg: 'bg-gradient-to-br from-blue-500 to-blue-700',
+  },
+  coder: {
+    icon: Code2,
+    label: 'Coder',
+    text: 'text-emerald-600 dark:text-emerald-300',
+    badgeBg: 'bg-emerald-100 dark:bg-emerald-950/60',
+    avatarBg: 'bg-gradient-to-br from-emerald-500 to-emerald-700',
+  },
+  executor: {
+    icon: Play,
+    label: 'Executor',
+    text: 'text-amber-600 dark:text-amber-300',
+    badgeBg: 'bg-amber-100 dark:bg-amber-950/60',
+    avatarBg: 'bg-gradient-to-br from-amber-500 to-amber-700',
+  },
+  reviewer: {
+    icon: ShieldCheck,
+    label: 'Reviewer',
+    text: 'text-red-600 dark:text-red-300',
+    badgeBg: 'bg-red-100 dark:bg-red-950/60',
+    avatarBg: 'bg-gradient-to-br from-red-500 to-red-700',
+  },
+  reporter: {
+    icon: FileText,
+    label: 'Reporter',
+    text: 'text-gray-600 dark:text-gray-300',
+    badgeBg: 'bg-gray-100 dark:bg-gray-800/80',
+    avatarBg: 'bg-gradient-to-br from-gray-500 to-gray-700',
+  },
 }
 
 /** 输入框（底部） */
@@ -572,12 +711,18 @@ function VibeComposer({
   onStop,
   value,
   onChange,
+  planMode,
+  hasPlan,
+  teamMode,
 }: {
   disabled: boolean
   isStreaming: boolean
   onStop: () => void
   value: string
   onChange: (v: string) => void
+  planMode: boolean
+  hasPlan: boolean
+  teamMode: boolean
 }) {
   return (
     <ComposerPrimitive.Root className="flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800 p-3">
@@ -594,7 +739,13 @@ function VibeComposer({
         }}
       >
         <textarea
-          placeholder="描述你想要的页面或功能，AI 会自动调用工具生成代码..."
+          placeholder={
+            teamMode
+              ? '描述目标，多角色 AI 团队将接力协作完成...'
+              : planMode && !hasPlan
+                ? '描述需求，AI 会先拆解为 step 列表，确认后再执行...'
+                : '描述你想要的页面或功能，AI 会自动调用工具生成代码...'
+          }
           disabled={disabled}
           rows={3}
           className="w-full resize-y rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
@@ -645,6 +796,14 @@ function VibeComposer({
 // ---------------------------------------------------------------------
 
 import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
+import { WebContainerSandbox } from '@/components/WebContainerSandbox'
+import { Terminal } from '@/components/Terminal'
+import { FileTree } from '@/components/FileTree'
+import {
+  FRONTEND_TOOLS,
+  executeFrontendTool,
+  setSandbox,
+} from '@/lib/webcontainer-tools'
 
 export const VibeCodePage = () => {
   const [aiCollaborator, setAiCollaborator] = useState<string | null>(null)
@@ -655,6 +814,26 @@ export const VibeCodePage = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [composerValue, setComposerValue] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // ----- Plan Mode 状态（Batch B）-----
+  const [planMode, setPlanMode] = useState(false)
+  const [plan, setPlan] = useState<Plan | null>(null)
+  const [planExecuting, setPlanExecuting] = useState(false)
+  const planAbortRef = useRef<AbortController | null>(null)
+
+  // ----- Teamwork 状态（Batch C）-----
+  const [teamMode, setTeamMode] = useState(false)
+  const [teamRoles, setTeamRoles] = useState<TeamRole[]>(['leader', 'coder'])
+  const [teamSessionId, setTeamSessionId] = useState<string | null>(null)
+  const teamAbortRef = useRef<AbortController | null>(null)
+
+  // ----- WebContainer 沙箱状态（Batch D）-----
+  const sandboxRef = useRef<WebContainerSandbox | null>(null)
+  const [webcontainerReady, setWebcontainerReady] = useState(false)
+  const [devServerUrl, setDevServerUrl] = useState<string | null>(null)
+  const [showTerminal, setShowTerminal] = useState(false)
+  const [sandboxError, setSandboxError] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<{ path: string; content: string } | null>(null)
 
   // ----- 从 messages 中提取最新代码（writeFile 工具调用的 args.content） -----
   const code = useMemo(() => extractLatestCode(messages), [messages])
@@ -724,10 +903,40 @@ export const VibeCodePage = () => {
 
   // ----- Effects -----
 
+  // WebContainer 沙箱 boot（Batch D）
+  useEffect(() => {
+    // 创建沙箱实例并注册到全局（供 webcontainer-tools.ts 使用）
+    const sandbox = new WebContainerSandbox()
+    sandboxRef.current = sandbox
+    setSandbox(sandbox)
+
+    // 注册错误回调
+    const unsubscribeError = sandbox.onError((err) => {
+      setSandboxError(err.message)
+      setWebcontainerReady(false)
+    })
+
+    // 启动 boot
+    void sandbox.boot().then(() => {
+      if (sandbox.isReady) {
+        setWebcontainerReady(true)
+        setSandboxError(null)
+      }
+    })
+
+    return () => {
+      unsubscribeError()
+      setSandbox(null)
+      sandbox.teardown()
+      sandboxRef.current = null
+    }
+  }, [])
+
   // 组件卸载时取消进行中的流式请求
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort()
+      planAbortRef.current?.abort()
     }
   }, [])
 
@@ -945,6 +1154,287 @@ export const VibeCodePage = () => {
     [diffCompareSnapshot, diffData],
   )
 
+  // ----- Teamwork 模式：调 /api/team/start 或 /api/team/:id/message（Batch C - C9） -----
+  // 与 single 模式不同：后端 SSE 事件包含 role / review 字段
+  //   - start 事件 { sessionId }：拿到 team_session id
+  //   - role 事件 { role, task }：开启一条新的 assistant 消息占位（带 agentRole）
+  //   - token 事件 { c, role }：追加到当前 assistant 消息
+  //   - tool_call / tool_result：与 single 模式一致
+  //   - review 事件 { review, role }：把 CodeReviewResult 挂到当前消息上
+  //   - done 事件 { status }：结束流式
+  //   - error 事件 { error, role }：显示错误
+  const handleSendTeam = useCallback(
+    async (text: string, userMsg: VibeMessage) => {
+      if (isLoading) return
+
+      // 追加 user 消息到列表（不创建 AI 占位，等 role 事件到达时再创建）
+      setMessages((prev) => [...prev, userMsg])
+      setIsLoading(true)
+
+      if (teamAbortRef.current) teamAbortRef.current.abort()
+      const controller = new AbortController()
+      teamAbortRef.current = controller
+
+      try {
+        // 决定端点：首次调用 /team/start，后续 /team/:id/message
+        const isFirstMessage = !teamSessionId
+        const response = isFirstMessage
+          ? await startTeam(text, { roles: teamRoles }, { signal: controller.signal })
+          : await sendTeamMessage(teamSessionId, text, { signal: controller.signal })
+
+        if (!response.body) {
+          toast.error('未收到响应流')
+          return
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let currentEvent = ''
+        // 当前正在写入的 assistant 消息 id（role 事件创建后赋值）
+        let currentAiMsgId: string | null = null
+
+        while (true) {
+          if (controller.signal.aborted) break
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim()
+            } else if (line.startsWith('data: ')) {
+              let data: {
+                sessionId?: string
+                role?: TeamRole
+                task?: string
+                c?: string
+                id?: string
+                name?: string
+                args?: Record<string, unknown>
+                result?: unknown
+                review?: CodeReviewResult
+                status?: string
+                error?: string
+              }
+              try {
+                data = JSON.parse(line.slice(6))
+              } catch {
+                continue
+              }
+
+              if (currentEvent === 'start' && data.sessionId) {
+                // 首次消息时记录 sessionId（后续走 /team/:id/message）
+                if (!teamSessionId) {
+                  setTeamSessionId(data.sessionId)
+                }
+              } else if (currentEvent === 'role' && data.role) {
+                // 新角色接力：创建新的 assistant 消息占位
+                currentAiMsgId = crypto.randomUUID()
+                const newMsg: VibeMessage = {
+                  id: currentAiMsgId,
+                  role: 'assistant',
+                  content: '',
+                  isStreaming: true,
+                  agentRole: data.role,
+                }
+                setMessages((prev) => [...prev, newMsg])
+              } else if (currentEvent === 'token' && data.c && currentAiMsgId) {
+                // 追加 token 到当前消息
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === currentAiMsgId
+                      ? { ...m, content: m.content + data.c }
+                      : m,
+                  ),
+                )
+              } else if (currentEvent === 'tool_call') {
+                const { id: tcId, name: tcName, args: tcArgs } = data
+                if (tcId && tcName && currentAiMsgId) {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === currentAiMsgId
+                        ? {
+                            ...m,
+                            toolCalls: [
+                              ...(m.toolCalls ?? []),
+                              {
+                                id: tcId,
+                                name: tcName,
+                                args: tcArgs ?? {},
+                                isExecuting: true,
+                              },
+                            ],
+                          }
+                        : m,
+                    ),
+                  )
+
+                  // 前端工具拦截（与 single 模式一致）
+                  if (FRONTEND_TOOLS.has(tcName) && sandboxRef.current?.isReady) {
+                    const tcArgsCopy = tcArgs ?? {}
+                    void executeFrontendTool(tcName, tcArgsCopy)
+                      .then((result) => {
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === currentAiMsgId
+                              ? {
+                                  ...m,
+                                  toolCalls: (m.toolCalls ?? []).map((tc) =>
+                                    tc.id === tcId
+                                      ? { ...tc, result, isExecuting: false }
+                                      : tc,
+                                  ),
+                                }
+                              : m,
+                          ),
+                        )
+                        if (tcName === 'writeFile' && sandboxRef.current) {
+                          void sandboxRef.current.startDevServer().then((url) => {
+                            setDevServerUrl(url)
+                          }).catch(() => {
+                            // dev server 启动失败：静默，使用 srcDoc 降级
+                          })
+                        }
+                      })
+                      .catch((err) => {
+                        const errorResult = {
+                          error: err instanceof Error ? err.message : String(err),
+                        }
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === currentAiMsgId
+                              ? {
+                                  ...m,
+                                  toolCalls: (m.toolCalls ?? []).map((tc) =>
+                                    tc.id === tcId
+                                      ? {
+                                          ...tc,
+                                          result: errorResult,
+                                          isExecuting: false,
+                                          hasError: true,
+                                        }
+                                      : tc,
+                                  ),
+                                }
+                              : m,
+                          ),
+                        )
+                      })
+                  }
+                }
+              } else if (currentEvent === 'tool_result') {
+                const { id: trId, result: trResult } = data
+                if (trId && currentAiMsgId) {
+                  const hasError =
+                    trResult != null &&
+                    typeof trResult === 'object' &&
+                    'error' in trResult
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === currentAiMsgId
+                        ? {
+                            ...m,
+                            toolCalls: (m.toolCalls ?? []).map((tc) =>
+                              tc.id === trId
+                                ? { ...tc, result: trResult, isExecuting: false, hasError }
+                                : tc,
+                            ),
+                          }
+                        : m,
+                    ),
+                  )
+                }
+              } else if (currentEvent === 'review' && data.review && currentAiMsgId) {
+                // Reviewer 角色产出 CodeReviewResult，挂到当前消息上
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === currentAiMsgId
+                      ? { ...m, review: data.review }
+                      : m,
+                  ),
+                )
+              } else if (currentEvent === 'done') {
+                if (currentAiMsgId) {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === currentAiMsgId ? { ...m, isStreaming: false } : m,
+                    ),
+                  )
+                }
+                // status='failed' 时给出提示
+                if (data.status === 'failed') {
+                  toast.error('团队协作未能完成目标')
+                } else {
+                  toast.success('团队协作完成')
+                }
+                return
+              } else if (currentEvent === 'error') {
+                const errMsg = data.error || '团队执行失败'
+                if (currentAiMsgId) {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === currentAiMsgId
+                        ? { ...m, content: `⚠️ ${errMsg}`, isStreaming: false }
+                        : m,
+                    ),
+                  )
+                } else {
+                  toast.error(errMsg)
+                }
+              }
+            }
+          }
+        }
+
+        // 流自然结束但未收到 done：停止流式标记
+        if (currentAiMsgId) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === currentAiMsgId
+                ? {
+                    ...m,
+                    isStreaming: false,
+                    toolCalls: (m.toolCalls ?? []).map((tc) =>
+                      tc.isExecuting ? { ...tc, isExecuting: false } : tc,
+                    ),
+                  }
+                : m,
+            ),
+          )
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          // 用户主动取消：保持已生成内容，仅停止流式标记
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.isStreaming
+                ? {
+                    ...m,
+                    isStreaming: false,
+                    toolCalls: (m.toolCalls ?? []).map((tc) =>
+                      tc.isExecuting ? { ...tc, isExecuting: false } : tc,
+                    ),
+                  }
+                : m,
+            ),
+          )
+          return
+        }
+        const errMsg = err instanceof Error ? err.message : '团队发送失败'
+        toast.error(errMsg)
+      } finally {
+        setIsLoading(false)
+        if (teamAbortRef.current === controller) {
+          teamAbortRef.current = null
+        }
+      }
+    },
+    [isLoading, teamMode, teamRoles, teamSessionId],
+  )
+
   // ----- SSE 流式发送（对接 POST /api/vibe-code/stream） -----
   const handleSendByText = useCallback(
     async (text: string) => {
@@ -960,6 +1450,94 @@ export const VibeCodePage = () => {
         role: 'user',
         content: trimmed,
       }
+
+      // ----- Teamwork 模式：调 /api/team/start 或 /api/team/:id/message -----
+      if (teamMode) {
+        await handleSendTeam(trimmed, userMsg)
+        return
+      }
+
+      // ----- Plan Mode 阶段 1：生成 plan（不创建 AI 占位消息，等 plan 事件） -----
+      if (planMode && !plan) {
+        const messagesToSend: Array<{ role: 'user' | 'assistant'; content: string }> = []
+        setMessages((prev) => {
+          for (const m of prev) {
+            if (m.role === 'user' || m.role === 'assistant') {
+              if (m.content || (m.toolCalls && m.toolCalls.length > 0)) {
+                messagesToSend.push({ role: m.role, content: m.content })
+              }
+            }
+          }
+          messagesToSend.push({ role: 'user', content: trimmed })
+          return [...prev, userMsg]
+        })
+
+        setIsLoading(true)
+
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        const controller = new AbortController()
+        abortControllerRef.current = controller
+
+        try {
+          const response = await apiStream(
+            '/vibe-code/stream',
+            { messages: messagesToSend, mode: 'plan' },
+            { signal: controller.signal },
+          )
+
+          if (!response.body) {
+            toast.error('未收到响应流')
+            return
+          }
+
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ''
+          let currentEvent = ''
+
+          while (true) {
+            if (controller.signal.aborted) break
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() ?? ''
+
+            for (const line of lines) {
+              if (line.startsWith('event: ')) {
+                currentEvent = line.slice(7).trim()
+              } else if (line.startsWith('data: ')) {
+                let data: { plan?: Plan; error?: string }
+                try {
+                  data = JSON.parse(line.slice(6))
+                } catch {
+                  continue
+                }
+
+                if (currentEvent === 'plan' && data.plan) {
+                  setPlan(data.plan)
+                  toast.success(`已生成 plan：${data.plan.steps?.length ?? 0} 个步骤`)
+                } else if (currentEvent === 'error') {
+                  toast.error(data.error || '生成 plan 失败')
+                }
+              }
+            }
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return
+          toast.error(err instanceof Error ? err.message : '生成 plan 失败')
+        } finally {
+          setIsLoading(false)
+          if (abortControllerRef.current === controller) {
+            abortControllerRef.current = null
+          }
+        }
+        return
+      }
+
+      // ----- 默认 single 模式（含已有 plan 的情况也走 single） -----
       const aiMsgId = crypto.randomUUID()
       const aiMsg: VibeMessage = {
         id: aiMsgId,
@@ -1073,6 +1651,61 @@ export const VibeCodePage = () => {
                         : m,
                     ),
                   )
+
+                  // 前端工具拦截（Batch D）：bash / writeFile / readFile / listFiles / install
+                  // 由前端 WebContainer 执行，结果直接注入到 messages（不发送回后端）
+                  if (FRONTEND_TOOLS.has(tcName) && sandboxRef.current?.isReady) {
+                    const tcArgsCopy = tcArgs ?? {}
+                    void executeFrontendTool(tcName, tcArgsCopy)
+                      .then((result) => {
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === aiMsgId
+                              ? {
+                                  ...m,
+                                  toolCalls: (m.toolCalls ?? []).map((tc) =>
+                                    tc.id === tcId
+                                      ? { ...tc, result, isExecuting: false }
+                                      : tc,
+                                  ),
+                                }
+                              : m,
+                          ),
+                        )
+                        // 若是 writeFile 工具，同步到 dev server 预览（HMR 自动生效）
+                        if (tcName === 'writeFile' && sandboxRef.current) {
+                          void sandboxRef.current.startDevServer().then((url) => {
+                            setDevServerUrl(url)
+                          }).catch(() => {
+                            // dev server 启动失败：静默，使用 srcDoc 降级
+                          })
+                        }
+                      })
+                      .catch((err) => {
+                        const errorResult = {
+                          error: err instanceof Error ? err.message : String(err),
+                        }
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === aiMsgId
+                              ? {
+                                  ...m,
+                                  toolCalls: (m.toolCalls ?? []).map((tc) =>
+                                    tc.id === tcId
+                                      ? {
+                                          ...tc,
+                                          result: errorResult,
+                                          isExecuting: false,
+                                          hasError: true,
+                                        }
+                                      : tc,
+                                  ),
+                                }
+                              : m,
+                          ),
+                        )
+                      })
+                  }
                 }
               } else if (currentEvent === 'tool_result') {
                 const { id: trId, result: trResult } = data
@@ -1170,7 +1803,162 @@ export const VibeCodePage = () => {
         }
       }
     },
-    [isLoading],
+    [isLoading, planMode, plan, teamMode, handleSendTeam],
+  )
+
+  // ----- Plan Mode 阶段 2：执行 plan（走 POST /api/plans/:id/execute） -----
+  const handleExecutePlan = useCallback(async () => {
+    if (!plan) return
+    if (planExecuting) return
+
+    setPlanExecuting(true)
+    if (planAbortRef.current) planAbortRef.current.abort()
+    const controller = new AbortController()
+    planAbortRef.current = controller
+
+    // 添加 AI 占位消息显示执行输出
+    const aiMsgId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: aiMsgId,
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+      },
+    ])
+
+    try {
+      await executePlan(plan.id, {
+        onStepStart: (stepId) => {
+          setPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: 'executing',
+                  steps: prev.steps.map((s) =>
+                    s.id === stepId
+                      ? {
+                          ...s,
+                          status: 'in_progress',
+                          started_at: new Date().toISOString(),
+                        }
+                      : s,
+                  ),
+                }
+              : null,
+          )
+        },
+        onToken: (c) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId ? { ...m, content: m.content + c } : m,
+            ),
+          )
+        },
+        onStepDone: (stepId, result) => {
+          setPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  steps: prev.steps.map((s) =>
+                    s.id === stepId
+                      ? {
+                          ...s,
+                          status: 'completed',
+                          result: result || s.result,
+                          completed_at: new Date().toISOString(),
+                        }
+                      : s,
+                  ),
+                }
+              : null,
+          )
+        },
+        onDone: (status) => {
+          setPlan((prev) =>
+            prev
+              ? { ...prev, status: status as Plan['status'] }
+              : null,
+          )
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId ? { ...m, isStreaming: false } : m,
+            ),
+          )
+        },
+        onError: (err) => {
+          toast.error(err)
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    isStreaming: false,
+                    content: m.content + `\n\n⚠️ ${err}`,
+                  }
+                : m,
+            ),
+          )
+        },
+        signal: controller.signal,
+      })
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      toast.error(err instanceof Error ? err.message : '执行 plan 失败')
+    } finally {
+      setPlanExecuting(false)
+      if (planAbortRef.current === controller) {
+        planAbortRef.current = null
+      }
+    }
+  }, [plan, planExecuting])
+
+  // ----- Plan Mode：编辑 steps（拖拽 / 删除 / 追加） -----
+  const handleEditPlanSteps = useCallback(
+    async (newSteps: PlanStep[]) => {
+      if (!plan) return
+      // 先本地更新（即时反馈）
+      setPlan((prev) =>
+        prev ? { ...prev, steps: newSteps } : null,
+      )
+      // 再持久化到后端
+      try {
+        const res = await updatePlan(plan.id, { steps: newSteps })
+        setPlan(res.plan)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : '保存 plan 失败')
+      }
+    },
+    [plan],
+  )
+
+  // ----- Plan Mode：暂停执行 -----
+  const handlePausePlan = useCallback(async () => {
+    if (!plan) return
+    planAbortRef.current?.abort()
+    try {
+      await pausePlan(plan.id)
+      setPlan((prev) => (prev ? { ...prev, status: 'paused' } : null))
+      toast.success('已暂停 plan 执行')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '暂停失败')
+    }
+  }, [plan])
+
+  // ----- Plan Mode：跳过某个 step -----
+  const handleSkipPlanStep = useCallback(
+    async (stepId: number) => {
+      if (!plan) return
+      try {
+        const res = await skipPlanStep(plan.id, stepId)
+        setPlan(res.plan)
+        toast.success(`已跳过 step #${stepId}`)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : '跳过失败')
+      }
+    },
+    [plan],
   )
 
   // ----- assistant-ui 适配器：把 VibeMessage[] 接入 useExternalStoreRuntime -----
@@ -1222,6 +2010,7 @@ export const VibeCodePage = () => {
       },
       onCancel: async () => {
         abortControllerRef.current?.abort()
+        teamAbortRef.current?.abort()
       },
     }),
     [messages, isLoading, convertMessage, handleSendByText],
@@ -1235,6 +2024,11 @@ export const VibeCodePage = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
+    if (teamAbortRef.current) {
+      teamAbortRef.current.abort()
+    }
+    // 重置 Teamwork 会话：下次发送是新 team session
+    setTeamSessionId(null)
     setMessages([])
   }, [])
 
@@ -1367,6 +2161,25 @@ export const VibeCodePage = () => {
   // ----- 渲染：左侧面板（assistant-ui Thread + 历史项目） -----
   const renderLeftPanel = () => (
     <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-gray-900">
+      {/* Plan Mode：左侧消息流上方显示 PlanPanel（Batch B） */}
+      {plan && (
+        <PlanPanel
+          plan={plan}
+          onEdit={handleEditPlanSteps}
+          onExecute={handleExecutePlan}
+          onPause={handlePausePlan}
+          onSkip={handleSkipPlanStep}
+          isExecuting={planExecuting}
+          onClose={() => {
+            if (planExecuting) {
+              toast.info('请先暂停 plan 执行')
+              return
+            }
+            setPlan(null)
+          }}
+        />
+      )}
+
       {/* Thread：消息区 + Composer（输入框在底部） */}
       <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ThreadPrimitive.Viewport
@@ -1389,7 +2202,14 @@ export const VibeCodePage = () => {
             <ThreadPrimitive.Messages>
               {({ message }) => {
                 if (message.role === 'user') return <UserMessage />
-                return <AssistantMessage />
+                // Teamwork 模式：从 VibeMessage 中读取 agentRole / review（C7 / C9）
+                const vibeMsg = messages.find((m) => m.id === message.id)
+                return (
+                  <AssistantMessage
+                    agentRole={vibeMsg?.agentRole}
+                    review={vibeMsg?.review}
+                  />
+                )
               }}
             </ThreadPrimitive.Messages>
           </div>
@@ -1397,11 +2217,18 @@ export const VibeCodePage = () => {
 
         {/* Composer（输入框在底部，spec §6.3） */}
         <VibeComposer
-          disabled={isStreaming}
-          isStreaming={isStreaming}
-          onStop={() => abortControllerRef.current?.abort()}
+          disabled={isStreaming || planExecuting}
+          isStreaming={isStreaming || planExecuting}
+          onStop={() => {
+            abortControllerRef.current?.abort()
+            planAbortRef.current?.abort()
+            teamAbortRef.current?.abort()
+          }}
           value={composerValue}
           onChange={setComposerValue}
+          planMode={planMode}
+          hasPlan={!!plan}
+          teamMode={teamMode}
         />
       </ThreadPrimitive.Root>
 
@@ -1595,6 +2422,7 @@ export const VibeCodePage = () => {
             srcDoc={iframeSrcDoc}
             iframeKey={iframeVersion}
             hasCode={hasCode}
+            devServerUrl={devServerUrl}
           />
         </div>
       )
@@ -1607,6 +2435,7 @@ export const VibeCodePage = () => {
           srcDoc={iframeSrcDoc}
           iframeKey={iframeVersion}
           hasCode={hasCode}
+          devServerUrl={devServerUrl}
         />
       </div>
     )
@@ -1615,6 +2444,76 @@ export const VibeCodePage = () => {
   // ----- 渲染：工具栏 -----
   const renderToolbar = () => (
     <div className="flex items-center gap-2">
+      {/* Plan Mode 开关（Batch B） */}
+      <div
+        className={cn(
+          'flex items-center gap-1.5 rounded-lg border px-2 py-1 transition-colors',
+          planMode
+            ? 'border-primary bg-primary/5 text-primary'
+            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400',
+        )}
+        title="开启后 AI 会先规划步骤，确认后再执行"
+      >
+        <ListChecks className="h-3.5 w-3.5" />
+        <span className="text-xs font-medium hidden sm:inline">Plan Mode</span>
+        <Switch
+          checked={planMode}
+          onCheckedChange={(checked) => {
+            setPlanMode(checked)
+            // 关闭 Plan Mode 时不强制清空 plan（让用户仍可看到历史 plan）
+            // 但开启时若已有 plan，保留
+            // Plan 与 Teamwork 互斥：开启 Plan 时关闭 Teamwork
+            if (checked && teamMode) {
+              setTeamMode(false)
+            }
+          }}
+          disabled={isStreaming || planExecuting}
+          className="scale-90"
+        />
+      </div>
+
+      {/* Teamwork 开关 + 角色选择（Batch C - C6） */}
+      <TeamToggle
+        enabled={teamMode}
+        onToggle={(v) => {
+          // Plan 与 Teamwork 互斥
+          if (v && planMode) setPlanMode(false)
+          setTeamMode(v)
+          // 关闭 Teamwork 时清空 sessionId（下次开启是新会话）
+          if (!v) setTeamSessionId(null)
+        }}
+        roles={teamRoles}
+        onRolesChange={setTeamRoles}
+        disabled={isStreaming || planExecuting}
+      />
+
+      <Separator orientation="vertical" className="hidden md:block h-6" />
+
+      {/* 终端切换按钮（Batch D） */}
+      <button
+        type="button"
+        onClick={() => setShowTerminal((v) => !v)}
+        disabled={!webcontainerReady}
+        title={
+          !webcontainerReady
+            ? '沙箱未就绪，无法使用终端'
+            : showTerminal
+              ? '收起终端'
+              : '展开终端'
+        }
+        className={cn(
+          'hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+          showTerminal
+            ? 'bg-primary/10 text-primary'
+            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300',
+          !webcontainerReady && 'opacity-40 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent',
+        )}
+      >
+        <TerminalIcon className="h-4 w-4" />
+      </button>
+
+      <Separator orientation="vertical" className="hidden md:block h-6" />
+
       {/* 视图模式切换（桌面） */}
       <div className="hidden md:flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 bg-gray-50 dark:bg-gray-800/50">
         {viewModeButtons.map((btn) => (
@@ -1733,6 +2632,31 @@ export const VibeCodePage = () => {
       <ExecuteCodeToolUI />
 
       <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+        {/* WebContainer 沙箱 boot 失败 banner（降级提示） */}
+        {sandboxError && (
+          <div className="shrink-0 flex items-center gap-2 border-b border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1 truncate">
+              沙箱不可用：{sandboxError}。已降级到基础预览模式（srcDoc）。
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (sandboxRef.current) {
+                  void sandboxRef.current.boot().then(() => {
+                    if (sandboxRef.current?.isReady) {
+                      setWebcontainerReady(true)
+                      setSandboxError(null)
+                    }
+                  })
+                }
+              }}
+              className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium underline hover:bg-amber-100 dark:hover:bg-amber-900/40"
+            >
+              重试
+            </button>
+          </div>
+        )}
         {/* AI 协作者选择器 */}
         <div className="shrink-0 border-b border-gray-200 bg-white/80 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/80">
           <AICollaboratorPicker specialty="vibe-code" value={aiCollaborator} onChange={setAiCollaborator} />
@@ -1767,7 +2691,7 @@ export const VibeCodePage = () => {
             onValueChange={setMobileTab}
             className="md:hidden flex h-full flex-col"
           >
-            <TabsList className="grid grid-cols-3 mx-2 mt-2 shrink-0">
+            <TabsList className="grid grid-cols-4 mx-2 mt-2 shrink-0">
               <TabsTrigger value="chat">
                 <Bot className="h-4 w-4 mr-1" />
                 对话
@@ -1780,13 +2704,17 @@ export const VibeCodePage = () => {
                 <Eye className="h-4 w-4 mr-1" />
                 预览
               </TabsTrigger>
+              <TabsTrigger value="terminal">
+                <TerminalIcon className="h-4 w-4 mr-1" />
+                终端
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
               {renderLeftPanel()}
             </TabsContent>
             <TabsContent value="code" className="flex-1 overflow-hidden mt-0">
               <div className="h-full p-2">
-                <CodeArea code={code} streaming={isStreaming} codeRef={codeRef} />
+                <CodeArea code={selectedFile?.content ?? code} streaming={isStreaming} codeRef={codeRef} />
               </div>
             </TabsContent>
             <TabsContent value="preview" className="flex-1 overflow-hidden mt-0">
@@ -1795,19 +2723,71 @@ export const VibeCodePage = () => {
                   srcDoc={iframeSrcDoc}
                   iframeKey={iframeVersion}
                   hasCode={hasCode}
+                  devServerUrl={devServerUrl}
                 />
+              </div>
+            </TabsContent>
+            <TabsContent value="terminal" className="flex-1 overflow-hidden mt-0">
+              <div className="h-full p-2">
+                <Terminal webcontainer={sandboxRef.current} />
               </div>
             </TabsContent>
           </Tabs>
 
-          {/* 平板/桌面：分栏布局 */}
+          {/* 平板/桌面：三栏分栏布局（Batch D） */}
           <div className="hidden md:flex h-full overflow-hidden">
             {!leftCollapsed && (
-              <aside className="w-[320px] lg:w-[360px] shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
+              <aside className="w-[300px] lg:w-[340px] shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
                 {renderLeftPanel()}
               </aside>
             )}
-            <main className="flex-1 overflow-hidden">{renderRightPanel()}</main>
+            {/* 中栏：文件树 + 代码 */}
+            <section className="hidden lg:flex w-[260px] xl:w-[300px] shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="flex h-[40%] flex-col overflow-hidden border-b border-gray-200 dark:border-gray-700">
+                <FileTree
+                  webcontainer={sandboxRef.current}
+                  onFileSelect={(path, content) => setSelectedFile({ path, content })}
+                />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <CodeArea
+                  code={selectedFile?.content ?? code}
+                  streaming={isStreaming}
+                  codeRef={codeRef}
+                />
+              </div>
+            </section>
+            {/* 右栏：预览 + 终端抽屉 */}
+            <main className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex-1 overflow-hidden">{renderRightPanel()}</div>
+              {/* 终端抽屉（底部，可折叠） */}
+              <div className={cn(
+                'shrink-0 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-out',
+                showTerminal ? 'h-[240px]' : 'h-0',
+              )}>
+                {showTerminal && (
+                  <div className="flex h-full flex-col overflow-hidden bg-[#0f172a]">
+                    <div className="flex shrink-0 items-center justify-between border-b border-slate-700 px-3 py-1">
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                        <TerminalIcon className="h-3 w-3" />
+                        终端
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowTerminal(false)}
+                        className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                        title="收起终端"
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <Terminal webcontainer={sandboxRef.current} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </main>
           </div>
         </div>
 
@@ -1844,6 +2824,7 @@ export const VibeCodePage = () => {
                 srcDoc={iframeSrcDoc}
                 iframeKey={iframeVersion}
                 hasCode={hasCode}
+                devServerUrl={devServerUrl}
               />
             </div>
           </div>

@@ -23,9 +23,11 @@ import {
 } from '../lib/ai-client'
 import { setSSEHeaders, sendEvent } from '../lib/sse'
 import { vibeCodeTools, setVibeContext } from '../lib/vibe-tools'
+import { loadSkillTools, loadSkillSystemPrompt } from '../lib/skill-registry'
 import { createSnapshot } from '../lib/queries'
 import { supabase } from '../lib/supabase'
-import type { ChatMessage } from '../../shared/types'
+import { generatePlan } from '../lib/agents/planner'
+import type { ChatMessage, Plan, PlanStep } from '../../shared/types'
 
 export const vibeCodeRouter = Router()
 
@@ -510,6 +512,10 @@ interface StreamMessage {
 interface StreamBody {
   messages?: unknown
   projectId?: unknown
+  /** Batch B：Plan Mode 开关 */
+  mode?: unknown
+  /** Batch B：已存在的 plan ID（确认后执行） */
+  planId?: unknown
 }
 
 vibeCodeRouter.post(
@@ -518,6 +524,15 @@ vibeCodeRouter.post(
   async (req: Request, res: Response) => {
     const body = req.body as StreamBody
     const user = req.user!
+
+    // 解析 mode：'single' | 'plan' | 'team'，默认 single
+    const mode =
+      typeof body.mode === 'string' &&
+      ['single', 'plan', 'team'].includes(body.mode)
+        ? (body.mode as 'single' | 'plan' | 'team')
+        : 'single'
+    const planId =
+      typeof body.planId === 'string' && body.planId ? body.planId : undefined
 
     // 校验 messages：接受简单 { role, content }[] 格式
     const rawMessages = Array.isArray(body.messages) ? body.messages : []
@@ -531,16 +546,371 @@ vibeCodeRouter.post(
       simpleMessages.push({ role, content })
     }
 
+    const projectId =
+      typeof body.projectId === 'string' ? body.projectId : undefined
+
+    // 设置 SSE 响应头（提前，plan 模式也用 SSE 推送 plan 事件）
+    setSSEHeaders(res)
+
+    // 请求关闭时取消流
+    const abortController = new AbortController()
+    req.on('close', () => {
+      if (!abortController.signal.aborted) {
+        abortController.abort()
+      }
+    })
+
+    // -----------------------------------------------------------------
+    // Plan Mode：先调 generatePlan 返回 plan 事件，然后结束流（等待用户确认）
+    // -----------------------------------------------------------------
+    if (mode === 'plan' && !planId) {
+      if (simpleMessages.length === 0) {
+        sendEvent(res, 'error', { error: 'messages 字段必须包含至少一条有效消息' })
+        res.end()
+        return
+      }
+      try {
+        // 取最后一条 user 消息作为 goal
+        const lastUserMsg = [...simpleMessages].reverse().find((m) => m.role === 'user')
+        const goal = (lastUserMsg?.content as string) || ''
+
+        const generated = await generatePlan(goal)
+
+        // 规范化 step 并保存到 plans 表
+        const steps: PlanStep[] = generated.steps.map((s) => ({
+          id: s.id,
+          title: s.title,
+          type: s.type,
+          status: 'pending',
+        }))
+
+        const { data, error } = await supabase
+          .from('plans')
+          .insert({
+            user_id: user.id,
+            project_id: projectId ?? null,
+            goal: generated.goal,
+            steps,
+            current_step: 0,
+            status: 'ready',
+            mode: 'plan',
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+        if (!data) {
+          sendEvent(res, 'error', { error: '保存 plan 失败' })
+          res.end()
+          return
+        }
+
+        const row = data as unknown as Record<string, unknown>
+        const plan: Plan = {
+          id: row.id as string,
+          user_id: row.user_id as string,
+          project_id: (row.project_id as string | null) ?? null,
+          goal: row.goal as string,
+          steps: (row.steps as PlanStep[]) ?? [],
+          current_step: (row.current_step as number) ?? 0,
+          status: (row.status as Plan['status']) ?? 'ready',
+          mode: (row.mode as Plan['mode']) ?? 'plan',
+          created_at: row.created_at as string,
+          updated_at: row.updated_at as string,
+        }
+
+        // 发送 plan 事件，前端 setPlan(plan) 后渲染 PlanPanel
+        sendEvent(res, 'plan', { plan })
+        sendEvent(res, 'done', {})
+      } catch (err) {
+        console.error('[vibe-code/stream plan] error:', err)
+        sendEvent(res, 'error', {
+          error: err instanceof Error ? err.message : '生成 plan 失败',
+        })
+      } finally {
+        res.end()
+      }
+      return
+    }
+
+    // -----------------------------------------------------------------
+    // Plan Mode + planId：从 plans 表加载，按 steps 流式执行
+    // -----------------------------------------------------------------
+    if (mode === 'plan' && planId) {
+      try {
+        const { data: planRow, error: planError } = await supabase
+          .from('plans')
+          .select('*')
+          .eq('id', planId)
+          .maybeSingle()
+
+        if (planError) throw planError
+        if (!planRow) {
+          sendEvent(res, 'error', { error: 'Plan 不存在' })
+          res.end()
+          return
+        }
+
+        const row = planRow as unknown as Record<string, unknown>
+        if (row.user_id !== user.id) {
+          sendEvent(res, 'error', { error: '无权访问该 plan' })
+          res.end()
+          return
+        }
+
+        const plan: Plan = {
+          id: row.id as string,
+          user_id: row.user_id as string,
+          project_id: (row.project_id as string | null) ?? null,
+          goal: row.goal as string,
+          steps: (row.steps as PlanStep[]) ?? [],
+          current_step: (row.current_step as number) ?? 0,
+          status: (row.status as Plan['status']) ?? 'ready',
+          mode: (row.mode as Plan['mode']) ?? 'plan',
+          created_at: row.created_at as string,
+          updated_at: row.updated_at as string,
+        }
+
+        if (!plan.steps || plan.steps.length === 0) {
+          sendEvent(res, 'error', { error: 'Plan 没有 steps，无法执行' })
+          res.end()
+          return
+        }
+
+        // 标记为 executing
+        await supabase.from('plans').update({ status: 'executing' }).eq('id', planId)
+
+        // 设置 Vibe 上下文
+        setVibeContext(user.id, plan.project_id ?? undefined)
+
+        // 加载 skill 工具
+        const skillTools = await loadSkillTools(user.id)
+        const activeTools =
+          Object.keys(skillTools).length > 0 ? skillTools : vibeCodeTools
+        const skillPromptSuffix = await loadSkillSystemPrompt(user.id)
+
+        const openai = createOpenAI({
+          apiKey: process.env.AGNES_API_KEY!,
+          baseURL: process.env.AGNES_API_BASE!,
+        })
+        const modelName = process.env.AGNES_MODEL || 'agnes-2.0-flash'
+
+        const EXEC_SYSTEM_PROMPT =
+          `你是一个 Vibe Coding Agent，正在按计划逐步执行任务。` +
+          `当前整体目标：${plan.goal}\n\n` +
+          `工作方式：\n- 每一步会单独发给你，你只需完成当前 step` +
+          (skillPromptSuffix ? `\n\n--- 已安装 Skill 能力说明 ---\n${skillPromptSuffix}` : '')
+
+        const stepContext: Array<{ title: string; result: string }> = []
+        let allSuccess = true
+
+        for (let i = 0; i < plan.steps.length; i++) {
+          if (abortController.signal.aborted) break
+
+          const step = plan.steps[i]
+
+          // 跳过已完成或已跳过的 step
+          if (step.status === 'completed' || step.status === 'skipped') {
+            if (step.result) {
+              stepContext.push({ title: step.title, result: step.result })
+            }
+            continue
+          }
+
+          // 标记当前 step 状态为 in_progress
+          const nowIso = new Date().toISOString()
+          const updatedStepsInProgress = plan.steps.map((s, idx) =>
+            idx === i
+              ? { ...s, status: 'in_progress' as const, started_at: nowIso }
+              : s,
+          )
+          await supabase
+            .from('plans')
+            .update({
+              steps: updatedStepsInProgress,
+              current_step: i,
+              status: 'executing',
+            })
+            .eq('id', planId)
+
+          // 发送 step_start 事件
+          sendEvent(res, 'step_start', { stepId: step.id, step })
+
+          // 构造 step 提示
+          const contextText =
+            stepContext.length > 0
+              ? stepContext
+                  .map(
+                    (c, idx) =>
+                      `Step ${idx + 1}「${c.title}」已完成，结果：\n${c.result}`,
+                  )
+                  .join('\n\n')
+              : '（无前序步骤）'
+
+          const stepPrompt = `当前需要完成的步骤：\n标题：${step.title}\n类型：${step.type}\n\n前序步骤完成情况：\n${contextText}\n\n请完成当前步骤。`
+
+          // 调 streamText
+          let stepResult = ''
+          try {
+            const result = streamText({
+              model: openai.chat(modelName),
+              system: EXEC_SYSTEM_PROMPT,
+              messages: [{ role: 'user', content: stepPrompt }],
+              tools: activeTools,
+              abortSignal: abortController.signal,
+              onFinish: ({ text }) => {
+                stepResult = text
+              },
+            })
+
+            // 流式转发 token
+            for await (const part of result.fullStream) {
+              if (abortController.signal.aborted) break
+              switch (part.type) {
+                case 'text-delta': {
+                  if (part.text) {
+                    sendEvent(res, 'token', { c: part.text, stepId: step.id })
+                  }
+                  break
+                }
+                case 'tool-call': {
+                  sendEvent(res, 'tool_call', {
+                    id: part.toolCallId,
+                    name: part.toolName,
+                    args: part.input ?? {},
+                    stepId: step.id,
+                  })
+                  break
+                }
+                case 'tool-result': {
+                  sendEvent(res, 'tool_result', {
+                    id: part.toolCallId,
+                    name: part.toolName,
+                    result: part.output,
+                    stepId: step.id,
+                  })
+                  break
+                }
+                case 'tool-error': {
+                  sendEvent(res, 'tool_result', {
+                    id: part.toolCallId,
+                    name: part.toolName,
+                    result: {
+                      error:
+                        part.error instanceof Error
+                          ? part.error.message
+                          : '工具执行失败',
+                    },
+                    stepId: step.id,
+                  })
+                  break
+                }
+                default:
+                  break
+              }
+            }
+
+            // 标记 step 完成
+            const completedIso = new Date().toISOString()
+            const updatedStepsCompleted = updatedStepsInProgress.map((s, idx) =>
+              idx === i
+                ? {
+                    ...s,
+                    status: 'completed' as const,
+                    result: stepResult || '(无文本输出)',
+                    completed_at: completedIso,
+                  }
+                : s,
+            )
+            await supabase
+              .from('plans')
+              .update({ steps: updatedStepsCompleted, current_step: i + 1 })
+              .eq('id', planId)
+
+            stepContext.push({ title: step.title, result: stepResult })
+
+            sendEvent(res, 'step_done', {
+              stepId: step.id,
+              result: stepResult || '(无文本输出)',
+            })
+          } catch (stepErr) {
+            allSuccess = false
+            const failedIso = new Date().toISOString()
+            const errMsg =
+              stepErr instanceof Error ? stepErr.message : '执行失败'
+            const updatedStepsFailed = updatedStepsInProgress.map((s, idx) =>
+              idx === i
+                ? {
+                    ...s,
+                    status: 'failed' as const,
+                    result: errMsg,
+                    completed_at: failedIso,
+                  }
+                : s,
+            )
+            await supabase
+              .from('plans')
+              .update({ steps: updatedStepsFailed, status: 'failed' })
+              .eq('id', planId)
+
+            sendEvent(res, 'step_done', {
+              stepId: step.id,
+              result: errMsg,
+              error: true,
+            })
+            break
+          }
+        }
+
+        // 标记 plan 最终状态
+        const finalStatus = abortController.signal.aborted
+          ? 'paused'
+          : allSuccess
+            ? 'completed'
+            : 'failed'
+        await supabase
+          .from('plans')
+          .update({ status: finalStatus })
+          .eq('id', planId)
+
+        sendEvent(res, 'done', { status: finalStatus })
+      } catch (err) {
+        console.error('[vibe-code/stream planId] error:', err)
+        if (!res.headersSent) {
+          res.status(500).json({
+            error: err instanceof Error ? err.message : 'Vibe Code 流式失败',
+          })
+        } else {
+          sendEvent(res, 'error', {
+            error: err instanceof Error ? err.message : 'Vibe Code 流式失败',
+          })
+        }
+      } finally {
+        res.end()
+      }
+      return
+    }
+
+    // -----------------------------------------------------------------
+    // 默认 single 模式：原行为不变
+    // -----------------------------------------------------------------
     if (simpleMessages.length === 0) {
       res.status(400).json({ error: 'messages 字段必须包含至少一条有效消息' })
       return
     }
 
-    const projectId =
-      typeof body.projectId === 'string' ? body.projectId : undefined
-
     // 设置 Vibe 上下文（writeFile/readFile 工具会用到）
     setVibeContext(user.id, projectId)
+
+    // 加载用户已安装且启用的 skill 工具（若为空则 fallback 到默认 vibeCodeTools）
+    const skillTools = await loadSkillTools(user.id)
+    const activeTools = Object.keys(skillTools).length > 0 ? skillTools : vibeCodeTools
+
+    // 加载已安装 skill 的 systemPrompt 片段并拼接到系统提示词末尾
+    const skillPromptSuffix = await loadSkillSystemPrompt(user.id)
+    const systemPrompt = skillPromptSuffix
+      ? STREAM_SYSTEM_PROMPT + skillPromptSuffix
+      : STREAM_SYSTEM_PROMPT
 
     // 构造 OpenAI 兼容 client（指向 Agnes API）
     const openai = createOpenAI({
@@ -559,25 +929,14 @@ vibeCodeRouter.post(
       content: m.content as string,
     }))
 
-    // 设置 SSE 响应头
-    setSSEHeaders(res)
-
-    // 请求关闭时取消流
-    const abortController = new AbortController()
-    req.on('close', () => {
-      if (!abortController.signal.aborted) {
-        abortController.abort()
-      }
-    })
-
     try {
       const result = streamText({
         // 使用 .chat() 走 /chat/completions 端点（OpenAI 兼容服务都支持）
         // 不能用 openai(modelName)，那会用 /responses 端点，仅 OpenAI 官方支持
         model: openai.chat(modelName),
-        system: STREAM_SYSTEM_PROMPT,
+        system: systemPrompt,
         messages,
-        tools: vibeCodeTools,
+        tools: activeTools,
         // ai v7：用 stopWhen: isStepCount(N) 替代旧 maxSteps
         stopWhen: isStepCount(10),
         abortSignal: abortController.signal,

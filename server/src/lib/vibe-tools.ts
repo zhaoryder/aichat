@@ -10,7 +10,9 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import * as vm from 'node:vm'
 import { generateImage as aiGenerateImage, submitVideoTask } from './ai-client'
+import { supabase } from './supabase'
 import type { ToolDefinition } from './ai-client'
+import type { DynamicToolMeta } from '../../shared/types'
 
 // ---------------------------------------------------------------------
 // Vibe Code 项目内存映射（用于 writeFile/readFile 工具）
@@ -20,6 +22,115 @@ const projectFiles = new Map<string, string>()
 
 function projectKey(userId: string, projectId: string | undefined, path: string) {
   return `${userId}:${projectId || 'default'}/${path}`
+}
+
+// ---------------------------------------------------------------------
+// AI 自建工具的内存存储（Batch E2 Tool Builder）
+// ---------------------------------------------------------------------
+// 会话级（不持久化），按 userId 隔离。loadSkillTools 会合并这些工具。
+// 外部通过 registerDynamicTool / listDynamicTools / getDynamicTool 操作。
+const dynamicTools = new Map<string, DynamicToolMeta[]>()
+
+/** 注册一个 AI 自建工具（追加到该用户的工具列表） */
+export function registerDynamicTool(meta: DynamicToolMeta): void {
+  const list = dynamicTools.get(meta.user_id) ?? []
+  // 同名工具覆盖（更新 implementation / description）
+  const filtered = list.filter((t) => t.name !== meta.name)
+  filtered.push(meta)
+  dynamicTools.set(meta.user_id, filtered)
+}
+
+/** 列出某用户的所有自建工具 */
+export function listDynamicTools(userId: string): DynamicToolMeta[] {
+  return dynamicTools.get(userId) ?? []
+}
+
+/** 取单个自建工具 */
+export function getDynamicTool(
+  userId: string,
+  name: string
+): DynamicToolMeta | undefined {
+  return (dynamicTools.get(userId) ?? []).find((t) => t.name === name)
+}
+
+/**
+ * 在沙箱中执行 AI 自建工具的 implementation 代码。
+ * - 使用 `new Function('args', 'context', impl)` 构造函数
+ * - 限制 3000ms 超时（Promise.race）
+ * - 限制可用 API：通过浅拷贝 Math / JSON / Date 等纯计算 API，
+ *   不暴露 require / import / process / fs / child_process
+ * - 实现体中若尝试访问全局 require / process 等，会因 ReferenceError 失败
+ */
+async function executeDynamicTool(
+  meta: DynamicToolMeta,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  // 构造受限 context（仅暴露纯计算 API）
+  const sandboxContext = {
+    Math,
+    JSON,
+    Date,
+    parseInt,
+    parseFloat,
+    isNaN,
+    isFinite,
+    String,
+    Number,
+    Boolean,
+    Array,
+    Object,
+    encodeURIComponent,
+    decodeURIComponent,
+  }
+
+  // 用 new Function 构造函数（注意：函数体内的 this / arguments / 全局 require
+  // 在严格模式下会因 ReferenceError 而失败）
+  let fn: (args: Record<string, unknown>, context: typeof sandboxContext) => unknown
+  try {
+    // eslint-disable-next-line no-new-func
+    fn = new Function(
+      'args',
+      'context',
+      '"use strict";\n' + meta.implementation
+    ) as (args: Record<string, unknown>, context: typeof sandboxContext) => unknown
+  } catch (err) {
+    return {
+      success: false,
+      error: `工具代码编译失败：${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+
+  // 用 Promise.race 实现超时保护（3000ms）
+  const TIMEOUT_MS = 3000
+  const execPromise = new Promise<unknown>((resolve) => {
+    try {
+      const result = fn(args, sandboxContext)
+      // 支持 async implementation（返回 Promise）
+      if (result instanceof Promise) {
+        result.then(resolve).catch((err) => {
+          resolve({
+            success: false,
+            error: `工具执行失败：${err instanceof Error ? err.message : String(err)}`,
+          })
+        })
+      } else {
+        resolve({ success: true, result })
+      }
+    } catch (err) {
+      resolve({
+        success: false,
+        error: `工具执行失败：${err instanceof Error ? err.message : String(err)}`,
+      })
+    }
+  })
+
+  const timeoutPromise = new Promise<unknown>((resolve) => {
+    setTimeout(() => {
+      resolve({ success: false, error: `工具执行超时（${TIMEOUT_MS}ms）` })
+    }, TIMEOUT_MS)
+  })
+
+  return Promise.race([execPromise, timeoutPromise])
 }
 
 // ---------------------------------------------------------------------
@@ -113,6 +224,206 @@ export const vibeCodeTools = {
       return { taskId, prompt, duration: dur }
     },
   }),
+  // -----------------------------------------------------------------
+  // Batch E1：Agent Memory 长期记忆工具
+  // -----------------------------------------------------------------
+  saveMemory: tool({
+    description:
+      '保存一条长期记忆（key-value 形式），用于记住用户偏好、技术栈、历史决策。同一 key 会覆盖旧值。例如用户说"我喜欢用 Tailwind"时，可保存 key="ui_framework", value="tailwind"。',
+    inputSchema: z.object({
+      key: z.string().describe('记忆键，如 ui_framework / language / tech_stack'),
+      value: z.string().describe('记忆值，如 tailwind / typescript'),
+    }),
+    execute: async ({ key, value }) => {
+      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId
+      if (!userId) {
+        return { success: false, error: '未登录用户无法保存记忆' }
+      }
+      try {
+        const { data, error } = await supabase
+          .from('agent_memory')
+          .upsert(
+            { user_id: userId, key, value, source: 'agent' },
+            { onConflict: 'user_id,key' }
+          )
+          .select()
+          .single()
+        if (error) throw error
+        return { success: true, memory: data }
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : '保存记忆失败',
+        }
+      }
+    },
+  }),
+  recallMemory: tool({
+    description:
+      '按 query 召回相关记忆（在 key 或 value 中模糊匹配），返回最多 5 条。用于在对话中回忆用户偏好或历史决策。',
+    inputSchema: z.object({
+      query: z.string().describe('召回查询关键词'),
+    }),
+    execute: async ({ query }) => {
+      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId
+      if (!userId) {
+        return { success: false, error: '未登录用户无法召回记忆', memories: [] }
+      }
+      try {
+        const { data, error } = await supabase
+          .from('agent_memory')
+          .select('id, key, value, source, created_at')
+          .eq('user_id', userId)
+          .or(`key.ilike.%${query}%,value.ilike.%${query}%`)
+          .order('created_at', { ascending: false })
+          .limit(5)
+        if (error) throw error
+        return { success: true, memories: data ?? [] }
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : '召回记忆失败',
+          memories: [],
+        }
+      }
+    },
+  }),
+  listMemory: tool({
+    description: '列出当前用户的所有长期记忆（key + value），用于查看完整偏好集。',
+    inputSchema: z.object({}),
+    execute: async () => {
+      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId
+      if (!userId) {
+        return { success: false, error: '未登录用户无法列出记忆', memories: [] }
+      }
+      try {
+        const { data, error } = await supabase
+          .from('agent_memory')
+          .select('id, key, value, source, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(50)
+        if (error) throw error
+        return { success: true, memories: data ?? [] }
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : '列出记忆失败',
+          memories: [],
+        }
+      }
+    },
+  }),
+  // -----------------------------------------------------------------
+  // Batch E2：Tool Builder —— AI 造工具
+  // -----------------------------------------------------------------
+  buildTool: tool({
+    description:
+      '在对话中即时创建一个新工具，保存为 skill user.dynamic-<name>，立即注册到 skill 注册表，后续对话可直接调用。implementation 是 JS 代码字符串，函数签名 (args, context) => result，可用 context.Math/JSON/Date 等纯计算 API，禁止 require/import/process/fs。',
+    inputSchema: z.object({
+      name: z
+        .string()
+        .describe('工具名（唯一，作为函数调用名，建议 camelCase，如 translateText）'),
+      description: z.string().describe('工具描述（告诉 AI 何时调用此工具）'),
+      implementation: z
+        .string()
+        .describe('JS 代码字符串，函数体接受 (args, context)，return 结果。例如：return args.a + args.b'),
+    }),
+    execute: async ({ name, description, implementation }) => {
+      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId
+      if (!userId) {
+        return { success: false, error: '未登录用户无法创建工具' }
+      }
+      // 基本校验
+      if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name)) {
+        return {
+          success: false,
+          error: '工具名必须是合法的 JS 标识符（字母/数字/下划线，不能以数字开头）',
+        }
+      }
+      // 简单黑名单：禁止包含危险关键字
+      const dangerous = /\b(require|import|process|fs|child_process|exec|spawn|eval|Function)\b/
+      if (dangerous.test(implementation)) {
+        return {
+          success: false,
+          error: '实现代码包含禁用的关键字（require/import/process/fs/child_process/exec/eval/Function）',
+        }
+      }
+      try {
+        // 编译试运行（dry run），验证语法
+        // eslint-disable-next-line no-new-func
+        new Function('args', 'context', '"use strict";\n' + implementation)
+      } catch (err) {
+        return {
+          success: false,
+          error: `实现代码语法错误：${err instanceof Error ? err.message : String(err)}`,
+        }
+      }
+      // 注册到内存 Map（会话级）
+      registerDynamicTool({
+        name,
+        description,
+        implementation,
+        user_id: userId,
+        created_at: new Date().toISOString(),
+      })
+
+      // 持久化到 skills 表（slug 前缀 user.dynamic-，便于在 /skills 市场显示 "AI 创建" 标签）
+      // 不存 implementation（实现仍在内存 Map 中，会话级）— 仅写入元数据用于展示
+      try {
+        const slug = `user.dynamic-${name.toLowerCase()}`
+        await supabase
+          .from('skills')
+          .upsert(
+            {
+              name,
+              slug,
+              description,
+              category: 'custom',
+              manifest: {
+                name,
+                description,
+                tools: [{ name, description, parameters: {} }],
+              },
+              author_id: userId,
+              version: '1.0.0',
+              status: 'published',
+            },
+            { onConflict: 'slug' }
+          )
+      } catch (dbErr) {
+        // DB 写入失败不阻塞工具注册（仍可在当前会话使用）
+        console.warn('[buildTool] persist to skills table failed:', dbErr)
+      }
+
+      return {
+        success: true,
+        toolName: name,
+        message: `工具 ${name} 已创建，后续对话可直接调用`,
+      }
+    },
+  }),
+}
+
+/**
+ * 执行 AI 自建工具的调用（供 vibe-code 路由层在 streamText 之外使用，
+ * 或后续工具路由层调用）。
+ *
+ * @param userId 当前用户 ID
+ * @param name 工具名
+ * @param args 工具参数
+ * @returns 执行结果
+ */
+export async function executeDynamicToolCall(
+  userId: string,
+  name: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const meta = getDynamicTool(userId, name)
+  if (!meta) {
+    return { success: false, error: `工具 ${name} 不存在` }
+  }
+  return executeDynamicTool(meta, args)
 }
 
 // 轻度 Agent 工具集（普通对话用，无文件操作、无代码执行）

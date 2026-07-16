@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase'
-import type { ProjectSnapshot } from '@shared/types'
+import type {
+  ProjectSnapshot,
+  Plan,
+  PlanStep,
+  TeamConfig,
+  TeamSession,
+} from '@shared/types'
 
 // API 基础地址：优先用环境变量，否则用相对路径走 vite 代理
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
@@ -517,5 +523,314 @@ export async function markNotificationsRead(ids?: string[]): Promise<{ success: 
   return apiFetch('/notifications/read', {
     method: 'PATCH',
     body: JSON.stringify({ ids }),
+  })
+}
+
+// =====================================================================
+// Plan Mode API（Batch B）
+// =====================================================================
+
+/** 生成 plan：调 AI 拆解需求为 3-7 个 step */
+export async function generatePlan(goal: string): Promise<{ plan: Plan }> {
+  return apiFetch<{ plan: Plan }>('/vibe-code/plan', {
+    method: 'POST',
+    body: JSON.stringify({ goal }),
+  })
+}
+
+/** 查询 plan 详情 */
+export async function getPlan(id: string): Promise<{ plan: Plan }> {
+  return apiFetch<{ plan: Plan }>(`/plans/${id}`)
+}
+
+/** 编辑 plan：可拖拽排序 / 删除 / 追加 step，或更新 goal */
+export async function updatePlan(
+  id: string,
+  data: { steps?: PlanStep[]; goal?: string },
+): Promise<{ plan: Plan }> {
+  return apiFetch<{ plan: Plan }>(`/plans/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+/** 暂停 plan 执行 */
+export async function pausePlan(id: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/plans/${id}/pause`, {
+    method: 'POST',
+  })
+}
+
+/** 跳过某个 step */
+export async function skipPlanStep(
+  id: string,
+  stepId: number,
+): Promise<{ plan: Plan }> {
+  return apiFetch<{ plan: Plan }>(`/plans/${id}/skip/${stepId}`, {
+    method: 'POST',
+  })
+}
+
+/**
+ * 执行 plan：SSE 流式执行每个 step，回调触发：
+ *   - step_start 事件 → onStepStart(stepId, step)
+ *   - token 事件 → onToken(c, stepId?)
+ *   - tool_call / tool_result → onToolCall / onToolResult
+ *   - step_done 事件 → onStepDone(stepId, result)
+ *   - done 事件 → onDone(status)
+ *   - error 事件 → onError(err)
+ */
+export async function executePlan(
+  id: string,
+  callbacks: {
+    onStepStart?: (stepId: number, step: PlanStep) => void
+    onToken?: (c: string, stepId?: number) => void
+    onToolCall?: (id: string, name: string, args: Record<string, unknown>, stepId?: number) => void
+    onToolResult?: (id: string, name: string, result: unknown, stepId?: number) => void
+    onStepDone?: (stepId: number, result: string, error?: boolean) => void
+    onDone?: (status: string) => void
+    onError?: (err: string) => void
+    signal?: AbortSignal
+  },
+): Promise<void> {
+  const response = await apiStream(
+    `/plans/${id}/execute`,
+    {},
+    { signal: callbacks.signal },
+  )
+  if (!response.body) {
+    callbacks.onError?.('未收到响应流')
+    return
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let currentEvent = ''
+
+  try {
+    while (true) {
+      if (callbacks.signal?.aborted) break
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim()
+        } else if (line.startsWith('data: ')) {
+          let data: {
+            c?: string
+            stepId?: number
+            step?: PlanStep
+            id?: string
+            name?: string
+            args?: Record<string, unknown>
+            result?: unknown
+            error?: boolean | string
+            status?: string
+          }
+          try {
+            data = JSON.parse(line.slice(6))
+          } catch {
+            continue
+          }
+
+          if (currentEvent === 'step_start' && data.stepId != null) {
+            callbacks.onStepStart?.(data.stepId, data.step ?? ({} as PlanStep))
+          } else if (currentEvent === 'token' && data.c) {
+            callbacks.onToken?.(data.c, data.stepId)
+          } else if (currentEvent === 'tool_call' && data.id) {
+            callbacks.onToolCall?.(
+              data.id,
+              data.name ?? '',
+              data.args ?? {},
+              data.stepId,
+            )
+          } else if (currentEvent === 'tool_result' && data.id) {
+            callbacks.onToolResult?.(
+              data.id,
+              data.name ?? '',
+              data.result,
+              data.stepId,
+            )
+          } else if (currentEvent === 'step_done' && data.stepId != null) {
+            callbacks.onStepDone?.(
+              data.stepId,
+              typeof data.result === 'string' ? data.result : '',
+              data.error === true,
+            )
+          } else if (currentEvent === 'done') {
+            callbacks.onDone?.(data.status ?? 'completed')
+            return
+          } else if (currentEvent === 'error') {
+            callbacks.onError?.(
+              typeof data.error === 'string' ? data.error : '执行失败',
+            )
+            return
+          }
+        }
+      }
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return
+    }
+    callbacks.onError?.(err instanceof Error ? err.message : '执行失败')
+  }
+}
+
+// =====================================================================
+// AI Teamwork API（Batch C - C10）
+// =====================================================================
+//
+// 后端端点（详见 server/src/routes/team.ts）：
+//   POST /api/team/start         创建会话 + 立即开始 SSE 流
+//        body: { goal: string, config?: { roles?: TeamRole[], leader_model?, member_model? } }
+//   POST /api/team/:id/message   追加用户消息 + 触发下一轮协作（SSE 流）
+//        body: { message: string }
+//   GET  /api/team/:id/stream    返回当前 session 状态（JSON）
+//   POST /api/team/:id/stop      标记 status='paused'
+//
+// SSE 事件格式：
+//   - start  { sessionId }
+//   - role   { role, task }      —— 新角色接力
+//   - token  { c, role }         —— 流式 token
+//   - tool_call / tool_result    —— 与 vibe-code 一致
+//   - review  { review, role }   —— Reviewer 产出 CodeReviewResult
+//   - done   { status }
+//   - error  { error, role }
+
+/**
+ * 启动 Teamwork 会话：POST /api/team/start
+ *
+ * 后端会立即返回 SSE 流，事件格式见上方注释。
+ * 调用方需自行读取 response.body 解析 SSE 事件。
+ *
+ * @param goal 用户描述的目标
+ * @param config 团队配置（roles / leader_model / member_model）
+ * @param init 可选 AbortSignal
+ * @returns SSE Response（调用方负责消费 response.body）
+ */
+export async function startTeam(
+  goal: string,
+  config: TeamConfig,
+  init?: { signal?: AbortSignal },
+): Promise<Response> {
+  return apiStream(
+    '/team/start',
+    { goal, config },
+    { signal: init?.signal },
+  )
+}
+
+/**
+ * 向 Teamwork 会话追加用户消息：POST /api/team/:id/message
+ *
+ * 后端会立即返回 SSE 流（与 startTeam 一致的事件格式）。
+ *
+ * @param sessionId team_sessions.id
+ * @param message 用户消息内容
+ * @param init 可选 AbortSignal
+ * @returns SSE Response
+ */
+export async function sendTeamMessage(
+  sessionId: string,
+  message: string,
+  init?: { signal?: AbortSignal },
+): Promise<Response> {
+  return apiStream(
+    `/team/${sessionId}/message`,
+    { message },
+    { signal: init?.signal },
+  )
+}
+
+/**
+ * 停止 Teamwork 会话：POST /api/team/:id/stop
+ *
+ * 后端会把 team_sessions.status 标记为 'paused'。
+ * SSE 流会在下一次 runTeamStep 检测到 paused 时退出。
+ */
+export async function stopTeam(sessionId: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/team/${sessionId}/stop`, {
+    method: 'POST',
+  })
+}
+
+/**
+ * 获取 Teamwork 会话状态：GET /api/team/:id/stream
+ *
+ * 注意：尽管 URL 是 /stream，但这是个同步 GET，返回 JSON { session: TeamSession }，
+ * 不重新跑协作。如需继续协作，需调 sendTeamMessage。
+ */
+export async function getTeamSession(
+  sessionId: string,
+): Promise<{ session: TeamSession }> {
+  return apiFetch<{ session: TeamSession }>(`/team/${sessionId}/stream`)
+}
+
+// =====================================================================
+// Sandbox 快照分享 API（Batch D - D8）
+// =====================================================================
+
+/** 沙箱快照中的单个文件条目 */
+export interface SandboxFileEntry {
+  path: string
+  content?: string
+  type: 'file' | 'directory'
+}
+
+/** 沙箱快照（公开分享时返回） */
+export interface SandboxSnapshot {
+  id: string
+  title: string | null
+  description: string | null
+  files: SandboxFileEntry[] | null
+  previewHtml: string | null
+  shareSlug: string | null
+  viewCount: number
+  authorName: string | null
+  createdAt: string
+}
+
+/** 创建沙箱快照 */
+export async function createSandboxSnapshotApi(data: {
+  title?: string
+  description?: string
+  files: SandboxFileEntry[]
+  previewHtml?: string
+  authorName?: string
+  shareSlug?: string
+}): Promise<{ snapshot: SandboxSnapshot; shareUrl: string }> {
+  return apiFetch<{ snapshot: SandboxSnapshot; shareUrl: string }>('/sandbox/snapshot', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    // 文件树可能较大，放宽超时
+    timeoutMs: 60000,
+  })
+}
+
+/** 公开读取沙箱快照（无需登录，每次访问累加浏览次数） */
+export async function getSandboxSnapshotApi(
+  slug: string,
+): Promise<{ snapshot: SandboxSnapshot }> {
+  return apiFetch<{ snapshot: SandboxSnapshot }>(`/sandbox/${encodeURIComponent(slug)}`, {
+    // 公开分享页可能无 token，但仍走 apiFetch 以保持一致的错误处理
+    timeoutMs: 15000,
+  })
+}
+
+/** 列出我的沙箱快照 */
+export async function listMySandboxSnapshotsApi(): Promise<{ snapshots: SandboxSnapshot[] }> {
+  return apiFetch<{ snapshots: SandboxSnapshot[] }>('/sandbox/me')
+}
+
+/** 删除沙箱快照（仅所有者） */
+export async function deleteSandboxSnapshotApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/sandbox/${id}`, {
+    method: 'DELETE',
   })
 }

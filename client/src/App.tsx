@@ -48,6 +48,11 @@ import { DailyInspirationPage } from './pages/DailyInspirationPage'
 import { ChatListPage } from './pages/ChatListPage'
 import { TopicsPage } from './pages/TopicsPage'
 import { ChallengesPage } from './pages/ChallengesPage'
+import { SkillsMarketPage } from './pages/SkillsMarketPage'
+import { SkillStudioPage } from './pages/SkillStudioPage'
+import { SandboxSharePage } from './pages/SandboxSharePage'
+import { AgentDetailPage } from './pages/AgentDetailPage'
+import { SettingsMemoryPage } from './pages/SettingsMemoryPage'
 
 // 应用根组件：AuthProvider 包裹在 BrowserRouter 外层
 export default function App() {
@@ -91,6 +96,7 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/agents/:id" element={<AgentDetailPage />} />
               <Route
                 path="/agents/:id/edit"
                 element={
@@ -115,11 +121,29 @@ export default function App() {
               <Route path="/ai-feed" element={<AIFeedPage />} />
               <Route path="/emo-wall" element={<EmoWallPage />} />
               <Route path="/cards" element={<CardsPage />} />
+              {/* 4.0 Skill 市场 */}
+              <Route path="/skills" element={<SkillsMarketPage />} />
+              <Route
+                path="/skills/create"
+                element={
+                  <ProtectedRoute>
+                    <SkillStudioPage />
+                  </ProtectedRoute>
+                }
+              />
               {/* 3.0 新功能页面 */}
               <Route path="/teams" element={<ProtectedRoute><TeamsPage /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><RoomsListPage /></ProtectedRoute>} />
               <Route path="/rooms/:id" element={<ProtectedRoute><RoomPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route
+                path="/settings/memory"
+                element={
+                  <ProtectedRoute>
+                    <SettingsMemoryPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/studio/script"
                 element={
@@ -225,6 +249,7 @@ export default function App() {
 
             {/* 独立页面（不带主布局） */}
             <Route path="/share/:slug" element={<SharePage />} />
+            <Route path="/share/sandbox/:slug" element={<SandboxSharePage />} />
             <Route path="/auth/login" element={<LoginPage />} />
             <Route path="/auth/register" element={<RegisterPage />} />
           </Routes>
