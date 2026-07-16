@@ -294,7 +294,7 @@ export function PlanPanel({
       </div>
 
       {/* Steps 列表 */}
-      <div className="max-h-72 overflow-y-auto px-3 pb-3 scrollbar-thin">
+      <div className="max-h-60 overflow-y-auto px-3 pb-3 scrollbar-thin">
         <ol className="space-y-1.5">
           {steps.map((step, idx) => {
             const typeMeta = STEP_TYPE_META[step.type]

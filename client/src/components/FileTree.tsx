@@ -24,6 +24,25 @@ interface FileTreeProps {
   onFileSelect?: (path: string, content: string) => void
 }
 
+/** useContainerHeight：用 ResizeObserver 动态获取容器高度，避免硬编码 */
+function useContainerHeight<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null)
+  const [height, setHeight] = useState(400)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const h = entry.contentRect.height
+        if (h > 0) setHeight(h)
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return { ref, height }
+}
+
 /** react-arborist 节点数据结构 */
 interface TreeNode {
   id: string
@@ -129,6 +148,7 @@ export function FileTree({ webcontainer, onFileSelect }: FileTreeProps) {
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { ref: treeContainerRef, height: treeHeight } = useContainerHeight<HTMLDivElement>()
 
   /** 刷新文件树 */
   const refresh = useCallback(async () => {
@@ -276,7 +296,7 @@ export function FileTree({ webcontainer, onFileSelect }: FileTreeProps) {
       </div>
 
       {/* 文件树 */}
-      <div className="flex-1 overflow-auto scrollbar-thin">
+      <div ref={treeContainerRef} className="flex-1 overflow-auto scrollbar-thin">
         {treeData.length === 0 ? (
           <div className="p-3 text-center text-xs text-slate-500">
             {loading ? '加载中…' : '暂无文件'}
@@ -285,7 +305,7 @@ export function FileTree({ webcontainer, onFileSelect }: FileTreeProps) {
           <Tree
             data={treeData}
             width="100%"
-            height={400}
+            height={treeHeight}
             rowHeight={22}
             indent={12}
             openByDefault={false}

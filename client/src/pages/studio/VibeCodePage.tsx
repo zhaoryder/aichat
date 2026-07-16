@@ -512,8 +512,14 @@ function PreviewArea({
 }) {
   // dev server URL 优先（WebContainer dev server），否则降级到 srcDoc
   const useDevServer = !!devServerUrl
+  // iframe 加载状态：srcDoc ↔ src 模式切换时显示 loading 蒙层，避免白屏闪烁
+  const [iframeLoading, setIframeLoading] = useState(false)
+  // devServerUrl 或 iframeKey 变化时进入 loading 状态，等 iframe onLoad 事件清除
+  useEffect(() => {
+    if (hasCode || useDevServer) setIframeLoading(true)
+  }, [useDevServer, devServerUrl, iframeKey])
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+    <div className="relative flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
       <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-3 py-2">
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">预览</span>
         {useDevServer ? (
@@ -532,6 +538,7 @@ function PreviewArea({
           src={devServerUrl!}
           sandbox="allow-scripts allow-modals allow-same-origin allow-forms allow-popups"
           className="flex-1 w-full border-0 bg-white dark:bg-gray-900"
+          onLoad={() => setIframeLoading(false)}
         />
       ) : hasCode ? (
         <iframe
@@ -540,6 +547,7 @@ function PreviewArea({
           srcDoc={srcDoc}
           sandbox="allow-scripts allow-modals"
           className="flex-1 w-full border-0 bg-white dark:bg-gray-900"
+          onLoad={() => setIframeLoading(false)}
         />
       ) : (
         <EmptyState
@@ -547,6 +555,15 @@ function PreviewArea({
           title="预览区"
           description="AI 通过 writeFile 工具写入代码后将在此处实时预览"
         />
+      )}
+      {/* loading 蒙层：srcDoc ↔ src 模式切换或 iframe remount 时显示，避免白屏闪烁 */}
+      {iframeLoading && (useDevServer || hasCode) && (
+        <div className="absolute inset-0 top-[33px] flex items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10">
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <span>加载预览…</span>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -840,9 +857,12 @@ export const VibeCodePage = () => {
   const isStreaming = isLoading
 
   // iframe 版本号（每次 code 变化时强制 remount，避免残留错误监听）
+  // 加 500ms debounce：流式生成时 code 频繁变化，避免 iframe 持续 remount 闪烁
   const [iframeVersion, setIframeVersion] = useState(0)
   useEffect(() => {
-    if (code) setIframeVersion((v) => v + 1)
+    if (!code) return
+    const timer = setTimeout(() => setIframeVersion((v) => v + 1), 500)
+    return () => clearTimeout(timer)
   }, [code])
 
   const [lastPrompt, setLastPrompt] = useState('')
@@ -2161,27 +2181,29 @@ export const VibeCodePage = () => {
   // ----- 渲染：左侧面板（assistant-ui Thread + 历史项目） -----
   const renderLeftPanel = () => (
     <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-gray-900">
-      {/* Plan Mode：左侧消息流上方显示 PlanPanel（Batch B） */}
+      {/* Plan Mode：左侧消息流上方显示 PlanPanel（Batch B）—— shrink-0 防止压缩 Thread */}
       {plan && (
-        <PlanPanel
-          plan={plan}
-          onEdit={handleEditPlanSteps}
-          onExecute={handleExecutePlan}
-          onPause={handlePausePlan}
-          onSkip={handleSkipPlanStep}
-          isExecuting={planExecuting}
-          onClose={() => {
-            if (planExecuting) {
-              toast.info('请先暂停 plan 执行')
-              return
-            }
-            setPlan(null)
-          }}
-        />
+        <div className="shrink-0">
+          <PlanPanel
+            plan={plan}
+            onEdit={handleEditPlanSteps}
+            onExecute={handleExecutePlan}
+            onPause={handlePausePlan}
+            onSkip={handleSkipPlanStep}
+            isExecuting={planExecuting}
+            onClose={() => {
+              if (planExecuting) {
+                toast.info('请先暂停 plan 执行')
+                return
+              }
+              setPlan(null)
+            }}
+          />
+        </div>
       )}
 
-      {/* Thread：消息区 + Composer（输入框在底部） */}
-      <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Thread：消息区 + Composer（输入框在底部）—— min-h 防止被 PlanPanel + 历史项目挤压到 0 */}
+      <ThreadPrimitive.Root className="flex min-h-[200px] flex-1 flex-col overflow-hidden">
         <ThreadPrimitive.Viewport
           ref={conversationRef}
           className="flex-1 overflow-y-auto scrollbar-thin"
@@ -2627,12 +2649,13 @@ export const VibeCodePage = () => {
       <ReadFileToolUI />
       <ExecuteCodeToolUI />
 
-      <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
-        {/* WebContainer 沙箱 boot 失败 banner（降级提示） */}
+      <div className="relative flex h-dvh flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+        {/* WebContainer 沙箱 boot 失败 banner（降级提示）—— absolute 浮层不占文档流，
+            避免出现/消失时主内容区 flex-1 高度变化导致整页 layout shift */}
         {sandboxError && (
-          <div className="shrink-0 flex items-center gap-2 border-b border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+          <div className="absolute top-2 left-1/2 z-[55] flex -translate-x-1/2 items-center gap-2 rounded-full border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/80 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-300 shadow-md backdrop-blur">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1 truncate">
+            <span className="flex-1 truncate max-w-[400px]">
               沙箱不可用：{sandboxError}。已降级到基础预览模式（srcDoc）。
             </span>
             <button
@@ -2684,7 +2707,14 @@ export const VibeCodePage = () => {
           {/* 手机：Tabs 切换 */}
           <Tabs
             value={mobileTab}
-            onValueChange={setMobileTab}
+            onValueChange={(v) => {
+              setMobileTab(v)
+              // 切换 Tab 后触发 resize，让 iframe / xterm 重新计算尺寸
+              // 避免 hidden 状态下 fit() 得到 0 宽度导致渲染异常
+              requestAnimationFrame(() => {
+                window.dispatchEvent(new Event('resize'))
+              })
+            }}
             className="md:hidden flex h-full flex-col"
           >
             <TabsList className="grid grid-cols-4 mx-2 mt-2 shrink-0">
@@ -2732,11 +2762,13 @@ export const VibeCodePage = () => {
 
           {/* 平板/桌面：三栏分栏布局（Batch D） */}
           <div className="hidden md:flex h-full overflow-hidden">
-            {!leftCollapsed && (
-              <aside className="w-[300px] lg:w-[340px] shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
-                {renderLeftPanel()}
-              </aside>
-            )}
+            {/* 左栏：对话区（width transition 平滑收缩/展开，避免 mount/unmount 导致 layout shift） */}
+            <aside className={cn(
+              "shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 ease-out",
+              leftCollapsed ? "w-0" : "w-[300px] lg:w-[340px]"
+            )}>
+              {renderLeftPanel()}
+            </aside>
             {/* 中栏：文件树 + 代码 */}
             <section className="hidden lg:flex w-[260px] xl:w-[300px] shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="flex h-[40%] flex-col overflow-hidden border-b border-gray-200 dark:border-gray-700">
@@ -2756,32 +2788,34 @@ export const VibeCodePage = () => {
             {/* 右栏：预览 + 终端抽屉 */}
             <main className="flex flex-1 flex-col overflow-hidden">
               <div className="flex-1 overflow-hidden">{renderRightPanel()}</div>
-              {/* 终端抽屉（底部，可折叠） */}
+              {/* 终端抽屉（底部，可折叠）—— 内部 DOM 常驻，仅用 opacity 控制可见性，
+                  避免 mount/unmount 与 height transition 冲突导致空白条 / xterm fit 失败 */}
               <div className={cn(
-                'shrink-0 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-out',
+                'shrink-0 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-out overflow-hidden',
                 showTerminal ? 'h-[240px]' : 'h-0',
               )}>
-                {showTerminal && (
-                  <div className="flex h-full flex-col overflow-hidden bg-[#0f172a]">
-                    <div className="flex shrink-0 items-center justify-between border-b border-slate-700 px-3 py-1">
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                        <TerminalIcon className="h-3 w-3" />
-                        终端
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowTerminal(false)}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-700 hover:text-slate-200"
-                        title="收起终端"
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <Terminal webcontainer={sandboxRef.current} />
-                    </div>
+                <div className={cn(
+                  'flex h-full flex-col overflow-hidden bg-[#0f172a] transition-opacity duration-200',
+                  showTerminal ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                )}>
+                  <div className="flex shrink-0 items-center justify-between border-b border-slate-700 px-3 py-1">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                      <TerminalIcon className="h-3 w-3" />
+                      终端
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowTerminal(false)}
+                      className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                      title="收起终端"
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
                   </div>
-                )}
+                  <div className="flex-1 overflow-hidden">
+                    <Terminal webcontainer={sandboxRef.current} />
+                  </div>
+                </div>
               </div>
             </main>
           </div>
@@ -2789,7 +2823,7 @@ export const VibeCodePage = () => {
 
         {/* 全屏覆盖：代码 */}
         {fullscreen === 'code' && (
-          <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950">
+          <div className="fixed inset-0 z-[60] bg-white dark:bg-gray-950">
             <button
               type="button"
               onClick={() => setFullscreen(null)}
@@ -2806,7 +2840,7 @@ export const VibeCodePage = () => {
 
         {/* 全屏覆盖：预览 */}
         {fullscreen === 'preview' && (
-          <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950">
+          <div className="fixed inset-0 z-[60] bg-white dark:bg-gray-950">
             <button
               type="button"
               onClick={() => setFullscreen(null)}
