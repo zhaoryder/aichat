@@ -9,8 +9,10 @@
 
 import { Response } from 'express'
 
-/** 设置 SSE 必需的响应头 */
+/** 设置 SSE 必需的响应头（幂等：headers 已发送则跳过） */
 export function setSSEHeaders(res: Response): void {
+  // 避免重复设置 headers 导致 "Cannot set headers after they are sent"
+  if (res.headersSent) return
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
@@ -22,11 +24,11 @@ export function setSSEHeaders(res: Response): void {
 export function sendEvent(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
   // 确保 SSE 数据立即 flush，避免反向代理/压缩中间件缓冲导致延迟
+  // 仅调用 compression 中间件注入的 res.flush()，不重复调用 flushHeaders()
+  // （flushHeaders 在已发送后可能触发 "Cannot set headers after they are sent"）
   const r = res as Response & { flush?: () => void }
   if (typeof r.flush === 'function') {
     r.flush()
-  } else {
-    res.flushHeaders()
   }
 }
 
