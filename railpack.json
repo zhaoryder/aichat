@@ -3,22 +3,22 @@
   "steps": {
     "install": {
       "commands": [
-        { "src": "server/package.json", "dest": "package.json" },
-        { "src": "server/package-lock.json", "dest": "package-lock.json" },
-        "npm install"
+        { "src": "server/package.json", "dest": "server/package.json" },
+        { "src": "server/package-lock.json", "dest": "server/package-lock.json" },
+        "cd server && npm install"
       ]
     },
     "build": {
       "inputs": [{ "step": "install" }],
       "commands": [
-        { "src": "server/src", "dest": "src" },
-        { "src": "server/shared", "dest": "shared" },
-        { "src": "server/tsconfig.json", "dest": "tsconfig.json" },
-        "npm run build"
+        { "src": "server/src", "dest": "server/src" },
+        { "src": "shared", "dest": "shared" },
+        { "src": "server/tsconfig.json", "dest": "server/tsconfig.json" },
+        "cd server && npm run build"
       ]
     }
   },
   "deploy": {
-    "startCommand": "node dist/index.js"
+    "startCommand": "node server/dist/index.js"
   }
 }
