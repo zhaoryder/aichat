@@ -665,7 +665,12 @@ function AssistantMessage({
             <MessagePrimitive.Parts
               components={{
                 Text: ({ text }) =>
-                  text ? <Markdown content={text} /> : null,
+                  text ? (
+                    <>
+                      <Markdown content={text} />
+                      {isRunning && <TypingCursor visible={true} />}
+                    </>
+                  ) : null,
               }}
             />
           )}
@@ -1254,8 +1259,19 @@ export const VibeCodePage = () => {
     async (text: string, userMsg: VibeMessage) => {
       if (isLoading) return
 
-      // 追加 user 消息到列表（不创建 AI 占位，等 role 事件到达时再创建）
-      setMessages((prev) => [...prev, userMsg])
+      // 追加 user 消息 + 立即创建 Leader 占位消息（避免 Leader 决策期间用户看到空白）
+      const leaderPlaceholderId = crypto.randomUUID()
+      setMessages((prev) => [
+        ...prev,
+        userMsg,
+        {
+          id: leaderPlaceholderId,
+          role: 'assistant',
+          content: '',
+          isStreaming: true,
+          agentRole: 'leader',
+        },
+      ])
       setIsLoading(true)
 
       if (teamAbortRef.current) teamAbortRef.current.abort()
@@ -1279,7 +1295,8 @@ export const VibeCodePage = () => {
         let buffer = ''
         let currentEvent = ''
         // 当前正在写入的 assistant 消息 id（role 事件创建后赋值）
-        let currentAiMsgId: string | null = null
+        // 初始指向 leader 占位，以便首个 role=leader 事件复用它而非重复创建
+        let currentAiMsgId: string | null = leaderPlaceholderId
 
         while (true) {
           if (controller.signal.aborted) break
@@ -1319,15 +1336,20 @@ export const VibeCodePage = () => {
                 }
               } else if (currentEvent === 'role' && data.role) {
                 // 新角色接力：创建新的 assistant 消息占位
-                currentAiMsgId = crypto.randomUUID()
-                const newMsg: VibeMessage = {
-                  id: currentAiMsgId,
-                  role: 'assistant',
-                  content: '',
-                  isStreaming: true,
-                  agentRole: data.role,
+                // 优化：若 role=leader 且已预创建 leader 占位（currentAiMsgId 仍指向它），复用，避免重复创建
+                const canReuseLeaderPlaceholder =
+                  data.role === 'leader' && currentAiMsgId === leaderPlaceholderId
+                if (!canReuseLeaderPlaceholder) {
+                  currentAiMsgId = crypto.randomUUID()
+                  const newMsg: VibeMessage = {
+                    id: currentAiMsgId,
+                    role: 'assistant',
+                    content: '',
+                    isStreaming: true,
+                    agentRole: data.role,
+                  }
+                  setMessages((prev) => [...prev, newMsg])
                 }
-                setMessages((prev) => [...prev, newMsg])
               } else if (currentEvent === 'token' && data.c && currentAiMsgId) {
                 // 追加 token 到当前消息
                 setMessages((prev) =>
@@ -1446,9 +1468,15 @@ export const VibeCodePage = () => {
               } else if (currentEvent === 'done') {
                 if (currentAiMsgId) {
                   setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === currentAiMsgId ? { ...m, isStreaming: false } : m,
-                    ),
+                    prev.map((m) => {
+                      if (m.id !== currentAiMsgId) return m
+                      // 如果 AI 只调工具没输出文本，填充默认说明，避免空白气泡
+                      const hasToolCalls = m.toolCalls && m.toolCalls.length > 0
+                      const emptyContent = !m.content || m.content.trim() === ''
+                      const defaultText =
+                        hasToolCalls && emptyContent ? '已通过工具完成操作。' : m.content
+                      return { ...m, isStreaming: false, content: defaultText }
+                    }),
                   )
                 }
                 // status='failed' 时给出提示
@@ -1464,7 +1492,13 @@ export const VibeCodePage = () => {
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === currentAiMsgId
-                        ? { ...m, content: `⚠️ ${errMsg}`, isStreaming: false }
+                        ? {
+                            ...m,
+                            content: m.content
+                              ? `${m.content}\n\n⚠️ 生成中断：${errMsg}`
+                              : `⚠️ ${errMsg}`,
+                            isStreaming: false,
+                          }
                         : m,
                     ),
                   )
@@ -1822,7 +1856,15 @@ export const VibeCodePage = () => {
                 }
               } else if (currentEvent === 'done') {
                 setMessages((prev) =>
-                  prev.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m)),
+                  prev.map((m) => {
+                    if (m.id !== aiMsgId) return m
+                    // 如果 AI 只调工具没输出文本，填充默认说明，避免空白气泡
+                    const hasToolCalls = m.toolCalls && m.toolCalls.length > 0
+                    const emptyContent = !m.content || m.content.trim() === ''
+                    const defaultText =
+                      hasToolCalls && emptyContent ? '已通过工具完成操作。' : m.content
+                    return { ...m, isStreaming: false, content: defaultText }
+                  }),
                 )
               } else if (currentEvent === 'error') {
                 const errMsg = data.error || 'AI 回复失败'
@@ -1882,7 +1924,13 @@ export const VibeCodePage = () => {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === aiMsgId
-              ? { ...m, content: `⚠️ ${errMsg}`, isStreaming: false }
+              ? {
+                  ...m,
+                  content: m.content
+                    ? `${m.content}\n\n⚠️ 生成中断：${errMsg}`
+                    : `⚠️ ${errMsg}`,
+                  isStreaming: false,
+                }
               : m,
           ),
         )
@@ -1961,7 +2009,7 @@ export const VibeCodePage = () => {
 
     try {
       await executePlan(plan.id, {
-        onStepStart: (stepId) => {
+        onStepStart: (stepId, step) => {
           setPlan((prev) =>
             prev
               ? {
@@ -1978,6 +2026,19 @@ export const VibeCodePage = () => {
                   ),
                 }
               : null,
+          )
+          // 追加步骤过渡提示到 AI 消息，避免步骤间静默给人生成断了的错觉
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    content:
+                      m.content +
+                      `\n\n--- 📋 步骤 ${stepId}：${step?.title ?? ''} ---\n`,
+                  }
+                : m,
+            ),
           )
         },
         onToken: (c) => {
@@ -2572,9 +2633,6 @@ export const VibeCodePage = () => {
                         visible={true}
                         role={vibeMsg?.agentRole ? ROLE_BADGE_META[vibeMsg.agentRole].label : undefined}
                       />
-                    )}
-                    {isLastAssistant && isStreaming && vibeMsg?.content && (
-                      <TypingCursor visible={true} />
                     )}
                     {executingTool && (
                       <ToolProgress name={executingTool.name} isExecuting={true} />

@@ -186,6 +186,16 @@ export async function runTeamStep(
     }
   })
 
+  // Team 模式超时保护：Leader/Reviewer 的 generateObject 若卡住，180s 后强制中止
+  const teamTimeout = setTimeout(() => {
+    if (!abortController.signal.aborted) {
+      abortController.abort()
+      if (!res.writableEnded) {
+        sendEvent(res, 'error', { error: '团队协作超时（180s）' })
+      }
+    }
+  }, 180_000)
+
   try {
     // 加载 session
     const { data: sessionRow, error: sessionError } = await supabase
@@ -238,8 +248,10 @@ export async function runTeamStep(
 
       // ---------- Step 1: Leader 决策 ----------
       const context = buildContext(session.transcript)
-      // 提示用户 Leader 正在思考，避免长时间无响应被误判为卡死
-      sendEvent(res, 'token', { c: '\u{1F914} Leader 正在分析任务...\n', role: 'leader' })
+      // 先发 role 事件让前端创建 Leader 占位消息，再发 token 追加思考文字，
+      // 避免 Leader 决策期间（generateObject 非流式，5-15s）零反馈被误判为卡死
+      sendEvent(res, 'role', { role: 'leader', task: '正在分析任务并分配角色...' })
+      sendEvent(res, 'token', { c: '🤔 Leader 正在分析任务...\n\n' })
       let decision
       try {
         decision = await runLeader(goal, context, {
@@ -269,7 +281,13 @@ export async function runTeamStep(
       await updateSessionState(sessionId, nextRole, 'active')
 
       // SSE 推送 role 事件（前端按 role 创建新消息占位）
-      sendEvent(res, 'role', { role: nextRole, task })
+      // 注意：Leader 自循环时，决策前已发过 role: 'leader'，这里不重复发，
+      // 只追加 token 说明决策结果，避免前端创建第二个 Leader 消息
+      if (nextRole !== 'leader') {
+        sendEvent(res, 'role', { role: nextRole, task })
+      } else {
+        sendEvent(res, 'token', { c: `Leader 决定继续：${task}\n\n` })
+      }
 
       // ---------- Step 2: 调对应角色 ----------
       try {
@@ -291,6 +309,9 @@ export async function runTeamStep(
             latestCode &&
             coderRound <= MAX_CODER_ROUNDS
           ) {
+            // 先发 role 事件创建 Reviewer 占位消息，避免 Reviewer 决策期间（generateObject 非流式，5-15s）零反馈
+            sendEvent(res, 'role', { role: 'reviewer', task: '正在审查代码...' })
+            sendEvent(res, 'token', { c: '🔍 Reviewer 正在审查代码质量...\n\n' })
             const review = await runReviewerRole(
               sessionId,
               session,
@@ -389,6 +410,7 @@ export async function runTeamStep(
       })
     }
   } finally {
+    clearTimeout(teamTimeout)
     if (!res.writableEnded) {
       res.end()
     }
@@ -668,15 +690,31 @@ async function runReporterAndEmit(
     .join('\n')
 
   const context = buildContext(session.transcript)
+
+  // 先发 role 事件创建 Reporter 占位消息，再流式消费 token，
+  // 避免 Reporter 生成期间（generateText 非流式，5-10s）零反馈
+  sendEvent(res, 'role', { role: 'reporter', task: '正在汇总报告...' })
+
   let summary = ''
   try {
-    summary = await runReporter(progress, context)
+    const result = await runReporter(progress, context)
+    for await (const part of result.fullStream) {
+      if (signal.aborted) break
+      if (part.type === 'text-delta' && part.text) {
+        summary += part.text
+        sendEvent(res, 'token', { c: part.text })
+      }
+    }
   } catch {
     summary = '团队已完成所有任务。'
+    sendEvent(res, 'token', { c: summary })
   }
 
-  // 流式发送 summary（拆为短句以便前端逐字显示）
-  sendEvent(res, 'token', { c: summary, role: 'reporter' })
+  // 流式输出为空时兜底
+  if (!summary) {
+    summary = '团队已完成所有任务。'
+    sendEvent(res, 'token', { c: summary })
+  }
 
   const msg: TeamMessage = {
     id: crypto.randomUUID(),
