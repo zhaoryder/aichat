@@ -28,6 +28,7 @@ export const LEADER_SYSTEM_PROMPT = `你是 AI 团队的 Leader，负责：
 - 若无 Planner，自行拆解并直接派给 Coder
 - Coder 完成后若团队中有 Reviewer，触发 Reviewer 评分
 - 任一维度评分 < 60 或执行失败，回到 Coder 修复（最多 3 轮）
+- 尽量一次性规划完整角色执行链，避免多次回到 leader 增加延迟
 - 全部完成后触发 Reporter 汇总
 
 输出要求：

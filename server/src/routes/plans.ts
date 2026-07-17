@@ -18,7 +18,7 @@ import { supabase } from '../lib/supabase'
 import { setSSEHeaders, sendEvent } from '../lib/sse'
 import { generatePlan } from '../lib/agents/planner'
 import { loadSkillTools, loadSkillSystemPrompt } from '../lib/skill-registry'
-import { vibeCodeTools, setVibeContext } from '../lib/vibe-tools'
+import { createVibeTools } from '../lib/vibe-tools'
 import type { Plan, PlanStep } from '../../shared/types'
 
 export const plansRouter = Router()
@@ -330,13 +330,13 @@ plansRouter.post(
         }
       })
 
-      // 设置 Vibe 上下文（writeFile/readFile 工具会用到）
-      setVibeContext(user.id, plan.project_id ?? undefined)
-
-      // 加载 skill 工具
-      const skillTools = await loadSkillTools(user.id)
+      // 加载 skill 工具（createVibeTools 闭包捕获 userId/projectId，无需 globalThis）
+      const planProjectId = plan.project_id ?? undefined
+      const skillTools = await loadSkillTools(user.id, planProjectId)
       const activeTools =
-        Object.keys(skillTools).length > 0 ? skillTools : vibeCodeTools
+        Object.keys(skillTools).length > 0
+          ? skillTools
+          : createVibeTools(user.id, planProjectId)
       const skillPromptSuffix = await loadSkillSystemPrompt(user.id)
 
       // 构造 OpenAI client
@@ -356,6 +356,9 @@ plansRouter.post(
       // 累积的执行上下文（前序 step 的 result）
       const stepContext: Array<{ title: string; result: string }> = []
       let allSuccess = true
+      let anySuccess = plan.steps.some(
+        (s) => s.status === 'completed',
+      )
 
       for (let i = 0; i < plan.steps.length; i++) {
         if (abortController.signal.aborted) break
@@ -482,6 +485,7 @@ plansRouter.post(
 
           // 累积上下文
           stepContext.push({ title: step.title, result: stepResult })
+          anySuccess = true
 
           // 发送 step_done 事件
           sendEvent(res, 'step_done', {
@@ -518,15 +522,18 @@ plansRouter.post(
             error: true,
           })
 
-          // 单步失败时终止整个 plan
-          break
+          // 单步失败时继续执行后续 step
+          continue
         }
       }
 
       // 标记 plan 最终状态
+      // - 所有 step 都 completed → 'completed'
+      // - 有 step failed 但也有 completed → 'completed'（部分成功）
+      // - 所有 step 都 failed → 'failed'
       const finalStatus = abortController.signal.aborted
         ? 'paused'
-        : allSuccess
+        : anySuccess
           ? 'completed'
           : 'failed'
       await supabase

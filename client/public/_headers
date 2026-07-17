@@ -6,12 +6,12 @@
 #   1. /api/* 路径由 functions/api/_middleware.ts 代理到 Railway 后端，
 #      不添加 COOP/COEP（避免破坏 CORS 与跨域资源加载）
 #   2. 其余路径（HTML / 静态资源）启用 COOP/COEP，使全站 crossOriginIsolated=true
-#   3. Cross-Origin-Resource-Policy 设为 same-site，允许同站资源加载
+#   3. Cross-Origin-Resource-Policy 设为 cross-origin，允许跨站资源加载
 
 /*
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
-  Cross-Origin-Resource-Policy: same-site
+  Cross-Origin-Resource-Policy: cross-origin
 
 # API 代理路径不启用 COOP/COEP（CORS 友好）
 /api/*

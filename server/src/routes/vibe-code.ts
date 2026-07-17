@@ -22,7 +22,7 @@ import {
   type ToolDefinition,
 } from '../lib/ai-client'
 import { setSSEHeaders, sendEvent } from '../lib/sse'
-import { vibeCodeTools, setVibeContext } from '../lib/vibe-tools'
+import { createVibeTools } from '../lib/vibe-tools'
 import { loadSkillTools, loadSkillSystemPrompt } from '../lib/skill-registry'
 import { createSnapshot } from '../lib/queries'
 import { supabase } from '../lib/supabase'
@@ -31,21 +31,83 @@ import type { ChatMessage, Plan, PlanStep } from '../../shared/types'
 
 export const vibeCodeRouter = Router()
 
-/** vibe coding agent 的系统提示词（不注入搞笑基准，输出纯净代码） */
-const VIBE_CODE_SYSTEM_PROMPT = `你是一个 vibe coding agent。用户会用自然语言描述需求，你需要生成一个完整的、可直接运行的 HTML 文件代码。
+/**
+ * 包装 streamText，在流式输出真正开始前（首个 chunk 拉取）失败时自动重试。
+ * 一旦成功 yield 出任意 chunk，后续错误不再重试（避免向客户端重复输出 token）。
+ * 适用于上游 500/429/网络抖动等临时故障，重试间隔 1s/2s 指数退避。
+ */
+async function* streamTextWithRetry(
+  opts: Parameters<typeof streamText>[0],
+  maxRetries = 2,
+) {
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let streamStarted = false
+    try {
+      const result = streamText(opts)
+      const iter = result.fullStream[Symbol.asyncIterator]()
+      const first = await iter.next()
+      // 成功拉到首个 chunk（或上游返回空流），标记流已开始
+      streamStarted = true
+      if (!first.done) yield first.value
+      while (true) {
+        const next = await iter.next()
+        if (next.done) break
+        yield next.value
+      }
+      return
+    } catch (err) {
+      // 流式输出已开始：直接抛出，不可重试（避免重复 token）
+      if (streamStarted) throw err
+      // 客户端主动取消：不重试
+      if (opts.abortSignal?.aborted) throw err
+      lastErr = err
+      if (attempt < maxRetries) {
+        const delay = 1000 * Math.pow(2, attempt)
+        console.warn(
+          `[streamTextWithRetry] attempt ${attempt + 1} failed, retry in ${delay}ms`,
+          err instanceof Error ? err.message : err,
+        )
+        await new Promise((r) => setTimeout(r, delay))
+      }
+    }
+  }
+  throw lastErr
+}
 
-要求：
-1. 输出一个完整的 HTML 文件（包含 <!DOCTYPE html>、<html>、<head>、<body>）
-2. CSS 放在 <style> 标签内，JS 放在 <script> 标签内
-3. 不使用外部 CDN 或 npm 包（除非用户明确要求）
-4. 代码要美观、交互完整、功能可用
-5. 使用现代化设计（Tailwind 风格的 CSS，但手写不引入 CDN）
-6. 添加适当的动画和过渡效果
+/**
+ * 统一的 Vibe Coding Agent 系统提示词。
+ * /generate、/chat、/stream 三个端点共享此常量，避免行为分叉。
+ */
+const STREAM_SYSTEM_PROMPT = `你是一个强大的 Vibe Coding Agent，通过 Vercel AI SDK 的 Tool Calling 帮用户生成和迭代 HTML 应用。
 
-输出格式：
-- 直接输出 HTML 代码，不要用 markdown 代码块包裹
-- 不要添加解释文字
-- 代码以 <!DOCTYPE html> 开头，以 </html> 结尾`
+工作方式：
+- 用户描述需求 → 你调用 writeFile 工具写入完整 HTML 文件到 index.html
+- 用户追问修改 → 你再次调用 writeFile 更新 index.html
+- 用户需要联网信息 → 你调用 webSearch 工具
+- 用户需要图片 → 你调用 generateImage 工具
+- 用户需要视频 → 你调用 generateVideo 工具
+- 用户需要纯计算（如算式、转换） → 你调用 executeCode 工具
+
+代码要求：
+1. 完整 HTML 文件（<!DOCTYPE html> 到 </html>）
+2. CSS 在 <style>，JS 在 <script>，不用外部 CDN
+3. 现代美观设计，有动画和交互
+4. 功能完整可用
+5. 代码注释统一用中文，简洁明了
+6. 错误处理：对可能失败的操作（如 fetch、用户输入解析）使用 try-catch，给用户友好的中文错误提示，避免页面白屏
+
+响应语言：
+- 始终使用中文回复用户
+- 代码注释用中文
+
+重要：
+- 始终通过 writeFile 工具输出代码（path 设为 "index.html"）
+- 输出代码后用文字简短说明本次改动
+- 不要在普通回复中直接粘贴大段代码`
+
+/** vibe coding agent 的系统提示词（与 STREAM_SYSTEM_PROMPT 一致，三端点共用） */
+const VIBE_CODE_SYSTEM_PROMPT = STREAM_SYSTEM_PROMPT
 
 /** 清理模型输出：移除可能的 markdown 代码块包裹 */
 function cleanCode(raw: string): string {
@@ -314,22 +376,8 @@ vibeCodeRouter.get('/explore', async (_req: Request, res: Response) => {
 //   返回: { type: 'code', code, explanation } | { type: 'text', content } | { type: 'done' }
 // =====================================================================
 
-/** Agent 系统提示词（强调工具使用 + 多轮对话） */
-const AGENT_SYSTEM_PROMPT = `你是一个强大的 Vibe Coding Agent，通过 Tool Calling 帮用户生成和迭代 HTML 应用。
-
-工作方式：
-- 用户描述需求 → 你调用 write_code 工具生成完整 HTML 代码
-- 用户追问修改 → 你调用 write_code 工具更新代码
-- 如果运行时出错，系统会告诉你错误信息 → 你调用 write_code 修复
-- 完成且无需修改 → 调用 finish 工具
-
-代码要求：
-1. 完整 HTML 文件（<!DOCTYPE html> 到 </html>）
-2. CSS 在 <style>，JS 在 <script>，不用外部 CDN
-3. 现代美观设计，有动画和交互
-4. 功能完整可用
-
-重要：始终通过 write_code 工具输出代码，不要直接在回复中写代码。`
+/** Agent 系统提示词（与 STREAM_SYSTEM_PROMPT 一致，三端点共用） */
+const AGENT_SYSTEM_PROMPT = STREAM_SYSTEM_PROMPT
 
 /** Agent 可用工具 */
 const AGENT_TOOLS: ToolDefinition[] = [
@@ -481,28 +529,6 @@ vibeCodeRouter.post(
 //     依赖 ai@6，与项目 ai@7 不兼容。改用与 /chat 一致的 SSE 格式 +
 //     useExternalStoreRuntime 手动消费，完全绕过版本冲突。
 // =====================================================================
-
-/** Vibe Code Agent 系统提示词（强调工具使用 + 多轮对话） */
-const STREAM_SYSTEM_PROMPT = `你是一个强大的 Vibe Coding Agent，通过 Vercel AI SDK 的 Tool Calling 帮用户生成和迭代 HTML 应用。
-
-工作方式：
-- 用户描述需求 → 你调用 writeFile 工具写入完整 HTML 文件到 index.html
-- 用户追问修改 → 你再次调用 writeFile 更新 index.html
-- 用户需要联网信息 → 你调用 webSearch 工具
-- 用户需要图片 → 你调用 generateImage 工具
-- 用户需要视频 → 你调用 generateVideo 工具
-- 用户需要纯计算（如算式、转换） → 你调用 executeCode 工具
-
-代码要求：
-1. 完整 HTML 文件（<!DOCTYPE html> 到 </html>）
-2. CSS 在 <style>，JS 在 <script>，不用外部 CDN
-3. 现代美观设计，有动画和交互
-4. 功能完整可用
-
-重要：
-- 始终通过 writeFile 工具输出代码（path 设为 "index.html"）
-- 输出代码后用文字简短说明本次改动
-- 不要在普通回复中直接粘贴大段代码`
 
 interface StreamMessage {
   role?: unknown
@@ -680,13 +706,13 @@ vibeCodeRouter.post(
         // 标记为 executing
         await supabase.from('plans').update({ status: 'executing' }).eq('id', planId)
 
-        // 设置 Vibe 上下文
-        setVibeContext(user.id, plan.project_id ?? undefined)
-
-        // 加载 skill 工具
-        const skillTools = await loadSkillTools(user.id)
+        // 加载 skill 工具（createVibeTools 通过闭包捕获 userId/projectId，无需 globalThis）
+        const planProjectId = plan.project_id ?? undefined
+        const skillTools = await loadSkillTools(user.id, planProjectId)
         const activeTools =
-          Object.keys(skillTools).length > 0 ? skillTools : vibeCodeTools
+          Object.keys(skillTools).length > 0
+            ? skillTools
+            : createVibeTools(user.id, planProjectId)
         const skillPromptSuffix = await loadSkillSystemPrompt(user.id)
 
         const openai = createOpenAI({
@@ -899,12 +925,13 @@ vibeCodeRouter.post(
       return
     }
 
-    // 设置 Vibe 上下文（writeFile/readFile 工具会用到）
-    setVibeContext(user.id, projectId)
-
-    // 加载用户已安装且启用的 skill 工具（若为空则 fallback 到默认 vibeCodeTools）
-    const skillTools = await loadSkillTools(user.id)
-    const activeTools = Object.keys(skillTools).length > 0 ? skillTools : vibeCodeTools
+    // 加载用户已安装且启用的 skill 工具（若为空则 fallback 到 createVibeTools）
+    // createVibeTools 通过闭包捕获 userId/projectId，无需 globalThis（P0-2 修复）
+    const skillTools = await loadSkillTools(user.id, projectId)
+    const activeTools =
+      Object.keys(skillTools).length > 0
+        ? skillTools
+        : createVibeTools(user.id, projectId)
 
     // 加载已安装 skill 的 systemPrompt 片段并拼接到系统提示词末尾
     const skillPromptSuffix = await loadSkillSystemPrompt(user.id)
@@ -929,24 +956,45 @@ vibeCodeRouter.post(
       content: m.content as string,
     }))
 
+    // 120s 服务端超时保护：若 AI 上游卡住且客户端未断开，主动 abort 并发送 error
+    let streamTimeout: NodeJS.Timeout | null = null
+    const clearStreamTimeout = () => {
+      if (streamTimeout) {
+        clearTimeout(streamTimeout)
+        streamTimeout = null
+      }
+    }
+    streamTimeout = setTimeout(() => {
+      console.warn('[vibe-code/stream] timeout 120s, aborting')
+      abortController.abort()
+      sendEvent(res, 'error', { error: 'AI 响应超时（120s）' })
+      clearStreamTimeout()
+    }, 120_000)
+    // 客户端断开时也要清掉定时器，避免内存泄漏
+    req.on('close', () => clearStreamTimeout())
+
     try {
-      const result = streamText({
-        // 使用 .chat() 走 /chat/completions 端点（OpenAI 兼容服务都支持）
-        // 不能用 openai(modelName)，那会用 /responses 端点，仅 OpenAI 官方支持
-        model: openai.chat(modelName),
-        system: systemPrompt,
-        messages,
-        tools: activeTools,
-        // ai v7：用 stopWhen: isStepCount(N) 替代旧 maxSteps
-        stopWhen: isStepCount(10),
-        abortSignal: abortController.signal,
-        onFinish: ({ text, toolResults }) => {
-          console.log(
-            `[vibe-code/stream] user=${user.id} projectId=${projectId || 'default'} ` +
-              `text_len=${text.length} tool_results=${toolResults.length}`,
-          )
+      const stream = streamTextWithRetry(
+        {
+          // 使用 .chat() 走 /chat/completions 端点（OpenAI 兼容服务都支持）
+          // 不能用 openai(modelName)，那会用 /responses 端点，仅 OpenAI 官方支持
+          model: openai.chat(modelName),
+          system: systemPrompt,
+          messages,
+          tools: activeTools,
+          // ai v7：用 stopWhen: isStepCount(N) 替代旧 maxSteps
+          stopWhen: isStepCount(10),
+          abortSignal: abortController.signal,
+          onFinish: ({ text, toolResults }) => {
+            clearStreamTimeout()
+            console.log(
+              `[vibe-code/stream] user=${user.id} projectId=${projectId || 'default'} ` +
+                `text_len=${text.length} tool_results=${toolResults.length}`,
+            )
+          },
         },
-      })
+        2, // maxRetries：共 3 次尝试（1 + 2 重试），1s/2s 指数退避
+      )
 
       // 发送 start 事件
       sendEvent(res, 'start', {})
@@ -957,7 +1005,7 @@ vibeCodeRouter.post(
       let assistantText = ''
 
       // 遍历 fullStream，转发为简单 SSE 事件
-      for await (const part of result.fullStream) {
+      for await (const part of stream) {
         switch (part.type) {
           case 'text-delta': {
             if (part.text) {
@@ -1058,6 +1106,7 @@ vibeCodeRouter.post(
 
       sendEvent(res, 'done', {})
     } catch (err) {
+      clearStreamTimeout()
       console.error('[vibe-code/stream] error:', err)
       if (!res.headersSent) {
         res.status(500).json({
@@ -1069,6 +1118,7 @@ vibeCodeRouter.post(
         })
       }
     } finally {
+      clearStreamTimeout()
       res.end()
     }
   }

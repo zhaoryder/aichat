@@ -21,7 +21,6 @@
 import { Response } from 'express'
 import { supabase } from '../supabase'
 import { setSSEHeaders, sendEvent } from '../sse'
-import { setVibeContext } from '../vibe-tools'
 import {
   runLeader,
   runPlanner,
@@ -41,7 +40,7 @@ import type {
 /** 最大 Coder 修复轮次（Reviewer 评分 < 60 时回到 Coder） */
 const MAX_CODER_ROUNDS = 3
 /** Leader 决策循环上限（防死循环） */
-const MAX_LEADER_ROUNDS = 12
+const MAX_LEADER_ROUNDS = 6
 
 // ---------------------------------------------------------------------
 // 辅助：team_sessions 表行 → TeamSession 类型
@@ -108,11 +107,11 @@ async function updateSessionState(
 function buildContext(transcript: TeamMessage[]): string {
   if (transcript.length === 0) return '（初始状态，无前序输出）'
   return transcript
-    .slice(-6) // 最近 6 条消息，避免 prompt 过长
+    .slice(-12) // 最近 12 条消息，避免 prompt 过长
     .map((m) => {
       const roleLabel = m.agent_role ? `[${m.agent_role}]` : '[user]'
       const content =
-        m.content.length > 500 ? m.content.slice(0, 500) + '...' : m.content
+        m.content.length > 1200 ? m.content.slice(0, 1200) + '...' : m.content
       return `${roleLabel} ${content}`
     })
     .join('\n\n')
@@ -222,8 +221,8 @@ export async function runTeamStep(
       .find((m) => m.role === 'user')
     const goal = lastUserMsg?.content || session.goal
 
-    // 设置 Vibe 上下文（Coder / Executor 工具会用到）
-    setVibeContext(session.user_id, session.plan_id ?? undefined)
+    // Coder / Executor 通过 createVibeTools(userId, projectId) 闭包捕获上下文，
+    // 无需在此设置 globalThis（P0-2 修复）
 
     // 累积最近一次 Coder 写的代码（供 Reviewer 审查）
     let latestCode = ''
@@ -237,6 +236,8 @@ export async function runTeamStep(
 
       // ---------- Step 1: Leader 决策 ----------
       const context = buildContext(session.transcript)
+      // 提示用户 Leader 正在思考，避免长时间无响应被误判为卡死
+      sendEvent(res, 'token', { c: '\u{1F914} Leader 正在分析任务...\n', role: 'leader' })
       let decision
       try {
         decision = await runLeader(goal, context, {
@@ -418,8 +419,13 @@ async function runPlannerRole(
 
   const content = `已拆解 ${steps.length} 个步骤：\n\n${stepsText}`
 
-  // 推送 token（一次性，planner 不流式）
-  sendEvent(res, 'token', { c: content, role: 'planner' })
+  // 逐行流式推送，模拟逐步规划的过程（每行 50ms 延迟）
+  sendEvent(res, 'token', { c: `已拆解 ${steps.length} 个步骤：\n\n`, role: 'planner' })
+  for (const line of stepsText.split('\n')) {
+    if (signal.aborted) break
+    sendEvent(res, 'token', { c: line + '\n', role: 'planner' })
+    await new Promise((r) => setTimeout(r, 50)) // 50ms 延迟，模拟流式
+  }
 
   // 追加 transcript
   const msg: TeamMessage = {

@@ -138,7 +138,8 @@ async function executeDynamicTool(
 // ---------------------------------------------------------------------
 // 用于 POST /api/vibe-code/stream 端点的 streamText 调用
 
-export const vibeCodeTools = {
+export function createVibeTools(userId: string, projectId?: string) {
+  return {
   writeFile: tool({
     description: '写入文件到当前 Vibe 项目（内存映射，支持多文件项目）',
     inputSchema: z.object({
@@ -146,8 +147,6 @@ export const vibeCodeTools = {
       content: z.string().describe('文件完整内容'),
     }),
     execute: async ({ path, content }) => {
-      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId || 'anon'
-      const projectId = (globalThis as { __vibeProjectId?: string }).__vibeProjectId
       const key = projectKey(userId, projectId, path)
       projectFiles.set(key, content)
       return { success: true, path, size: content.length }
@@ -157,8 +156,6 @@ export const vibeCodeTools = {
     description: '读取当前 Vibe 项目的文件内容',
     inputSchema: z.object({ path: z.string().describe('文件相对路径') }),
     execute: async ({ path }) => {
-      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId || 'anon'
-      const projectId = (globalThis as { __vibeProjectId?: string }).__vibeProjectId
       const key = projectKey(userId, projectId, path)
       const content = projectFiles.get(key)
       if (!content) return { success: false, error: `文件不存在：${path}` }
@@ -235,7 +232,6 @@ export const vibeCodeTools = {
       value: z.string().describe('记忆值，如 tailwind / typescript'),
     }),
     execute: async ({ key, value }) => {
-      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId
       if (!userId) {
         return { success: false, error: '未登录用户无法保存记忆' }
       }
@@ -265,7 +261,6 @@ export const vibeCodeTools = {
       query: z.string().describe('召回查询关键词'),
     }),
     execute: async ({ query }) => {
-      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId
       if (!userId) {
         return { success: false, error: '未登录用户无法召回记忆', memories: [] }
       }
@@ -292,7 +287,6 @@ export const vibeCodeTools = {
     description: '列出当前用户的所有长期记忆（key + value），用于查看完整偏好集。',
     inputSchema: z.object({}),
     execute: async () => {
-      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId
       if (!userId) {
         return { success: false, error: '未登录用户无法列出记忆', memories: [] }
       }
@@ -330,7 +324,6 @@ export const vibeCodeTools = {
         .describe('JS 代码字符串，函数体接受 (args, context)，return 结果。例如：return args.a + args.b'),
     }),
     execute: async ({ name, description, implementation }) => {
-      const userId = (globalThis as { __vibeUserId?: string }).__vibeUserId
       if (!userId) {
         return { success: false, error: '未登录用户无法创建工具' }
       }
@@ -403,7 +396,14 @@ export const vibeCodeTools = {
       }
     },
   }),
+  }
 }
+
+/**
+ * @deprecated 使用 createVibeTools(userId, projectId) 创建绑定到具体用户/项目的工具集。
+ * 此默认实例绑定到匿名（未登录）上下文，仅供 chatTools 等不依赖用户上下文的工具复用。
+ */
+export const vibeCodeTools = createVibeTools('', undefined)
 
 /**
  * 执行 AI 自建工具的调用（供 vibe-code 路由层在 streamText 之外使用，
@@ -433,10 +433,13 @@ export const chatTools = {
   generateVideo: vibeCodeTools.generateVideo,
 }
 
-/** 设置当前请求的 Vibe 用户/项目上下文（路由层调用） */
-export function setVibeContext(userId: string, projectId?: string) {
-  ;(globalThis as { __vibeUserId?: string }).__vibeUserId = userId
-  ;(globalThis as { __vibeProjectId?: string }).__vibeProjectId = projectId
+/**
+ * @deprecated 已不再需要。createVibeTools 通过闭包捕获 userId / projectId，
+ * 不再依赖 globalThis，避免并发请求间上下文互相覆盖（P0-2 修复）。
+ * 保留为 no-op 以兼容旧调用点，后续版本将移除。
+ */
+export function setVibeContext(_userId: string, _projectId?: string) {
+  // no-op：上下文已通过 createVibeTools(userId, projectId) 闭包传递
 }
 
 /** 工具定义列表（传给 chatWithTools 的 tools 参数，OpenAI 兼容格式） */

@@ -15,7 +15,7 @@
 import { tool, type ToolSet } from 'ai'
 import { z } from 'zod'
 import { supabase } from './supabase'
-import { vibeCodeTools, listDynamicTools } from './vibe-tools'
+import { createVibeTools, listDynamicTools } from './vibe-tools'
 import type { Skill, UserSkill, SkillManifest } from '../../shared/types'
 
 // ---------------------------------------------------------------------
@@ -29,14 +29,21 @@ import type { Skill, UserSkill, SkillManifest } from '../../shared/types'
 // - saveMemory / recallMemory / listMemory：长期记忆
 // - bash：仍为 stub（前端 WebContainer 桥接，后端无法执行 shell）
 
-/** bash 工具 stub：仅 schema，无 execute（前端 WebContainer 桥接） */
+/**
+ * bash 工具 stub：schema + 占位 execute（前端 WebContainer 桥接）。
+ * 实际由前端 WebContainer 沙箱执行并通过 tool_result 事件回传结果；
+ * 后端无法执行 shell，此处 execute 仅返回占位提示，避免 Vercel AI SDK
+ * 报"工具无 execute"错误（P1-8 修复）。前端拦截时会用真实结果覆盖。
+ */
 const bashToolStub = tool({
   description: '在浏览器内 WebContainer 沙箱中执行 bash 命令（ls / cd / mkdir / npm / git / node 等）',
   inputSchema: z.object({
     command: z.string().describe('要执行的 shell 命令'),
   }),
-  // 无 execute：实际由前端 WebContainer 执行并通过 tool_result 事件回传结果
-  // 后端无法执行 shell，若前端未拦截则 AI 会收到 tool_call 无 result 的提示
+  execute: async () => ({
+    output: 'bash 命令由前端 WebContainer 沙箱执行，后端无需重复执行',
+    note: '前端已拦截此工具调用并真实执行',
+  }),
 })
 
 /** saveMemory 工具：Batch E1 实现，复用 vibe-tools.ts 的真实实现（带 execute） */
@@ -44,26 +51,29 @@ const bashToolStub = tool({
 /** recallMemory 工具：Batch E1 实现，复用 vibe-tools.ts 的真实实现（带 execute） */
 
 /**
- * 内置工具名 → tool 实现的映射表。
- * - webSearch / generateImage / generateVideo / executeCode：复用 vibe-tools.ts 实现
- * - bash / writeFile / readFile：stub（无 execute，前端 WebContainer 桥接）
- * - saveMemory / recallMemory / listMemory：Batch E1 实现，复用 vibe-tools.ts 真实实现
+ * 构造绑定到指定用户/项目上下文的内置工具映射。
+ * 使用 createVibeTools(userId, projectId) 创建闭包捕获上下文的工具实例，
+ * 避免 globalThis 污染（P0-2 修复）。
  *
  * 使用 ToolSet 类型（Record<string, Tool<any, any, any>>）以兼容异构 tool 输入 schema。
  */
-const BUILTIN_TOOL_IMPLEMENTATIONS: ToolSet = {
-  webSearch: vibeCodeTools.webSearch,
-  generateImage: vibeCodeTools.generateImage,
-  generateVideo: vibeCodeTools.generateVideo,
-  executeCode: vibeCodeTools.executeCode,
-  bash: bashToolStub,
-  // writeFile / readFile 复用 vibe-tools.ts 真实实现（带 execute）
-  // 即使前端 WebContainer 未启用或浏览器不支持，后端也能兜底执行写入
-  writeFile: vibeCodeTools.writeFile,
-  readFile: vibeCodeTools.readFile,
-  saveMemory: vibeCodeTools.saveMemory,
-  recallMemory: vibeCodeTools.recallMemory,
-  listMemory: vibeCodeTools.listMemory,
+function createBuiltinTools(userId: string, projectId?: string): ToolSet {
+  const vibeTools = createVibeTools(userId, projectId)
+  return {
+    webSearch: vibeTools.webSearch,
+    generateImage: vibeTools.generateImage,
+    generateVideo: vibeTools.generateVideo,
+    executeCode: vibeTools.executeCode,
+    bash: bashToolStub,
+    // writeFile / readFile 复用 vibe-tools.ts 真实实现（带 execute）
+    // 即使前端 WebContainer 未启用或浏览器不支持，后端也能兜底执行写入
+    writeFile: vibeTools.writeFile,
+    readFile: vibeTools.readFile,
+    saveMemory: vibeTools.saveMemory,
+    recallMemory: vibeTools.recallMemory,
+    listMemory: vibeTools.listMemory,
+    buildTool: vibeTools.buildTool,
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -175,18 +185,20 @@ export async function listInstalledSkills(userId: string): Promise<UserSkill[]> 
  */
 export async function loadSkillTools(
   userId: string,
+  projectId?: string,
 ): Promise<ToolSet> {
   const installedSkills = await listInstalledSkills(userId)
   const dynamicToolMetas = listDynamicTools(userId)
 
-  // 若用户既未安装 skill 也未自建工具，返回空对象让路由层 fallback 到 vibeCodeTools
-  // （vibeCodeTools 已包含 writeFile/readFile/webSearch/generateImage/generateVideo/
-  //   executeCode/saveMemory/recallMemory/listMemory/buildTool 全部默认工具）
+  // 若用户既未安装 skill 也未自建工具，返回空对象让路由层 fallback 到
+  // createVibeTools(userId, projectId)（已包含 writeFile/readFile/webSearch/
+  // generateImage/generateVideo/executeCode/saveMemory/recallMemory/listMemory/buildTool）
   if (installedSkills.length === 0 && dynamicToolMetas.length === 0) {
     return {}
   }
 
   const tools: ToolSet = {}
+  const builtinTools = createBuiltinTools(userId, projectId)
 
   for (const userSkill of installedSkills) {
     const skill = userSkill.skill
@@ -194,8 +206,8 @@ export async function loadSkillTools(
 
     for (const toolDef of skill.manifest.tools) {
       // 内置工具名直接使用预定义实现
-      if (BUILTIN_TOOL_IMPLEMENTATIONS[toolDef.name]) {
-        tools[toolDef.name] = BUILTIN_TOOL_IMPLEMENTATIONS[toolDef.name]
+      if (builtinTools[toolDef.name]) {
+        tools[toolDef.name] = builtinTools[toolDef.name]
       } else {
         // 自定义 skill 工具：创建 schema-only stub
         tools[toolDef.name] = createCustomToolStub(toolDef)
@@ -204,7 +216,7 @@ export async function loadSkillTools(
   }
 
   // 始终注入 buildTool（Batch E2，AI 造工具能力）
-  tools.buildTool = vibeCodeTools.buildTool
+  tools.buildTool = builtinTools.buildTool
 
   // 合并用户自建的动态工具（Batch E2，从内存 Map 加载，带 execute）
   for (const meta of dynamicToolMetas) {

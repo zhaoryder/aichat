@@ -1876,6 +1876,102 @@ export const VibeCodePage = () => {
             ),
           )
         },
+        onToolCall: (tcId, tcName, tcArgs) => {
+          // 把工具调用加入消息（与 single/team 模式一致），让用户看到执行状态
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    toolCalls: [
+                      ...(m.toolCalls ?? []),
+                      {
+                        id: tcId,
+                        name: tcName,
+                        args: tcArgs,
+                        isExecuting: true,
+                      },
+                    ],
+                  }
+                : m,
+            ),
+          )
+
+          // 前端工具拦截：bash / writeFile / readFile / listFiles / install
+          // 由前端 WebContainer 执行，结果同步到预览（与 single 模式一致）
+          if (FRONTEND_TOOLS.has(tcName) && sandboxRef.current?.isReady) {
+            void executeFrontendTool(tcName, tcArgs)
+              .then((result) => {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMsgId
+                      ? {
+                          ...m,
+                          toolCalls: (m.toolCalls ?? []).map((tc) =>
+                            tc.id === tcId
+                              ? { ...tc, result, isExecuting: false }
+                              : tc,
+                          ),
+                        }
+                      : m,
+                  ),
+                )
+                // 若是 writeFile 工具，同步到 dev server 预览（HMR 自动生效）
+                if (tcName === 'writeFile' && sandboxRef.current) {
+                  void sandboxRef.current.startDevServer().then((url) => {
+                    setDevServerUrl(url)
+                  }).catch(() => {
+                    // dev server 启动失败：静默，使用 srcDoc 降级
+                  })
+                }
+              })
+              .catch((err) => {
+                const errorResult = {
+                  error: err instanceof Error ? err.message : String(err),
+                }
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMsgId
+                      ? {
+                          ...m,
+                          toolCalls: (m.toolCalls ?? []).map((tc) =>
+                            tc.id === tcId
+                              ? {
+                                  ...tc,
+                                  result: errorResult,
+                                  isExecuting: false,
+                                  hasError: true,
+                                }
+                              : tc,
+                          ),
+                        }
+                      : m,
+                  ),
+                )
+              })
+          }
+        },
+        onToolResult: (trId, _trName, trResult) => {
+          // 后端执行的工具结果（非前端拦截的工具）
+          const hasError =
+            trResult != null &&
+            typeof trResult === 'object' &&
+            'error' in trResult
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    toolCalls: (m.toolCalls ?? []).map((tc) =>
+                      tc.id === trId
+                        ? { ...tc, result: trResult, isExecuting: false, hasError }
+                        : tc,
+                    ),
+                  }
+                : m,
+            ),
+          )
+        },
         onStepDone: (stepId, result) => {
           setPlan((prev) =>
             prev
