@@ -17,6 +17,7 @@ import {
   appendUserMessage,
   pauseTeamSession,
   getTeamSession,
+  reactivateTeamSession,
 } from '../lib/agents/team-orchestrator'
 import type { TeamConfig, TeamRole } from '../../shared/types'
 
@@ -144,7 +145,10 @@ teamRouter.post(
       // 2. 若 session 已 completed / failed，重新激活为 active
       // （用户发新消息相当于继续对话）
       if (session.status === 'completed' || session.status === 'failed') {
-        // 重新激活由 orchestrator 内部 updateSessionState 处理
+        await reactivateTeamSession(sessionId)
+        // 同步本地 session 对象，保持与 DB 一致
+        session.status = 'active'
+        session.current_role_name = null
       }
 
       // 3. 立即开始 SSE 流

@@ -603,8 +603,8 @@ vibeCodeRouter.post(
         const generated = await generatePlan(goal)
 
         // 规范化 step 并保存到 plans 表
-        const steps: PlanStep[] = generated.steps.map((s) => ({
-          id: s.id,
+        const steps: PlanStep[] = generated.steps.map((s, i) => ({
+          id: i + 1,
           title: s.title,
           type: s.type,
           status: 'pending',

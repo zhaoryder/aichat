@@ -210,7 +210,9 @@ export async function runTeamStep(
     }
 
     if (session.status === 'completed' || session.status === 'failed') {
-      sendEvent(res, 'error', { error: `team_session 已 ${session.status}` })
+      sendEvent(res, 'error', {
+        error: `team_session 已 ${session.status}，请发送新消息以重新激活会话`,
+      })
       res.end()
       return
     }
@@ -751,6 +753,22 @@ export async function pauseTeamSession(
     .eq('id', sessionId)
 
   if (updateError) throw updateError
+}
+
+/**
+ * 重新激活 session：把 status 从 completed/failed 切回 active，
+ * 并清空 current_role_name，让 runTeamStep 可以继续跑下一轮协作。
+ * 用于 /api/team/:id/message 端点：用户在已结束的会话中追加新消息时调用。
+ */
+export async function reactivateTeamSession(
+  sessionId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('team_sessions')
+    .update({ status: 'active', current_role_name: null })
+    .eq('id', sessionId)
+
+  if (error) throw error
 }
 
 /** 获取 team_session（含权限校验） */

@@ -313,6 +313,29 @@ plansRouter.post(
         return
       }
 
+      // 状态校验：executing 中拒绝；已完成/失败/暂停则重置未完成 step 后允许重新执行
+      if (plan.status === 'executing') {
+        res.status(400).json({ error: 'Plan 正在执行中，请先暂停' })
+        return
+      }
+      if (
+        plan.status === 'completed' ||
+        plan.status === 'failed' ||
+        plan.status === 'paused'
+      ) {
+        const resetSteps = plan.steps.map((s) =>
+          s.status === 'completed' || s.status === 'skipped'
+            ? s
+            : { ...s, status: 'pending' as const },
+        )
+        await supabase
+          .from('plans')
+          .update({ status: 'executing', steps: resetSteps })
+          .eq('id', id)
+        plan.steps = resetSteps
+        plan.status = 'executing'
+      }
+
       // 标记为 executing
       await supabase
         .from('plans')

@@ -58,6 +58,7 @@ import {
   ExternalLink,
   Share2,
   Square,
+  Trash2,
   AlertTriangle,
   ListChecks,
   Crown,
@@ -173,6 +174,7 @@ const EXAMPLE_PROMPTS = [
 ]
 
 const VIEW_MODE_KEY = 'vibe-code-view-mode'
+const VIBE_MESSAGES_KEY = 'vibe-code-messages'
 
 /** iframe 错误捕获脚本 */
 const ERROR_CAPTURE_SCRIPT = `<script>
@@ -836,10 +838,45 @@ export const VibeCodePage = () => {
   const { user } = useAuth()
 
   // ----- 消息状态 + 流式状态（手动管理，对接 POST /api/vibe-code/stream） -----
-  const [messages, setMessages] = useState<VibeMessage[]>([])
+  const [messages, setMessages] = useState<VibeMessage[]>(() => {
+    try {
+      const stored = localStorage.getItem(VIBE_MESSAGES_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as VibeMessage[]
+        // 只恢复非流式状态的消息（避免恢复到一半的流式状态）
+        return parsed.map(m => ({ ...m, isStreaming: false }))
+      }
+    } catch (err) {
+      console.warn('[VibeCode] failed to load messages from localStorage:', err)
+    }
+    return []
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [composerValue, setComposerValue] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // 持久化对话记录到 localStorage（防抖 500ms，避免频繁写入）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        // 只保存有实际内容的消息，过滤掉流式中的占位
+        const toSave = messages.filter(m => m.content || (m.toolCalls && m.toolCalls.length > 0))
+        const serialized = JSON.stringify(toSave)
+        const MAX_STORAGE_SIZE = 4 * 1024 * 1024 // 4MB
+        if (serialized.length > MAX_STORAGE_SIZE) {
+          // 超限时只保留最近 50 条消息
+          const trimmed = toSave.slice(-50)
+          localStorage.setItem(VIBE_MESSAGES_KEY, JSON.stringify(trimmed))
+        } else {
+          localStorage.setItem(VIBE_MESSAGES_KEY, serialized)
+        }
+      } catch (err) {
+        // localStorage 满了或其他错误，静默处理
+        console.warn('[VibeCode] failed to save messages to localStorage:', err)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [messages])
 
   // ----- Plan Mode 状态（Batch B）-----
   const [planMode, setPlanMode] = useState(false)
@@ -942,38 +979,8 @@ export const VibeCodePage = () => {
   const [autoFixEnabled, setAutoFixEnabled] = useState(true)
   // 防止短时间内重复触发自动修复
   const lastAutoFixRef = useRef<number>(0)
-
-  // ----- A1 自动调试闭环：监听 iframe error，自动准备修复提示 -----
-  // iframe 内的 ERROR_CAPTURE_SCRIPT 会 postMessage('vibe-error')，这里接收并：
-  // 1) 推送到 sandbox 的错误收集器（供 readTerminal 等工具读取）
-  // 2) 计数（用于 StatusBar 显示）
-  // 3) 自动填充修复 prompt 到输入框（不自动发送，避免无限循环；用户点发送即可）
-  useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      if (event.data?.type !== 'vibe-error') return
-      const msg = typeof event.data.message === 'string' ? event.data.message : '未知错误'
-      // 推送到沙箱错误收集器（A1 自动调试闭环数据源）
-      sandboxRef.current?.pushIframeError(msg)
-      setIframeErrorCount((c) => c + 1)
-      // 自动修复：流式生成中不触发，1.5s 内不重复触发
-      if (autoFixEnabled && !isStreaming && Date.now() - lastAutoFixRef.current > 1500) {
-        lastAutoFixRef.current = Date.now()
-        // 用字符串拼接避免模板字面量转义问题
-        const fixPrompt =
-          '页面报错了，请修复：\n' +
-          '```\n' +
-          msg.slice(0, 500) +
-          '\n```'
-        // 用 setTimeout 避免在事件回调中同步调 state setter 触发 React 警告
-        setTimeout(() => {
-          setComposerValue(fixPrompt)
-        }, 100)
-        toast.error('检测到 iframe 错误，已自动准备修复提示，点击发送以执行修复')
-      }
-    }
-    window.addEventListener('message', handler)
-    return () => window.removeEventListener('message', handler)
-  }, [autoFixEnabled, isStreaming])
+  // 自动修复轮次计数（防死循环，最多 3 轮；用户手动发送时重置）
+  const autoFixRoundRef = useRef<number>(0)
 
   const hasCode = code.length > 0
   const iframeSrcDoc = buildIframeSrcDoc(code)
@@ -1517,9 +1524,13 @@ export const VibeCodePage = () => {
 
   // ----- SSE 流式发送（对接 POST /api/vibe-code/stream） -----
   const handleSendByText = useCallback(
-    async (text: string) => {
+    async (text: string, opts?: { isAutoFix?: boolean }) => {
       const trimmed = text.trim()
       if (!trimmed || isLoading) return
+      // 用户手动发送时重置自动修复轮次；自动修复调用不重置，以触发 3 轮上限防死循环
+      if (!opts?.isAutoFix) {
+        autoFixRoundRef.current = 0
+      }
 
       // 立即清空输入框
       setComposerValue('')
@@ -1563,7 +1574,7 @@ export const VibeCodePage = () => {
         try {
           const response = await apiStream(
             '/vibe-code/stream',
-            { messages: messagesToSend, mode: 'plan' },
+            { messages: messagesToSend, mode: 'plan', projectId: null },
             { signal: controller.signal },
           )
 
@@ -1885,6 +1896,46 @@ export const VibeCodePage = () => {
     },
     [isLoading, planMode, plan, teamMode, handleSendTeam],
   )
+
+  // ----- A1 自动调试闭环：监听 iframe error，自动发送修复请求 -----
+  // iframe 内的 ERROR_CAPTURE_SCRIPT 会 postMessage('vibe-error')，这里接收并：
+  // 1) 推送到 sandbox 的错误收集器（供 readTerminal 等工具读取）
+  // 2) 计数（用于 StatusBar 显示）
+  // 3) 流式结束后自动发送修复 prompt（最多 3 轮，防死循环；用户手动发送会重置计数）
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type !== 'vibe-error') return
+      const msg = typeof event.data.message === 'string' ? event.data.message : '未知错误'
+      // 推送到沙箱错误收集器（A1 自动调试闭环数据源）
+      sandboxRef.current?.pushIframeError(msg)
+      setIframeErrorCount((c) => c + 1)
+      // 自动修复：流式生成中不触发，2s 内不重复触发
+      if (autoFixEnabled && !isStreaming && Date.now() - lastAutoFixRef.current > 2000) {
+        // 防死循环：最多自动修复 3 次
+        if (autoFixRoundRef.current >= 3) {
+          toast.warning('自动修复已达 3 次上限，请手动检查问题')
+          return
+        }
+        lastAutoFixRef.current = Date.now()
+        autoFixRoundRef.current += 1
+        const round = autoFixRoundRef.current
+        // 用字符串拼接避免模板字面量转义问题
+        const fixPrompt =
+          '页面报错了，请修复：\n' +
+          '```\n' +
+          msg.slice(0, 500) +
+          '\n```'
+        // 直接自动发送修复请求，无需用户手动点击
+        // 用 setTimeout 0 确保在 message 事件回调外执行
+        setTimeout(() => {
+          void handleSendByText(fixPrompt, { isAutoFix: true })
+          toast.info(`检测到 iframe 错误，已自动发送修复请求（第 ${round} 轮）`)
+        }, 0)
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [autoFixEnabled, isStreaming, handleSendByText])
 
   // ----- Plan Mode 阶段 2：执行 plan（走 POST /api/plans/:id/execute） -----
   const handleExecutePlan = useCallback(async () => {
@@ -2388,6 +2439,19 @@ export const VibeCodePage = () => {
         onSelect: () => handleReset(),
       },
       {
+        id: 'clear-chat',
+        label: '清空对话记录',
+        icon: Trash2,
+        group: 'actions',
+        onSelect: () => {
+          if (confirm('确认清空所有对话记录？')) {
+            localStorage.removeItem(VIBE_MESSAGES_KEY)
+            setMessages([])
+            toast.success('对话已清空')
+          }
+        },
+      },
+      {
         id: 'view-split',
         label: '切换到分屏视图',
         icon: Columns2,
@@ -2459,6 +2523,7 @@ export const VibeCodePage = () => {
                 return
               }
               setPlan(null)
+              setPlanMode(false)
             }}
           />
         </div>
