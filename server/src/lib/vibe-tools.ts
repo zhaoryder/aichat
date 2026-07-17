@@ -396,6 +396,19 @@ export function createVibeTools(userId: string, projectId?: string) {
       }
     },
   }),
+  // -----------------------------------------------------------------
+  // readTerminal：读取前端 WebContainer 终端输出（由前端沙箱执行）
+  // -----------------------------------------------------------------
+  readTerminal: tool({
+    description: '读取 WebContainer 终端的最新输出（最近 N 行）。用于调试：运行命令后查看输出、检查错误。由前端沙箱执行，后端无需调用。',
+    inputSchema: z.object({
+      lines: z.number().optional().describe('读取最近 N 行，默认 50'),
+    }),
+    execute: async () => ({
+      note: 'readTerminal 由前端 WebContainer 沙箱执行，后端无需调用',
+      output: '',
+    }),
+  }),
   }
 }
 

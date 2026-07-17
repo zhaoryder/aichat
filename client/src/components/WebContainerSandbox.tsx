@@ -92,6 +92,10 @@ export class WebContainerSandbox {
   private _devServerUrl: string | null = null
   /** server-ready 事件监听器卸载函数 */
   private unsubscribeServerReady: (() => void) | null = null
+  /** 终端历史输出（最近 500 行，供 readTerminal 工具读取） */
+  private terminalHistory: string[] = []
+  /** iframe 错误收集（最近 20 条，供 A1 自动调试闭环读取） */
+  private iframeErrors: string[] = []
 
   /** 获取当前 dev server URL */
   get devServerUrl(): string | null {
@@ -295,6 +299,15 @@ export class WebContainerSandbox {
     // 等待进程退出，获取 exit code
     const exitCode = await process.exit.catch(() => 1)
 
+    // 追加 stdout 到终端历史（限制最近 500 行）
+    if (stdout) {
+      const newLines = stdout.split('\n')
+      this.terminalHistory.push(...newLines)
+      if (this.terminalHistory.length > 500) {
+        this.terminalHistory = this.terminalHistory.slice(-500)
+      }
+    }
+
     return { stdout, stderr, exitCode }
   }
 
@@ -461,6 +474,37 @@ export class WebContainerSandbox {
         // ignore：回调自身报错不影响其他回调
       }
     }
+  }
+
+  // -------------------------------------------------------------------
+  // 终端历史 + iframe 错误收集（供 readTerminal 工具 / A1 自动调试闭环）
+  // -------------------------------------------------------------------
+
+  /**
+   * 获取终端最近 N 行历史输出。
+   * 历史在 runCommand 时自动追加 stdout（限制最近 500 行）。
+   */
+  getTerminalHistory(lines: number = 50): string {
+    const n = Math.max(0, Math.min(lines, this.terminalHistory.length))
+    return this.terminalHistory.slice(-n).join('\n')
+  }
+
+  /** 追加一条 iframe 错误（限制最近 20 条），供 VibeCodePage 调用 */
+  pushIframeError(msg: string): void {
+    this.iframeErrors.push(msg)
+    if (this.iframeErrors.length > 20) {
+      this.iframeErrors = this.iframeErrors.slice(-20)
+    }
+  }
+
+  /** 获取所有已收集的 iframe 错误 */
+  getIframeErrors(): string[] {
+    return this.iframeErrors
+  }
+
+  /** 清空已收集的 iframe 错误 */
+  clearIframeErrors(): void {
+    this.iframeErrors = []
   }
 
   // -------------------------------------------------------------------

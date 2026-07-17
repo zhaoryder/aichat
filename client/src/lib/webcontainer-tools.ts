@@ -33,6 +33,7 @@ export const FRONTEND_TOOLS = new Set([
   'readFile',
   'listFiles',
   'install',
+  'readTerminal',
 ])
 
 /**
@@ -71,6 +72,11 @@ export async function executeFrontendTool(
       const pkg = String(args.pkg ?? '')
       const result = await _sandbox.runCommand(`npm install ${pkg}`)
       return { success: result.exitCode === 0, stdout: result.stdout }
+    }
+    case 'readTerminal': {
+      const lines = (args.lines as number) ?? 50
+      const output = _sandbox.getTerminalHistory(lines)
+      return { success: true, output, lines }
     }
     default:
       return { error: `未知前端工具：${name}` }

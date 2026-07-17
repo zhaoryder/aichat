@@ -65,6 +65,9 @@ import {
   Code2,
   Play,
   ShieldCheck,
+  Camera,
+  Command,
+  Users,
 } from 'lucide-react'
 import {
   AssistantRuntimeProvider,
@@ -122,6 +125,12 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { PlanPanel } from '@/components/PlanPanel'
+import { CommandPalette, type CommandPaletteItem } from '@/components/CommandPalette'
+import { StatusBar } from '@/components/StatusBar'
+import { DiffViewerDialog } from '@/components/DiffViewerDialog'
+import { ShareDialog } from '@/components/ShareDialog'
+import { TypingCursor, ThinkingIndicator, ToolProgress } from '@/components/StreamingIndicator'
+import { exportProjectAsZip } from '@/lib/export-project'
 
 // ---------------------------------------------------------------------
 // 类型 & 常量
@@ -917,6 +926,54 @@ export const VibeCodePage = () => {
   const codeRef = useRef<HTMLPreElement>(null)
   const conversationRef = useRef<HTMLDivElement>(null)
   const prevLoadingRef = useRef(false)
+
+  // ----- v5.0 升级状态 -----
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [diffDialogState, setDiffDialogState] = useState<{
+    open: boolean
+    oldCode: string
+    newCode: string
+    oldLabel?: string
+    newLabel?: string
+  }>({ open: false, oldCode: '', newCode: '' })
+  const [iframeErrorCount, setIframeErrorCount] = useState(0)
+  // 自动修复默认开启
+  const [autoFixEnabled, setAutoFixEnabled] = useState(true)
+  // 防止短时间内重复触发自动修复
+  const lastAutoFixRef = useRef<number>(0)
+
+  // ----- A1 自动调试闭环：监听 iframe error，自动准备修复提示 -----
+  // iframe 内的 ERROR_CAPTURE_SCRIPT 会 postMessage('vibe-error')，这里接收并：
+  // 1) 推送到 sandbox 的错误收集器（供 readTerminal 等工具读取）
+  // 2) 计数（用于 StatusBar 显示）
+  // 3) 自动填充修复 prompt 到输入框（不自动发送，避免无限循环；用户点发送即可）
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type !== 'vibe-error') return
+      const msg = typeof event.data.message === 'string' ? event.data.message : '未知错误'
+      // 推送到沙箱错误收集器（A1 自动调试闭环数据源）
+      sandboxRef.current?.pushIframeError(msg)
+      setIframeErrorCount((c) => c + 1)
+      // 自动修复：流式生成中不触发，1.5s 内不重复触发
+      if (autoFixEnabled && !isStreaming && Date.now() - lastAutoFixRef.current > 1500) {
+        lastAutoFixRef.current = Date.now()
+        // 用字符串拼接避免模板字面量转义问题
+        const fixPrompt =
+          '页面报错了，请修复：\n' +
+          '```\n' +
+          msg.slice(0, 500) +
+          '\n```'
+        // 用 setTimeout 避免在事件回调中同步调 state setter 触发 React 警告
+        setTimeout(() => {
+          setComposerValue(fixPrompt)
+        }, 100)
+        toast.error('检测到 iframe 错误，已自动准备修复提示，点击发送以执行修复')
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [autoFixEnabled, isStreaming])
 
   const hasCode = code.length > 0
   const iframeSrcDoc = buildIframeSrcDoc(code)
@@ -2277,6 +2334,112 @@ export const VibeCodePage = () => {
     { mode: 'preview', icon: <Eye className="h-4 w-4" />, label: '预览' },
   ]
 
+  // ----- v5.0 命令面板项（⌘K） -----
+  const commandPaletteItems: CommandPaletteItem[] = useMemo(
+    () => [
+      {
+        id: 'save',
+        label: '保存项目',
+        icon: Save,
+        group: 'actions',
+        onSelect: () => {
+          setSaveTitle(lastPrompt.slice(0, 40) || '未命名项目')
+          setSaveOpen(true)
+        },
+      },
+      {
+        id: 'snapshot',
+        label: '创建快照',
+        icon: Camera,
+        group: 'actions',
+        onSelect: () => {
+          void handleCreateManualSnapshot()
+        },
+      },
+      {
+        id: 'share',
+        label: '分享项目',
+        icon: Share2,
+        group: 'actions',
+        onSelect: () => setShareDialogOpen(true),
+      },
+      {
+        id: 'export',
+        label: '导出为 ZIP',
+        icon: Download,
+        group: 'actions',
+        onSelect: async () => {
+          if (!sandboxRef.current?.isReady) {
+            toast.error('沙箱未就绪')
+            return
+          }
+          try {
+            await exportProjectAsZip(sandboxRef.current)
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : '导出失败')
+          }
+        },
+      },
+      {
+        id: 'reset',
+        label: '重置沙箱',
+        icon: RotateCcw,
+        group: 'actions',
+        onSelect: () => handleReset(),
+      },
+      {
+        id: 'view-split',
+        label: '切换到分屏视图',
+        icon: Columns2,
+        group: 'views',
+        onSelect: () => setViewMode('split'),
+      },
+      {
+        id: 'view-code',
+        label: '切换到代码视图',
+        icon: Code,
+        group: 'views',
+        onSelect: () => setViewMode('code'),
+      },
+      {
+        id: 'view-preview',
+        label: '切换到预览视图',
+        icon: Eye,
+        group: 'views',
+        onSelect: () => setViewMode('preview'),
+      },
+      {
+        id: 'toggle-terminal',
+        label: '切换终端',
+        icon: TerminalIcon,
+        group: 'tools',
+        onSelect: () => setShowTerminal((v) => !v),
+      },
+      {
+        id: 'toggle-plan',
+        label: planMode ? '关闭 Plan Mode' : '开启 Plan Mode',
+        icon: ListChecks,
+        group: 'tools',
+        onSelect: () => setPlanMode((v) => !v),
+      },
+      {
+        id: 'toggle-team',
+        label: teamMode ? '关闭 Teamwork' : '开启 Teamwork',
+        icon: Users,
+        group: 'tools',
+        onSelect: () => setTeamMode((v) => !v),
+      },
+      {
+        id: 'toggle-autofix',
+        label: autoFixEnabled ? '关闭自动修复' : '开启自动修复',
+        icon: Wrench,
+        group: 'tools',
+        onSelect: () => setAutoFixEnabled((v) => !v),
+      },
+    ],
+    [planMode, teamMode, autoFixEnabled, lastPrompt, handleCreateManualSnapshot, handleReset],
+  )
+
   // ----- 渲染：左侧面板（assistant-ui Thread + 历史项目） -----
   const renderLeftPanel = () => (
     <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-gray-900">
@@ -2325,11 +2488,33 @@ export const VibeCodePage = () => {
                 if (message.role === 'user') return <UserMessage />
                 // Teamwork 模式：从 VibeMessage 中读取 agentRole / review（C7 / C9）
                 const vibeMsg = messages.find((m) => m.id === message.id)
+                // v5.0：判断是否为最后一条 assistant 消息（用于流式指示器）
+                const isLastAssistant =
+                  messages.length > 0 &&
+                  messages[messages.length - 1].id === message.id &&
+                  messages[messages.length - 1].role === 'assistant'
+                // v5.0：查找正在执行的工具调用（如果有）
+                const executingTool = vibeMsg?.toolCalls?.find((tc) => tc.isExecuting)
                 return (
-                  <AssistantMessage
-                    agentRole={vibeMsg?.agentRole}
-                    review={vibeMsg?.review}
-                  />
+                  <>
+                    <AssistantMessage
+                      agentRole={vibeMsg?.agentRole}
+                      review={vibeMsg?.review}
+                    />
+                    {/* v5.0 流式指示器：仅在最后一条 assistant 消息后显示 */}
+                    {isLastAssistant && isStreaming && !vibeMsg?.content && (
+                      <ThinkingIndicator
+                        visible={true}
+                        role={vibeMsg?.agentRole ? ROLE_BADGE_META[vibeMsg.agentRole].label : undefined}
+                      />
+                    )}
+                    {isLastAssistant && isStreaming && vibeMsg?.content && (
+                      <TypingCursor visible={true} />
+                    )}
+                    {executingTool && (
+                      <ToolProgress name={executingTool.name} isExecuting={true} />
+                    )}
+                  </>
                 )
               }}
             </ThreadPrimitive.Messages>
@@ -2516,6 +2701,25 @@ export const VibeCodePage = () => {
                         <GitCompare className="h-3 w-3" />
                         对比
                       </button>
+                      {/* v5.0：与当前代码对比（使用 DiffViewerDialog） */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDiffDialogState({
+                            open: true,
+                            oldCode: s.code,
+                            newCode: code,
+                            oldLabel: s.label ? `${s.label} · ${relativeTime(s.created_at)}` : relativeTime(s.created_at),
+                            newLabel: '当前代码',
+                          })
+                        }
+                        disabled={!hasCode}
+                        className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary disabled:opacity-50"
+                        title="与当前代码对比"
+                      >
+                        <Diff className="h-3 w-3" />
+                        当前
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -2662,6 +2866,62 @@ export const VibeCodePage = () => {
       >
         <Maximize2 className="h-4 w-4" />
       </button>
+
+      {/* v5.0 新功能按钮：分享 / 导出 / 命令面板 / 自动修复开关 */}
+      <button
+        type="button"
+        onClick={() => setShareDialogOpen(true)}
+        title="分享项目"
+        className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
+      >
+        <Share2 className="h-4 w-4" />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          if (!sandboxRef.current?.isReady) {
+            toast.error('沙箱未就绪')
+            return
+          }
+          void exportProjectAsZip(sandboxRef.current).catch((err: unknown) => {
+            toast.error(err instanceof Error ? err.message : '导出失败')
+          })
+        }}
+        title="导出为 ZIP"
+        className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
+      >
+        <Download className="h-4 w-4" />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setCommandPaletteOpen(true)}
+        title="命令面板 (⌘K)"
+        className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
+      >
+        <Command className="h-4 w-4" />
+      </button>
+
+      {/* v5.0 自动修复开关（A1 自动调试闭环） */}
+      <div
+        className={cn(
+          'hidden md:flex items-center gap-1.5 rounded-lg border px-2 py-1 transition-colors',
+          autoFixEnabled
+            ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'
+            : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400',
+        )}
+        title="开启后检测到 iframe 错误自动准备修复提示"
+      >
+        <Wrench className="h-3.5 w-3.5" />
+        <span className="text-xs hidden lg:inline">自动修复</span>
+        <Switch
+          checked={autoFixEnabled}
+          onCheckedChange={setAutoFixEnabled}
+          className="scale-90"
+          aria-label="自动修复开关"
+        />
+      </div>
 
       {/* 收起/展开左侧（桌面） */}
       <button
@@ -3206,6 +3466,55 @@ export const VibeCodePage = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* v5.0 命令面板（⌘K） */}
+        <CommandPalette
+          open={commandPaletteOpen}
+          onOpenChange={setCommandPaletteOpen}
+          commands={commandPaletteItems}
+        />
+
+        {/* v5.0 分享对话框 */}
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          sandbox={sandboxRef.current}
+          projectId={null}
+          currentCode={code}
+        />
+
+        {/* v5.0 Diff 查看器（与当前代码对比） */}
+        <DiffViewerDialog
+          open={diffDialogState.open}
+          onOpenChange={(open) => setDiffDialogState((prev) => ({ ...prev, open }))}
+          oldCode={diffDialogState.oldCode}
+          newCode={diffDialogState.newCode}
+          oldLabel={diffDialogState.oldLabel}
+          newLabel={diffDialogState.newLabel}
+        />
+
+        {/* v5.0 底部状态栏 */}
+        <StatusBar
+          tokenCount={messages.reduce((sum, m) => sum + (m.content?.length || 0), 0)}
+          fileCount={0}
+          devServerRunning={!!devServerUrl}
+          devServerUrl={devServerUrl}
+          hasErrors={iframeErrorCount > 0}
+          errorCount={iframeErrorCount}
+          isStreaming={isStreaming}
+          planMode={planMode}
+          teamMode={teamMode}
+          viewMode={viewMode}
+          sandboxReady={webcontainerReady}
+          onErrorClick={() => {
+            const errors = sandboxRef.current?.getIframeErrors() ?? []
+            if (errors.length > 0) {
+              toast.error(`最近错误：\n${errors[errors.length - 1].slice(0, 200)}`)
+            } else {
+              toast.info('没有已收集的错误')
+            }
+          }}
+        />
       </div>
     </AssistantRuntimeProvider>
   )
