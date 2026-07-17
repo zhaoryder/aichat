@@ -113,6 +113,14 @@ export class WebContainerSandbox {
     return this.bootStatus === 'ready' && this.instance !== null
   }
 
+  /** 获取内部 WebContainer 实例（供全局单例复用：另一个 WebContainerSandbox 引用同一实例） */
+  getWebContainer(): WebContainer | null {
+    return this.instance
+  }
+
+  /** boot Promise（用于并发去重：避免同一 sandbox 被并发 boot 多次） */
+  private bootPromise: Promise<void> | null = null
+
   // -------------------------------------------------------------------
   // 静态检测：浏览器是否支持 WebContainer
   // -------------------------------------------------------------------
@@ -137,14 +145,47 @@ export class WebContainerSandbox {
   // -------------------------------------------------------------------
 
   /**
-   * 启动 WebContainer 实例。重复调用幂等（已 boot 则直接返回）。
-   * 失败时调用 onError 回调并设置 bootStatus='error'。
+   * 启动 WebContainer 实例。重复调用幂等：
+   *   - 已 ready：直接返回
+   *   - 已 booting：复用同一个 Promise（避免 React StrictMode 双挂载等场景下并发 boot）
+   *   - error/idle：尝试重新 boot
+   *
+   * 关键修复：每个浏览器标签页只允许一个 WebContainer 实例。当 StrictMode 双挂载
+   * 或页面来回切换导致 cleanup 提前触发时，新 sandbox 会复用全局单例的 instance，
+   * 避免 "Only a single WebContainer instance can be booted" 错误。
    */
   async boot(): Promise<void> {
     if (this.bootStatus === 'ready') return
-    if (this.bootStatus === 'booting') return
 
+    // 并发去重：booting 状态下复用同一 Promise，避免并发 boot
+    if (this.bootStatus === 'booting' && this.bootPromise) {
+      return this.bootPromise
+    }
+
+    this.bootPromise = this._doBoot()
+    return this.bootPromise
+  }
+
+  /**
+   * 实际执行 boot 的私有方法。包含全局复用、环境检测、错误恢复逻辑。
+   */
+  private async _doBoot(): Promise<void> {
     this.bootStatus = 'booting'
+
+    // 全局复用：若 window 上已有 ready 的单例（且不是 this），直接复用其 instance
+    // 避免在 StrictMode 双挂载 / 页面来回切换场景下重复 boot
+    if (
+      typeof window !== 'undefined' &&
+      window.__webcontainer &&
+      window.__webcontainer !== this &&
+      window.__webcontainer.isReady
+    ) {
+      this.instance = window.__webcontainer.getWebContainer()
+      this._devServerUrl = window.__webcontainer.devServerUrl
+      this.bootError = null
+      this.bootStatus = 'ready'
+      return
+    }
 
     // 环境检测：不支持则直接降级
     if (!WebContainerSandbox.isSupported()) {
@@ -179,9 +220,31 @@ export class WebContainerSandbox {
       )
 
       this.bootStatus = 'ready'
+
+      // 全局注册：把 this 暴露到 window（首次成功 boot 的实例成为全局单例）
+      if (typeof window !== 'undefined' && !window.__webcontainer) {
+        window.__webcontainer = this
+      }
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error(String(err) || 'WebContainer boot 失败')
+
+      // 错误恢复：若错误是 "Only a single WebContainer instance can be booted"
+      // 且 window 上有 ready 的单例可复用，则切换到复用模式（不报错）
+      if (
+        error.message.includes('Only a single WebContainer instance') &&
+        typeof window !== 'undefined' &&
+        window.__webcontainer &&
+        window.__webcontainer !== this &&
+        window.__webcontainer.isReady
+      ) {
+        this.instance = window.__webcontainer.getWebContainer()
+        this._devServerUrl = window.__webcontainer.devServerUrl
+        this.bootError = null
+        this.bootStatus = 'ready'
+        return
+      }
+
       this.bootError = error
       this.bootStatus = 'error'
       this.notifyError(error)
@@ -423,6 +486,7 @@ export class WebContainerSandbox {
       this.instance = null
     }
     this._devServerUrl = null
+    this.bootPromise = null
     this.bootStatus = 'idle'
   }
 }

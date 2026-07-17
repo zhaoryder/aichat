@@ -813,7 +813,7 @@ function VibeComposer({
 // ---------------------------------------------------------------------
 
 import { AICollaboratorPicker } from '@/components/AICollaboratorPicker'
-import { WebContainerSandbox } from '@/components/WebContainerSandbox'
+import { WebContainerSandbox, getGlobalSandbox } from '@/components/WebContainerSandbox'
 import { Terminal } from '@/components/Terminal'
 import { FileTree } from '@/components/FileTree'
 import {
@@ -924,9 +924,11 @@ export const VibeCodePage = () => {
   // ----- Effects -----
 
   // WebContainer 沙箱 boot（Batch D）
+  // 关键：使用全局单例 + 不在 cleanup 里 teardown，避免 React StrictMode 双重挂载
+  // 或页面来回切换时 boot 多次导致 "Only a single WebContainer instance can be booted" 错误
   useEffect(() => {
-    // 创建沙箱实例并注册到全局（供 webcontainer-tools.ts 使用）
-    const sandbox = new WebContainerSandbox()
+    // 使用全局单例（每个浏览器标签页只允许一个 WebContainer 实例）
+    const sandbox = getGlobalSandbox()
     sandboxRef.current = sandbox
     setSandbox(sandbox)
 
@@ -936,7 +938,7 @@ export const VibeCodePage = () => {
       setWebcontainerReady(false)
     })
 
-    // 启动 boot
+    // 启动 boot（幂等：已 ready 直接返回；booting 复用同一 Promise；error/idle 重新尝试）
     void sandbox.boot().then(() => {
       if (sandbox.isReady) {
         setWebcontainerReady(true)
@@ -945,9 +947,10 @@ export const VibeCodePage = () => {
     })
 
     return () => {
+      // 关键：不调用 teardown —— 全局单例应跨页面复用，
+      // 由浏览器标签页关闭时自动回收资源（避免 StrictMode 双挂载时 teardown 还没完成又 boot 报错）
       unsubscribeError()
       setSandbox(null)
-      sandbox.teardown()
       sandboxRef.current = null
     }
   }, [])
