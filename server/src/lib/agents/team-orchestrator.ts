@@ -393,7 +393,7 @@ export async function runTeamStep(
               if (abortController.signal.aborted) return
               sendEvent(res, 'token', { c: token, role: 'reviewer' })
             })
-            sendEvent(res, 'self_check', { result: selfCheckResult })
+            sendEvent(res, 'self_check', { selfCheck: selfCheckResult })
 
             // 如果自检未通过，提示需要修复的问题
             if (!selfCheckResult.passed) {

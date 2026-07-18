@@ -108,6 +108,8 @@ import type {
 } from '@shared/types'
 import { TeamToggle } from '@/components/TeamToggle'
 import { CodeReviewCard } from '@/components/CodeReviewCard'
+import { SubAgentCard, type SubAgentInfo } from '@/components/SubAgentCard'
+import { SelfCheckCard, type SelfCheckResultData } from '@/components/SelfCheckCard'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -164,6 +166,12 @@ interface VibeMessage {
   agentRole?: TeamRole
   /** Teamwork 模式：Reviewer 角色产出的代码审查结果（仅 reviewer 角色消息有值） */
   review?: CodeReviewResult
+  /** Teamwork 模式：Leader 派发并行子任务时的状态列表（仅 sub_agent 占位消息有值） */
+  subAgents?: SubAgentInfo[]
+  /** Teamwork 模式：Coder 完成后开发完整性自检结果（仅 reviewer 自检阶段消息有值） */
+  selfCheck?: SelfCheckResultData
+  /** 标记此消息为 sub_agent 占位消息（用于 SSE 路由） */
+  isSubAgentContainer?: boolean
 }
 
 const EXAMPLE_PROMPTS = [
@@ -612,9 +620,13 @@ function UserMessage() {
 function AssistantMessage({
   agentRole,
   review,
+  subAgents,
+  selfCheck,
 }: {
   agentRole?: TeamRole
   review?: CodeReviewResult
+  subAgents?: SubAgentInfo[]
+  selfCheck?: SelfCheckResultData
 }) {
   const isRunning = useMessage((s) => s.status?.type === 'running')
   const hasText = useMessage((s) =>
@@ -690,6 +702,12 @@ function AssistantMessage({
         </div>
         {/* CodeReviewCard：Reviewer 角色消息附带的代码审查卡片 */}
         {review && <CodeReviewCard review={review} className="w-full max-w-md" />}
+        {/* SubAgentCard：Leader 派发并行子任务时的可视化卡片 */}
+        {subAgents && subAgents.length > 0 && (
+          <SubAgentCard subAgents={subAgents} className="w-full max-w-md" />
+        )}
+        {/* SelfCheckCard：开发完整性自检结果 */}
+        {selfCheck && <SelfCheckCard result={selfCheck} className="w-full max-w-md" />}
       </div>
     </MessagePrimitive.Root>
   )
@@ -1325,7 +1343,7 @@ export const VibeCodePage = () => {
             } else if (line.startsWith('data: ')) {
               let data: {
                 sessionId?: string
-                role?: TeamRole
+                role?: string  // 后端可能发 'sub_agent'（非 TeamRole），故用 string
                 task?: string
                 c?: string
                 id?: string
@@ -1335,6 +1353,18 @@ export const VibeCodePage = () => {
                 review?: CodeReviewResult
                 status?: string
                 error?: string
+                // SubAgent 相关
+                taskId?: string
+                results?: Array<{
+                  taskId: string
+                  role: TeamRole
+                  success: boolean
+                  output: string
+                  error?: string
+                  durationMs: number
+                }>
+                // Self-check (后端发 selfCheck 字段，避免与 result 冲突)
+                selfCheck?: SelfCheckResultData
               }
               try {
                 data = JSON.parse(line.slice(6))
@@ -1352,16 +1382,88 @@ export const VibeCodePage = () => {
                 // 优化：若 role=leader 且已预创建 leader 占位（currentAiMsgId 仍指向它），复用，避免重复创建
                 const canReuseLeaderPlaceholder =
                   data.role === 'leader' && currentAiMsgId === leaderPlaceholderId
-                if (!canReuseLeaderPlaceholder) {
+
+                // SubAgent 并行执行占位：role === 'sub_agent' 时不设 agentRole，
+                // 而是标记 isSubAgentContainer=true + subAgents=[]，后续 sub_agent_token 事件填充
+                if (data.role === 'sub_agent') {
+                  currentAiMsgId = crypto.randomUUID()
+                  const newMsg: VibeMessage = {
+                    id: currentAiMsgId,
+                    role: 'assistant',
+                    content: data.task || '并行执行子任务中...',
+                    isStreaming: true,
+                    isSubAgentContainer: true,
+                    subAgents: [],
+                  }
+                  setMessages((prev) => [...prev, newMsg])
+                } else if (!canReuseLeaderPlaceholder) {
                   currentAiMsgId = crypto.randomUUID()
                   const newMsg: VibeMessage = {
                     id: currentAiMsgId,
                     role: 'assistant',
                     content: '',
                     isStreaming: true,
-                    agentRole: data.role,
+                    agentRole: data.role as TeamRole,
                   }
                   setMessages((prev) => [...prev, newMsg])
+                }
+              } else if (currentEvent === 'sub_agent_token' && data.taskId && data.role) {
+                // SubAgent 流式 token：找到 isSubAgentContainer 消息，按 taskId 追加 output
+                const tid = data.taskId
+                const trole = data.role as TeamRole
+                const ttoken = data.c || ''
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (!m.isSubAgentContainer) return m
+                    const existing = (m.subAgents ?? []).find((s) => s.taskId === tid)
+                    let nextSubs: SubAgentInfo[]
+                    if (existing) {
+                      nextSubs = (m.subAgents ?? []).map((s) =>
+                        s.taskId === tid ? { ...s, output: s.output + ttoken } : s,
+                      )
+                    } else {
+                      // 首次见到该 taskId，初始化为 running
+                      nextSubs = [
+                        ...(m.subAgents ?? []),
+                        { taskId: tid, role: trole, output: ttoken, status: 'running' as const },
+                      ]
+                    }
+                    return { ...m, subAgents: nextSubs }
+                  }),
+                )
+              } else if (currentEvent === 'sub_agent_done' && Array.isArray(data.results)) {
+                // SubAgent 完成：用 results 更新所有子任务状态
+                const results = data.results
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (!m.isSubAgentContainer) return m
+                    const existingSubs = m.subAgents ?? []
+                    // 用 results 覆盖状态；对 results 中没有的 taskId 也保留为 success（兜底）
+                    const nextSubs: SubAgentInfo[] = results.map((r) => {
+                      const prevSub = existingSubs.find((s) => s.taskId === r.taskId)
+                      return {
+                        taskId: r.taskId,
+                        role: r.role,
+                        // 优先使用流式累积的 output（更完整），fallback 到 result.output
+                        output: prevSub?.output || r.output || '',
+                        status: r.success ? 'success' : 'error',
+                        error: r.error,
+                        durationMs: r.durationMs,
+                      }
+                    })
+                    return { ...m, subAgents: nextSubs, isStreaming: false }
+                  }),
+                )
+              } else if (currentEvent === 'self_check' && data.selfCheck) {
+                // 开发完整性自检结果：挂到当前消息上
+                if (currentAiMsgId) {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === currentAiMsgId
+                        ? { ...m, selfCheck: data.selfCheck }
+                        : m,
+                    ),
+                  )
                 }
               } else if (currentEvent === 'token' && data.c && currentAiMsgId) {
                 // 追加 token 到当前消息
@@ -2660,6 +2762,8 @@ export const VibeCodePage = () => {
                     <AssistantMessage
                       agentRole={vibeMsg?.agentRole}
                       review={vibeMsg?.review}
+                      subAgents={vibeMsg?.subAgents}
+                      selfCheck={vibeMsg?.selfCheck}
                     />
                     {/* v5.0 流式指示器：仅在最后一条 assistant 消息后显示 */}
                     {isLastAssistant && isStreaming && !vibeMsg?.content && (

@@ -469,6 +469,22 @@ export function createVibeTools(userId: string, projectId?: string) {
       verified: false,
     }),
   }),
+  // -----------------------------------------------------------------
+  // P2-8 多模态能力：captureIframeSnapshot
+  // -----------------------------------------------------------------
+  // 提取 iframe 预览的结构化 DOM 快照（标签树 + 可见文本 + 计算样式 + 统计），
+  // 让 AI 像"看到"页面一样分析布局是否符合预期。不依赖 vision 模型。
+  captureIframeSnapshot: tool({
+    description: '捕获 iframe 预览的结构化快照：DOM 树（深度限制 3）+ 可见文本（前 500 字符）+ 元素统计（forms/images/links/buttons/inputs）+ 主容器计算样式（背景色/字体/display/flex）。等同于让 AI"看到"渲染后的页面。用于：1) 验证 UI 是否符合需求 2) 调试布局问题 3) 检查表单/按钮是否到位 4) 替代 vision 模型分析。',
+    inputSchema: z.object({
+      maxDepth: z.number().optional().describe('DOM 树展开深度，默认 3，最大 5'),
+      includeStyles: z.boolean().optional().describe('是否包含主容器计算样式摘要，默认 true'),
+    }),
+    execute: async () => ({
+      note: '由前端 WebContainer 沙箱执行，返回真实 iframe DOM 结构化快照',
+      snapshot: null,
+    }),
+  }),
   }
 }
 
