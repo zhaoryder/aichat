@@ -396,6 +396,12 @@ export class WebContainerSandbox {
     return await this.instance.fs.readFile(path, 'utf8')
   }
 
+  /** 读取文件内容（二进制 Uint8Array，用于图片/字体/音视频等二进制文件） */
+  async readFileBinary(path: string): Promise<Uint8Array> {
+    if (!this.instance) throw new Error('WebContainer 未初始化')
+    return await this.instance.fs.readFile(path)
+  }
+
   /** 列出目录下的文件与子目录 */
   async listFiles(path: string = '.'): Promise<string[]> {
     if (!this.instance) throw new Error('WebContainer 未初始化')

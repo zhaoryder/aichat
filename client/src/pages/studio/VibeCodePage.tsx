@@ -2497,8 +2497,35 @@ export const VibeCodePage = () => {
     setMessages([])
   }, [])
 
-  const handleDownload = useCallback(() => {
-    if (!code) return
+  const handleDownload = useCallback(async () => {
+    // 优先调用 exportProjectAsZip 导出整个沙箱项目（含多文件 ZIP）
+    // 降级 1：沙箱未就绪 → 用 code 单 HTML 文件
+    // 降级 2：code 也为空 → toast 提示
+    if (sandboxRef.current?.isReady) {
+      try {
+        toast.loading('正在导出沙箱项目 ZIP...', { id: 'export-zip' })
+        const result = await exportProjectAsZip(sandboxRef.current)
+        toast.dismiss('export-zip')
+        if (result.skippedCount > 0) {
+          toast.success(
+            `已导出 ${result.addedCount} 个文件，跳过 ${result.skippedCount} 个（无法读取）`,
+          )
+        } else {
+          toast.success(`已导出 ${result.addedCount} 个文件`)
+        }
+        return
+      } catch (err) {
+        toast.dismiss('export-zip')
+        // 导出失败：降级到单 HTML 下载
+        console.warn('[handleDownload] ZIP 导出失败，降级为单 HTML:', err)
+      }
+    }
+
+    // 降级：用 code 单 HTML 下载
+    if (!code) {
+      toast.error('暂无可下载的内容，请先让 AI 生成代码')
+      return
+    }
     const blob = new Blob([code], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -2508,6 +2535,7 @@ export const VibeCodePage = () => {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    toast.info('沙箱未就绪，已下载单 HTML 文件')
   }, [code, lastPrompt])
 
   const handleCopy = useCallback(async () => {
