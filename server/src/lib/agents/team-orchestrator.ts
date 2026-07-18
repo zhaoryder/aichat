@@ -251,12 +251,17 @@ export async function runTeamStep(
       // 先发 role 事件让前端创建 Leader 占位消息，再发 token 追加思考文字，
       // 避免 Leader 决策期间（generateObject 非流式，5-15s）零反馈被误判为卡死
       sendEvent(res, 'role', { role: 'leader', task: '正在分析任务并分配角色...' })
-      sendEvent(res, 'token', { c: '🤔 Leader 正在分析任务...\n\n' })
       let decision
       try {
-        decision = await runLeader(goal, context, {
-          roles: session.roles,
-        })
+        decision = await runLeader(
+          goal,
+          context,
+          { roles: session.roles },
+          (token) => {
+            if (abortController.signal.aborted) return
+            sendEvent(res, 'token', { c: token, role: 'leader' })
+          },
+        )
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Leader 决策失败'
         sendEvent(res, 'error', { error: msg, role: 'leader' })
@@ -311,7 +316,6 @@ export async function runTeamStep(
           ) {
             // 先发 role 事件创建 Reviewer 占位消息，避免 Reviewer 决策期间（generateObject 非流式，5-15s）零反馈
             sendEvent(res, 'role', { role: 'reviewer', task: '正在审查代码...' })
-            sendEvent(res, 'token', { c: '🔍 Reviewer 正在审查代码质量...\n\n' })
             const review = await runReviewerRole(
               sessionId,
               session,
@@ -430,9 +434,16 @@ async function runPlannerRole(
   signal: AbortSignal,
 ): Promise<void> {
   const context = buildContext(session.transcript)
-  const steps = await runPlanner(task, context)
 
-  // 把步骤列表渲染为 markdown
+  // 真流式：onToken 回调把每个 text-delta 推给前端
+  let streamedText = ''
+  const steps = await runPlanner(task, context, (token) => {
+    if (signal.aborted) return
+    streamedText += token
+    sendEvent(res, 'token', { c: token, role: 'planner' })
+  })
+
+  // transcript 记录流式输出 + 步骤摘要（供后续 Leader 决策参考）
   const stepsText = steps
     .map(
       (s, i) =>
@@ -441,15 +452,10 @@ async function runPlannerRole(
     )
     .join('\n')
 
-  const content = `已拆解 ${steps.length} 个步骤：\n\n${stepsText}`
-
-  // 逐行流式推送，模拟逐步规划的过程（每行 50ms 延迟）
-  sendEvent(res, 'token', { c: `已拆解 ${steps.length} 个步骤：\n\n`, role: 'planner' })
-  for (const line of stepsText.split('\n')) {
-    if (signal.aborted) break
-    sendEvent(res, 'token', { c: line + '\n', role: 'planner' })
-    await new Promise((r) => setTimeout(r, 50)) // 50ms 延迟，模拟流式
-  }
+  const content =
+    streamedText.trim().length > 0
+      ? `${streamedText.trim()}\n\n[步骤摘要]\n已拆解 ${steps.length} 个步骤：\n${stepsText}`
+      : `已拆解 ${steps.length} 个步骤：\n${stepsText}`
 
   // 追加 transcript
   const msg: TeamMessage = {
@@ -640,7 +646,10 @@ async function runReviewerRole(
 
   let review: CodeReviewResult | null = null
   try {
-    review = await runReviewer(code, context)
+    review = await runReviewer(code, context, (token) => {
+      if (signal.aborted) return
+      sendEvent(res, 'token', { c: token, role: 'reviewer' })
+    })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Reviewer 失败'
     sendEvent(res, 'error', { error: msg, role: 'reviewer' })
