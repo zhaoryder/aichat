@@ -28,6 +28,13 @@ export interface CommandResult {
   exitCode: number
 }
 
+/** iframe console 日志条目（由 VibeCodePage 的 vibe-console 监听器推入） */
+export interface ConsoleLogEntry {
+  method: 'log' | 'warn' | 'error'
+  args: string[]
+  timestamp: number
+}
+
 /** 错误回调类型 */
 type ErrorCallback = (error: Error) => void
 
@@ -96,6 +103,8 @@ export class WebContainerSandbox {
   private terminalHistory: string[] = []
   /** iframe 错误收集（最近 20 条，供 A1 自动调试闭环读取） */
   private iframeErrors: string[] = []
+  /** iframe console 日志收集（最近 200 条，供 getConsoleLogs 工具读取） */
+  private consoleLogs: ConsoleLogEntry[] = []
 
   /** 获取当前 dev server URL */
   get devServerUrl(): string | null {
@@ -505,6 +514,24 @@ export class WebContainerSandbox {
   /** 清空已收集的 iframe 错误 */
   clearIframeErrors(): void {
     this.iframeErrors = []
+  }
+
+  /** 追加一条 iframe console 日志（限制最近 200 条），供 VibeCodePage 调用 */
+  pushConsoleLog(entry: ConsoleLogEntry): void {
+    this.consoleLogs.push(entry)
+    if (this.consoleLogs.length > 200) {
+      this.consoleLogs = this.consoleLogs.slice(-200)
+    }
+  }
+
+  /** 获取所有已收集的 iframe console 日志 */
+  getConsoleLogs(): ConsoleLogEntry[] {
+    return this.consoleLogs
+  }
+
+  /** 清空已收集的 iframe console 日志 */
+  clearConsoleLogs(): void {
+    this.consoleLogs = []
   }
 
   // -------------------------------------------------------------------

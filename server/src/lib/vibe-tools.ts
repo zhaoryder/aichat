@@ -362,7 +362,7 @@ export function createVibeTools(userId: string, projectId?: string) {
       })
 
       // 持久化到 skills 表（slug 前缀 user.dynamic-，便于在 /skills 市场显示 "AI 创建" 标签）
-      // 不存 implementation（实现仍在内存 Map 中，会话级）— 仅写入元数据用于展示
+      // 包含 implementation 字段，服务重启后 loadSkillTools 可从 manifest 读取并恢复执行能力
       try {
         const slug = `user.dynamic-${name.toLowerCase()}`
         await supabase
@@ -376,7 +376,7 @@ export function createVibeTools(userId: string, projectId?: string) {
               manifest: {
                 name,
                 description,
-                tools: [{ name, description, parameters: {} }],
+                tools: [{ name, description, parameters: {}, implementation }],
               },
               author_id: userId,
               version: '1.0.0',
@@ -409,12 +409,75 @@ export function createVibeTools(userId: string, projectId?: string) {
       output: '',
     }),
   }),
+  // -----------------------------------------------------------------
+  // listFiles：列出 WebContainer 沙箱中的文件列表（由前端沙箱执行）
+  // -----------------------------------------------------------------
+  listFiles: tool({
+    description: '列出 WebContainer 沙箱中的文件列表（含目录结构）。由前端沙箱执行。',
+    inputSchema: z.object({
+      path: z.string().optional().describe('要列出的目录路径，默认为根目录 .'),
+    }),
+    execute: async () => ({
+      note: '由前端 WebContainer 沙箱执行',
+      files: [],
+    }),
+  }),
+  // -----------------------------------------------------------------
+  // install：在 WebContainer 沙箱中安装 npm 依赖（由前端沙箱执行）
+  // -----------------------------------------------------------------
+  install: tool({
+    description: '在 WebContainer 沙箱中安装 npm 依赖包。由前端沙箱执行。',
+    inputSchema: z.object({
+      package: z.string().describe('要安装的 npm 包名，如 lodash / react'),
+    }),
+    execute: async () => ({
+      note: '由前端 WebContainer 沙箱执行',
+      success: false,
+    }),
+  }),
+  // -----------------------------------------------------------------
+  // A1 自动调试闭环：让 AI 主动查询 iframe 错误 / console 日志 / 验证渲染
+  // -----------------------------------------------------------------
+  getIframeErrors: tool({
+    description: '获取 iframe 预览区的运行时错误列表（如 JS 异常、未捕获的 Promise rejection）。用于自主调试：检查代码运行后是否有错误。',
+    inputSchema: z.object({
+      clear: z.boolean().optional().describe('读取后是否清空错误列表，默认 true'),
+    }),
+    execute: async () => ({
+      note: '由前端 WebContainer 沙箱执行，返回真实 iframe 错误列表',
+      errors: [],
+    }),
+  }),
+  getConsoleLogs: tool({
+    description: '获取 iframe 预览区的 console.log/warn/error 输出。用于调试：查看代码运行时的日志输出。',
+    inputSchema: z.object({
+      level: z.enum(['all', 'log', 'warn', 'error']).optional().describe('过滤日志级别，默认 all'),
+      lines: z.number().optional().describe('最近 N 条日志，默认 50'),
+    }),
+    execute: async () => ({
+      note: '由前端 WebContainer 沙箱执行，返回真实 console 日志',
+      logs: [],
+    }),
+  }),
+  verifyRendering: tool({
+    description: '触发渲染验证：要求前端检查 iframe 是否成功渲染、是否有可见内容、布局是否正常。用于开发完整性自检。',
+    inputSchema: z.object({
+      expectation: z.string().describe('期望的渲染结果描述，如"应该显示一个带表单的登录页面"'),
+    }),
+    execute: async () => ({
+      note: '由前端执行渲染验证',
+      verified: false,
+    }),
+  }),
   }
 }
 
 /**
- * @deprecated 使用 createVibeTools(userId, projectId) 创建绑定到具体用户/项目的工具集。
- * 此默认实例绑定到匿名（未登录）上下文，仅供 chatTools 等不依赖用户上下文的工具复用。
+ * @deprecated [WARNING] 请勿在需要用户/项目上下文的场景直接使用此匿名实例，
+ * 否则所有用户会共享同一（空）上下文，可能导致数据串扰。
+ * 新代码必须使用 createVibeTools(userId, projectId) 创建绑定到具体用户/项目的工具集。
+ * 此默认实例绑定到匿名（未登录）上下文，仅供 chatTools 等不依赖用户上下文的工具复用，
+ * 不应再扩大使用范围。
  */
 export const vibeCodeTools = createVibeTools('', undefined)
 
@@ -444,15 +507,6 @@ export const chatTools = {
   webSearch: vibeCodeTools.webSearch,
   generateImage: vibeCodeTools.generateImage,
   generateVideo: vibeCodeTools.generateVideo,
-}
-
-/**
- * @deprecated 已不再需要。createVibeTools 通过闭包捕获 userId / projectId，
- * 不再依赖 globalThis，避免并发请求间上下文互相覆盖（P0-2 修复）。
- * 保留为 no-op 以兼容旧调用点，后续版本将移除。
- */
-export function setVibeContext(_userId: string, _projectId?: string) {
-  // no-op：上下文已通过 createVibeTools(userId, projectId) 闭包传递
 }
 
 /** 工具定义列表（传给 chatWithTools 的 tools 参数，OpenAI 兼容格式） */

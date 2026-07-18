@@ -29,6 +29,8 @@ import {
   runReviewer,
   runReporter,
 } from './roles'
+import { SubAgentManager, type SubAgentTask } from './sub-agent-manager'
+import { runSelfCheck } from './self-check'
 import type {
   TeamSession,
   TeamMessage,
@@ -62,30 +64,63 @@ function rowToSession(row: Record<string, unknown>): TeamSession {
   }
 }
 
-/** 把 message 追加到 transcript 并持久化 */
+/**
+ * 把 message 追加到 transcript 并持久化。
+ *
+ * T6 修复：原实现 select-then-update 非原子，并发写入会丢失消息。
+ * 改为乐观锁 + 重试：读取时拿到 updated_at，更新时用 .eq('updated_at', ...)
+ * 保证未被其他写入修改；冲突时退避后重试，最多 3 次。
+ * team_sessions 表有触发器自动维护 updated_at，每次 UPDATE 都会刷新。
+ */
 async function appendTranscript(
   sessionId: string,
   message: TeamMessage,
 ): Promise<void> {
-  // 先读现有 transcript
-  const { data, error } = await supabase
-    .from('team_sessions')
-    .select('transcript')
-    .eq('id', sessionId)
-    .maybeSingle()
+  const MAX_RETRIES = 3
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { data, error } = await supabase
+      .from('team_sessions')
+      .select('transcript, updated_at')
+      .eq('id', sessionId)
+      .maybeSingle()
 
-  if (error || !data) {
-    console.error('[team-orchestrator] appendTranscript read error:', error)
-    return
+    if (error || !data) {
+      console.error('[team-orchestrator] appendTranscript read error:', error)
+      if (attempt === MAX_RETRIES - 1) return
+      await new Promise((r) => setTimeout(r, 50 * (attempt + 1)))
+      continue
+    }
+
+    const transcript = (data.transcript as TeamMessage[]) ?? []
+    transcript.push(message)
+    const previousUpdatedAt = data.updated_at as string | null
+
+    // 乐观锁：只有 updated_at 未变时才更新（若 updated_at 为 null 则退化为普通更新）
+    let updateQuery = supabase
+      .from('team_sessions')
+      .update({ transcript })
+      .eq('id', sessionId)
+    if (previousUpdatedAt) {
+      updateQuery = updateQuery.eq('updated_at', previousUpdatedAt)
+    }
+    const { data: updated, error: updateError } = await updateQuery
+      .select('id')
+      .maybeSingle()
+
+    if (!updateError && updated) {
+      return // 更新成功
+    }
+
+    // 冲突或失败：退避后重试
+    if (attempt === MAX_RETRIES - 1) {
+      console.error(
+        '[team-orchestrator] appendTranscript 乐观锁冲突，重试耗尽:',
+        updateError,
+      )
+      return
+    }
+    await new Promise((r) => setTimeout(r, 50 * (attempt + 1)))
   }
-
-  const transcript = (data.transcript as TeamMessage[]) ?? []
-  transcript.push(message)
-
-  await supabase
-    .from('team_sessions')
-    .update({ transcript })
-    .eq('id', sessionId)
 }
 
 /** 更新 session 的 current_role_name 与 status */
@@ -279,6 +314,49 @@ export async function runTeamStep(
         break
       }
 
+      // ---------- 并行子任务：Leader 返回 parallelTasks 或 nextRole='parallel' 时 ----------
+      // 分发给多个 SubAgent 并行执行（如同时写 HTML + CSS + JS），结果合并后继续 Leader 决策
+      if (
+        decision.nextRole === 'parallel' ||
+        (decision.parallelTasks && decision.parallelTasks.length > 0)
+      ) {
+        if (decision.parallelTasks && decision.parallelTasks.length > 0) {
+          sendEvent(res, 'role', {
+            role: 'sub_agent',
+            task: `并行执行 ${decision.parallelTasks.length} 个子任务`,
+          })
+          const subAgentManager = new SubAgentManager((taskId, token, role) => {
+            if (abortController.signal.aborted) return
+            sendEvent(res, 'sub_agent_token', { taskId, token, role })
+          })
+          const subTasks: SubAgentTask[] = decision.parallelTasks.map((p) => ({
+            id: crypto.randomUUID(),
+            role: p.role,
+            task: p.task,
+            context,
+            userId: session.user_id,
+            projectId: session.plan_id ?? undefined,
+          }))
+          const results = await subAgentManager.runParallel(subTasks)
+          sendEvent(res, 'sub_agent_done', { results })
+          // 把结果追加到 transcript
+          for (const result of results) {
+            const msg: TeamMessage = {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              agent_role: result.role,
+              content: result.output || result.error || '(无输出)',
+              timestamp: new Date().toISOString(),
+            }
+            await appendTranscript(sessionId, msg)
+            session.transcript.push(msg)
+          }
+        }
+        if (abortController.signal.aborted) break
+        // 继续下一轮 Leader 决策（消费并行结果）
+        continue
+      }
+
       const nextRole = decision.nextRole
       const task = decision.task
 
@@ -307,6 +385,28 @@ export async function runTeamStep(
             abortController.signal,
           )
           coderRound++
+
+          // ---------- Step 2.5: 开发完整性自检 ----------
+          if (latestCode) {
+            sendEvent(res, 'role', { role: 'reviewer', task: '正在执行开发完整性自检...' })
+            const selfCheckResult = await runSelfCheck(latestCode, (token) => {
+              if (abortController.signal.aborted) return
+              sendEvent(res, 'token', { c: token, role: 'reviewer' })
+            })
+            sendEvent(res, 'self_check', { result: selfCheckResult })
+
+            // 如果自检未通过，提示需要修复的问题
+            if (!selfCheckResult.passed) {
+              const failedChecks = selfCheckResult.checks
+                .filter((c) => !c.passed)
+                .map((c) => `- ${c.name}: ${c.message}`)
+                .join('\n')
+              sendEvent(res, 'token', {
+                c: `\n⚠️ 自检未通过，需要 Coder 修复以下问题：\n${failedChecks}\n`,
+                role: 'reviewer',
+              })
+            }
+          }
 
           // ---------- Step 3: Reviewer 评分（若团队含） ----------
           if (
@@ -341,6 +441,13 @@ export async function runTeamStep(
                 await updateSessionState(sessionId, null, 'failed')
                 sendEvent(res, 'done', { status: 'failed' })
                 break
+              }
+              // T2 修复：评分低但还有修复轮次时，显式提示 Leader 必须回到 Coder
+              if (minScore < 60 && coderRound < MAX_CODER_ROUNDS) {
+                sendEvent(res, 'token', {
+                  role: 'reviewer',
+                  c: `\n⚠️ Reviewer 评分较低（最低 ${minScore} 分），需要 Coder 修复上述问题后重新提交。\n`,
+                })
               }
             }
           }
@@ -487,6 +594,8 @@ async function runCoderRole(
 
   let assistantText = ''
   let latestCode = ''
+  // T5 修复：收集所有 writeFile 调用，避免只保留最后一次的 content
+  const allWrittenFiles: Map<string, string> = new Map()
 
   for await (const part of result.fullStream) {
     if (signal.aborted) break
@@ -501,9 +610,20 @@ async function runCoderRole(
       case 'tool-call': {
         // 追踪 writeFile 工具调用的 content（供 Reviewer 审查）
         if (part.toolName === 'writeFile') {
-          const input = part.input as { content?: unknown } | undefined
-          if (input && typeof input.content === 'string' && input.content) {
-            latestCode = input.content
+          const input = part.input as
+            | { path?: unknown; content?: unknown }
+            | undefined
+          const filePath =
+            input?.path && typeof input.path === 'string'
+              ? input.path
+              : 'index.html'
+          const fileContent =
+            input?.content && typeof input.content === 'string'
+              ? input.content
+              : ''
+          if (fileContent) {
+            allWrittenFiles.set(filePath, fileContent)
+            latestCode = fileContent
           }
         }
         sendEvent(res, 'tool_call', {
@@ -542,6 +662,16 @@ async function runCoderRole(
     }
   }
 
+  // T5 修复：tool_calls 记录所有 writeFile 调用，给 Reviewer 的代码合并所有文件
+  const toolCalls =
+    allWrittenFiles.size > 0
+      ? [...allWrittenFiles.entries()].map(([path, content], i) => ({
+          id: `coder-writeFile-${i}`,
+          name: 'writeFile',
+          args: { path, content },
+        }))
+      : undefined
+
   // 追加 transcript
   const msg: TeamMessage = {
     id: crypto.randomUUID(),
@@ -549,14 +679,24 @@ async function runCoderRole(
     agent_role: 'coder',
     content: assistantText || '(无文本输出)',
     timestamp: new Date().toISOString(),
-    tool_calls: latestCode
-      ? [{ id: 'coder-writeFile', name: 'writeFile', args: { path: 'index.html', content: latestCode } }]
-      : undefined,
+    tool_calls: toolCalls,
   }
   await appendTranscript(sessionId, msg)
   session.transcript.push(msg)
 
-  return latestCode
+  // 给 Reviewer 审查的代码：无文件返回空；单文件直接返回；多文件按文件头拼接
+  if (allWrittenFiles.size === 0) {
+    return ''
+  }
+  if (allWrittenFiles.size === 1) {
+    return (
+      allWrittenFiles.get('index.html') ??
+      [...allWrittenFiles.values()][0]
+    )
+  }
+  return [...allWrittenFiles.entries()]
+    .map(([path, content]) => `// ===== 文件: ${path} =====\n${content}`)
+    .join('\n\n')
 }
 
 /** 执行 Executor：流式消费 token + 工具调用 */

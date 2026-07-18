@@ -14,6 +14,7 @@
 
 import { tool, type ToolSet } from 'ai'
 import { z } from 'zod'
+import * as vm from 'node:vm'
 import { supabase } from './supabase'
 import { createVibeTools, listDynamicTools } from './vibe-tools'
 import type { Skill, UserSkill, SkillManifest } from '../../shared/types'
@@ -36,13 +37,13 @@ import type { Skill, UserSkill, SkillManifest } from '../../shared/types'
  * 报"工具无 execute"错误（P1-8 修复）。前端拦截时会用真实结果覆盖。
  */
 const bashToolStub = tool({
-  description: '在浏览器内 WebContainer 沙箱中执行 bash 命令（ls / cd / mkdir / npm / git / node 等）',
+  description: '在 WebContainer 沙箱中执行 shell 命令。命令由前端沙箱执行，调用后请使用 readTerminal 工具读取真实输出。',
   inputSchema: z.object({
     command: z.string().describe('要执行的 shell 命令'),
   }),
   execute: async () => ({
-    output: 'bash 命令由前端 WebContainer 沙箱执行，后端无需重复执行',
-    note: '前端已拦截此工具调用并真实执行',
+    note: 'bash 命令已由前端 WebContainer 沙箱执行。请调用 readTerminal 工具获取真实输出。',
+    output: '',
   }),
 })
 
@@ -119,7 +120,8 @@ function parametersToZod(parameters: Record<string, unknown>) {
 
 /**
  * 为自定义 skill 的单个工具创建 schema-only stub（无 execute）。
- * 自定义 skill 的工具实现无法在服务端安全执行，仅返回 schema。
+ * 仅用于 manifest 中未提供 implementation 的自定义 skill 工具
+ * （例如：纯 schema 展示、由前端桥接执行的工具）。
  *
  * 返回类型为 ToolSet 的成员类型（Tool<any, any, any>）以兼容异构工具集合。
  */
@@ -127,7 +129,7 @@ function createCustomToolStub(toolDef: SkillManifest['tools'][number]): ToolSet[
   return tool({
     description: toolDef.description || toolDef.name,
     inputSchema: parametersToZod(toolDef.parameters || {}),
-    // 无 execute：自定义 skill 工具由前端桥接或后续版本支持
+    // 无 execute：仅用于无 implementation 的自定义 skill 工具（前端桥接或纯 schema 展示）
   })
 }
 
@@ -176,7 +178,7 @@ export async function listInstalledSkills(userId: string): Promise<UserSkill[]> 
  *
  * - 内置 skill 的工具（webSearch/generateImage/generateVideo/executeCode/saveMemory/recallMemory/listMemory）复用 vibe-tools.ts 实现（带 execute）
  * - bash/file-io 的工具为 stub（仅 schema，无 execute，前端 WebContainer 桥接）
- * - 自定义 skill 的工具为 schema-only stub
+ * - 自定义 skill 的工具：若 manifest 中含 implementation 则用 node:vm 沙箱执行，否则为 schema-only stub
  * - 始终注入 buildTool 工具（Batch E2，AI 造工具能力）
  * - 合并 dynamicTools 中该用户自建的工具（带 execute，调用 executeDynamicToolCall）
  *
@@ -208,8 +210,69 @@ export async function loadSkillTools(
       // 内置工具名直接使用预定义实现
       if (builtinTools[toolDef.name]) {
         tools[toolDef.name] = builtinTools[toolDef.name]
+        continue
+      }
+      // 自定义 skill 工具：若 manifest 中含 implementation，创建带真实 execute 的工具
+      // （node:vm 沙箱执行，3 秒超时，仅暴露纯计算 API；与 executeDynamicTool 一致）
+      const implementation = (toolDef as { implementation?: string }).implementation
+      if (typeof implementation === 'string' && implementation.trim()) {
+        const toolName = toolDef.name
+        const toolImpl = implementation
+        tools[toolDef.name] = tool({
+          description: toolDef.description || toolDef.name,
+          inputSchema: parametersToZod(toolDef.parameters || {}),
+          execute: async (args: Record<string, unknown>) => {
+            const TIMEOUT_MS = 3000
+            const execPromise = new Promise<unknown>((resolve) => {
+              try {
+                // 构造受限沙箱上下文（仅暴露纯计算 API，不暴露 require/process/fs 等）
+                const sandboxAPI = {
+                  Math,
+                  JSON,
+                  Date,
+                  parseInt,
+                  parseFloat,
+                  isNaN,
+                  isFinite,
+                  String,
+                  Number,
+                  Boolean,
+                  Array,
+                  Object,
+                  encodeURIComponent,
+                  decodeURIComponent,
+                }
+                const sandbox = {
+                  args,
+                  context: { ...sandboxAPI, userId, projectId },
+                  ...sandboxAPI,
+                }
+                const context = vm.createContext(sandbox)
+                // implementation 是函数体（与 executeDynamicTool 一致），包装为 IIFE 调用以获取返回值
+                const wrappedCode = `(function(args, context) {\n"use strict";\n${toolImpl}\n})(args, context)`
+                const result = vm.runInContext(wrappedCode, context, { timeout: TIMEOUT_MS })
+                // 通过 Promise.resolve 处理跨 realm 的 thenable（async implementation）
+                Promise.resolve(result).then(resolve).catch((err) => {
+                  resolve({
+                    error: `工具 ${toolName} 执行失败：${err instanceof Error ? err.message : String(err)}`,
+                  })
+                })
+              } catch (err) {
+                resolve({
+                  error: `工具 ${toolName} 执行失败：${err instanceof Error ? err.message : String(err)}`,
+                })
+              }
+            })
+            const timeoutPromise = new Promise<unknown>((resolve) => {
+              setTimeout(() => {
+                resolve({ error: `工具 ${toolName} 执行超时（${TIMEOUT_MS}ms）` })
+              }, TIMEOUT_MS)
+            })
+            return Promise.race([execPromise, timeoutPromise])
+          },
+        })
       } else {
-        // 自定义 skill 工具：创建 schema-only stub
+        // 自定义 skill 工具：无 implementation，创建 schema-only stub
         tools[toolDef.name] = createCustomToolStub(toolDef)
       }
     }

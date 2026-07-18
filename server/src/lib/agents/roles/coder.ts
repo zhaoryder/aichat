@@ -55,6 +55,13 @@ function createCoderTools(userId: string, projectId?: string): ToolSet {
     webSearch: vibeTools.webSearch,
     generateImage: vibeTools.generateImage,
     generateVideo: vibeTools.generateVideo,
+    readTerminal: vibeTools.readTerminal,
+    listFiles: vibeTools.listFiles,
+    install: vibeTools.install,
+    // A1 自动调试闭环工具（由前端 WebContainer 沙箱拦截执行）
+    getIframeErrors: vibeTools.getIframeErrors,
+    getConsoleLogs: vibeTools.getConsoleLogs,
+    verifyRendering: vibeTools.verifyRendering,
   }
 }
 
@@ -92,6 +99,10 @@ export async function runCoder(
     apiKey: process.env.AGNES_API_KEY!,
     baseURL: process.env.AGNES_API_BASE!,
   })
+  // TODO(G5): 此处未读取 teamConfig.member_model，团队会话中无法按用户配置切换成员模型。
+  // 对比 leader.ts 已通过 teamConfig.leader_model 覆盖；成员角色（coder/executor/
+  // reviewer/reporter）的 run* 函数当前不接受 teamConfig 参数。修复需调整函数签名
+  // 及所有调用点，暂留作后续优化。
   const modelName = process.env.AGNES_MODEL || 'agnes-2.0-flash'
 
   const systemPrompt = skillPromptSuffix

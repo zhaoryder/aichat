@@ -34,6 +34,9 @@ export const FRONTEND_TOOLS = new Set([
   'listFiles',
   'install',
   'readTerminal',
+  'getIframeErrors',
+  'getConsoleLogs',
+  'verifyRendering',
 ])
 
 /**
@@ -77,6 +80,43 @@ export async function executeFrontendTool(
       const lines = (args.lines as number) ?? 50
       const output = _sandbox.getTerminalHistory(lines)
       return { success: true, output, lines }
+    }
+    case 'getIframeErrors': {
+      const errors = _sandbox.getIframeErrors()
+      const clear = args.clear !== false // 默认 true
+      if (clear) _sandbox.clearIframeErrors()
+      return { success: true, errors, count: errors.length }
+    }
+    case 'getConsoleLogs': {
+      const level = (args.level as 'all' | 'log' | 'warn' | 'error') ?? 'all'
+      const lines = (args.lines as number) ?? 50
+      const all = _sandbox.getConsoleLogs()
+      const filtered =
+        level === 'all' ? all : all.filter((l) => l.method === level)
+      const logs = filtered.slice(-lines)
+      return { success: true, logs, count: logs.length }
+    }
+    case 'verifyRendering': {
+      // 检查 iframe 是否加载成功、body 是否有内容
+      const iframe = document.querySelector(
+        'iframe[data-vibe-preview]',
+      ) as HTMLIFrameElement | null
+      if (!iframe || !iframe.contentDocument) {
+        return { success: false, verified: false, error: 'iframe 未加载' }
+      }
+      const body = iframe.contentDocument.body
+      const hasContent = !!(body && body.children.length > 0)
+      const text = body?.textContent?.trim() || ''
+      const hasText = text.length > 0
+      return {
+        success: true,
+        verified: hasContent || hasText,
+        hasContent,
+        hasText,
+        textLength: text.length,
+        childElementCount: body?.children.length || 0,
+        expectation: args.expectation,
+      }
     }
     default:
       return { error: `未知前端工具：${name}` }

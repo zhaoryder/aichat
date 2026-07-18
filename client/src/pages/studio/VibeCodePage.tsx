@@ -190,6 +190,19 @@ window.addEventListener('unhandledrejection', function(event) {
     message: 'Unhandled rejection: ' + (event.reason && event.reason.message ? event.reason.message : String(event.reason))
   }, '*');
 });
+['log', 'warn', 'error'].forEach(function(method) {
+  var orig = console[method];
+  console[method] = function() {
+    window.parent.postMessage({
+      type: 'vibe-console',
+      method: method,
+      args: Array.prototype.slice.call(arguments).map(function(a) {
+        try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e) { return '[unserializable]'; }
+      })
+    }, '*');
+    orig.apply(console, arguments);
+  };
+});
 </script>`
 
 /** 在 HTML 代码中注入错误捕获脚本 */
@@ -1984,6 +1997,27 @@ export const VibeCodePage = () => {
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
   }, [autoFixEnabled, isStreaming, handleSendByText])
+
+  // ----- A1 自动调试闭环：监听 iframe console 日志，转发到 sandbox -----
+  // iframe 内的 ERROR_CAPTURE_SCRIPT 会 postMessage('vibe-console')，这里接收并
+  // 推送到 sandbox 的 console 日志收集器（供 getConsoleLogs 工具读取）
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type !== 'vibe-console') return
+      const method = event.data.method
+      if (method !== 'log' && method !== 'warn' && method !== 'error') return
+      const args = Array.isArray(event.data.args)
+        ? event.data.args.map((a: unknown) => String(a))
+        : []
+      sandboxRef.current?.pushConsoleLog({
+        method,
+        args,
+        timestamp: Date.now(),
+      })
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
 
   // ----- Plan Mode 阶段 2：执行 plan（走 POST /api/plans/:id/execute） -----
   const handleExecutePlan = useCallback(async () => {

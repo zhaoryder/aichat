@@ -42,21 +42,62 @@ export const LEADER_SYSTEM_PROMPT = `你是 AI 团队的 Leader，负责：
    - 期望该角色产出什么
 2. 思考过程结束后，输出一个 JSON 决策块（必须用 \`\`\`json 代码块包裹），格式：
    \`\`\`json
-   { "nextRole": "leader"|"planner"|"coder"|"executor"|"reviewer"|"reporter"|"done", "task": "..." }
+   { "nextRole": "leader"|"planner"|"coder"|"executor"|"reviewer"|"reporter"|"done"|"parallel", "task": "..." }
    \`\`\`
 3. task 字段描述分配给下一个角色的具体任务（用中文，明确具体）
 4. 若任务已完成则 nextRole = "done"
-5. JSON 决策块必须是输出的最后部分，决策块之后不要再输出任何文字`
+5. JSON 决策块必须是输出的最后部分，决策块之后不要再输出任何文字
+
+## 并行任务能力
+当任务可以分解为独立子任务时（如同时写 HTML+CSS+JS，或同时研究多个方案），你可以在决策中返回 parallelTasks 数组：
+\`\`\`json
+{
+  "nextRole": "parallel",
+  "parallelTasks": [
+    { "role": "coder", "task": "创建 index.html 基础结构" },
+    { "role": "coder", "task": "创建 styles.css 样式文件" },
+    { "role": "coder", "task": "创建 app.js 交互逻辑" }
+  ]
+}
+\`\`\`
+注意：只有真正独立的任务才适合并行，有依赖关系的任务仍需串行。
+
+## 评分低处理
+当 Reviewer 评分低于 60 分时，你必须将 nextRole 设为 'coder'，并在 task 中明确指出需要修复的问题。不要跳过修复直接结束。`
 
 /** Leader 不直接调工具 */
 export const leaderTools = {}
 
 /** Leader 决策的输出结构 */
 export interface LeaderDecision {
-  /** 下一个执行的角色；'done' 表示全部完成 */
-  nextRole: TeamRole | 'done'
+  /** 下一个执行的角色；'done' 表示全部完成；'parallel' 表示并行执行子任务 */
+  nextRole: TeamRole | 'done' | 'parallel'
   /** 分配给该角色的任务描述 */
   task: string
+  /** 并行子任务列表（仅当 nextRole 为 'parallel' 时有效） */
+  parallelTasks?: Array<{ role: TeamRole; task: string }>
+}
+
+/**
+ * 从 Leader 决策对象中提取 parallelTasks 数组（若存在且合法）。
+ * 元素需同时具备字符串 role 与 task 字段，否则被过滤。
+ */
+function extractParallelTasks(
+  raw: unknown,
+): Array<{ role: TeamRole; task: string }> | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const tasks = raw
+    .filter(
+      (
+        p,
+      ): p is { role: string; task: string } =>
+        typeof p === 'object' &&
+        p !== null &&
+        typeof (p as { role?: unknown }).role === 'string' &&
+        typeof (p as { task?: unknown }).task === 'string',
+    )
+    .map((p) => ({ role: p.role as TeamRole, task: p.task }))
+  return tasks.length > 0 ? tasks : undefined
 }
 
 /**
@@ -79,8 +120,9 @@ function parseLeaderDecision(text: string): LeaderDecision | null {
         typeof obj.task === 'string'
       ) {
         return {
-          nextRole: obj.nextRole as TeamRole | 'done',
+          nextRole: obj.nextRole as TeamRole | 'done' | 'parallel',
           task: obj.task,
+          parallelTasks: extractParallelTasks(obj.parallelTasks),
         }
       }
     } catch {
@@ -99,8 +141,9 @@ function parseLeaderDecision(text: string): LeaderDecision | null {
         typeof obj.task === 'string'
       ) {
         return {
-          nextRole: obj.nextRole as TeamRole | 'done',
+          nextRole: obj.nextRole as TeamRole | 'done' | 'parallel',
           task: obj.task,
+          parallelTasks: extractParallelTasks(obj.parallelTasks),
         }
       }
     } catch {
@@ -119,12 +162,17 @@ function parseLeaderDecision(text: string): LeaderDecision | null {
  *   2. 流结束后从完整文本末尾解析 JSON 决策块
  *   3. 解析失败时降级为 nextRole=coder + task=goal
  *
+ * T4 修复：解析失败连续 2 次时，直接返回 done 结束协作，避免 Leader fallback 死循环。
+ *
  * @param goal 用户整体目标
  * @param context 当前协作上下文（已完成角色产出的摘要、当前轮次等）
  * @param teamConfig 团队配置（含启用的角色）
  * @param onToken 流式 token 回调（每个 text-delta 触发一次）
  * @returns { nextRole, task }
  */
+/** T4 修复：Leader 决策解析连续失败计数器（模块级） */
+let leaderParseFailCount = 0
+
 export async function runLeader(
   goal: string,
   context: string,
@@ -156,7 +204,21 @@ export async function runLeader(
   }
 
   const decision = parseLeaderDecision(fullText)
-  if (decision) return decision
+  if (decision) {
+    // T4 修复：解析成功时重置失败计数
+    leaderParseFailCount = 0
+    return decision
+  }
+
+  // T4 修复：解析失败累计计数，连续 2 次失败直接结束，避免 fallback 死循环
+  leaderParseFailCount++
+  if (leaderParseFailCount >= 2) {
+    leaderParseFailCount = 0 // 重置，避免后续新会话仍被影响
+    return {
+      nextRole: 'done',
+      task: 'Leader 决策解析连续失败，结束协作',
+    }
+  }
 
   // fallback：解析失败，默认分配 Coder，把 goal 作为任务
   return {

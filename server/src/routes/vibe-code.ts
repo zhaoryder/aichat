@@ -27,6 +27,7 @@ import { loadSkillTools, loadSkillSystemPrompt } from '../lib/skill-registry'
 import { createSnapshot } from '../lib/queries'
 import { supabase } from '../lib/supabase'
 import { generatePlan } from '../lib/agents/planner'
+import { runSelfCheck } from '../lib/agents/self-check'
 import type { ChatMessage, Plan, PlanStep } from '../../shared/types'
 
 export const vibeCodeRouter = Router()
@@ -1102,6 +1103,18 @@ vibeCodeRouter.post(
         }
       } catch (snapshotErr) {
         console.error('[vibe-code/stream] auto-snapshot failed:', snapshotErr)
+      }
+
+      // ---- 开发完整性自检 ----
+      // 流式结束后，对生成的代码执行静态自检，发送 self_check 事件。
+      // 失败静默处理，不影响主流程。
+      try {
+        if (latestCode) {
+          const selfCheckResult = await runSelfCheck(latestCode)
+          sendEvent(res, 'self_check', { result: selfCheckResult })
+        }
+      } catch (selfCheckErr) {
+        console.error('[vibe-code/stream] self-check failed:', selfCheckErr)
       }
 
       sendEvent(res, 'done', {})
