@@ -609,7 +609,7 @@ function PreviewArea({
 function UserMessage() {
   return (
     <MessagePrimitive.Root className="flex justify-end animate-slide-up-fade">
-      <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-2xl bg-primary px-3 py-2 text-sm leading-relaxed text-black">
+      <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-primary px-3 py-2 text-sm leading-relaxed text-black">
         <MessagePrimitive.Parts components={{ Text: ({ text }) => <>{text}</> }} />
       </div>
     </MessagePrimitive.Root>
@@ -658,7 +658,7 @@ function AssistantMessage({
           <Sparkles className="h-3.5 w-3.5" />
         )}
       </div>
-      <div className="flex max-w-[80%] flex-col items-start gap-1">
+      <div className="flex max-w-[85%] flex-col items-start gap-1">
         {/* 角色徽章：Teamwork 模式下显示当前消息所属角色 */}
         {agentRole && (
           <span
@@ -789,7 +789,7 @@ function VibeComposer({
   teamMode: boolean
 }) {
   return (
-    <ComposerPrimitive.Root className="flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800 p-3">
+    <ComposerPrimitive.Root className="mx-auto flex w-full max-w-3xl flex-col gap-2 border-t border-gray-100 dark:border-gray-800 p-3">
       <ComposerPrimitive.Input
         asChild
         value={value}
@@ -812,7 +812,7 @@ function VibeComposer({
           }
           disabled={disabled}
           rows={3}
-          className="w-full resize-y rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+          className="w-full max-h-32 resize-y rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 scrollbar-thin"
         />
       </ComposerPrimitive.Input>
       <div className="flex items-center justify-between">
@@ -890,6 +890,66 @@ export const VibeCodePage = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [composerValue, setComposerValue] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
+  // messages ref：与 messages state 同步，避免在 setMessages updater 内做副作用（React 18 严格模式会双调）
+  const messagesRef = useRef<VibeMessage[]>([])
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  /**
+   * 收集发送给后端的 messages：把 VibeMessage[] 转成后端期望的 {role, content}[] 格式。
+   * 重要修复（Bug: 上下文丢失）：
+   *   - 把上一轮 assistant 的 writeFile 工具调用结果（即写入的代码）作为 content 的一部分
+   *     发给后端，否则 AI 看不到自己写过的代码，导致"没有上下文"的现象。
+   *   - 其他工具调用（readFile/bash/getIframeErrors 等）以简短摘要形式附在 content 里，
+   *     让 AI 知道之前调过哪些工具、得到了什么结果。
+   */
+  function collectMessagesForBackend(history: VibeMessage[], currentText: string): Array<{
+    role: 'user' | 'assistant'
+    content: string
+  }> {
+    const result: Array<{ role: 'user' | 'assistant'; content: string }> = []
+    for (const m of history) {
+      if (m.role !== 'user' && m.role !== 'assistant') continue
+      if (!m.content && !(m.toolCalls && m.toolCalls.length > 0)) continue
+
+      if (m.role === 'user') {
+        result.push({ role: 'user', content: m.content })
+        continue
+      }
+
+      // assistant：合并 content + 工具调用上下文
+      let content = m.content || ''
+      if (m.toolCalls && m.toolCalls.length > 0) {
+        const ctxParts: string[] = []
+        for (const tc of m.toolCalls) {
+          if (tc.name === 'writeFile') {
+            const args = (tc.args ?? {}) as { path?: string; content?: string }
+            const path = args.path || 'index.html'
+            const code = args.content || ''
+            if (code) {
+              // 普通字符串拼接，避免模板字符串转义问题
+              const block = '已通过 writeFile 写入文件 ' + path + '：\n' + '```html\n' + code + '\n```'
+              ctxParts.push(block)
+            }
+          } else {
+            const resSummary = tc.result
+              ? JSON.stringify(tc.result).slice(0, 200)
+              : '(无结果)'
+            ctxParts.push('调用工具 ' + tc.name + '，结果：' + resSummary)
+          }
+        }
+        if (ctxParts.length > 0) {
+          const joiner = content ? '\n\n' : ''
+          content = content + joiner + ctxParts.join('\n')
+        }
+      }
+      if (!content.trim()) continue
+      result.push({ role: 'assistant', content })
+    }
+    result.push({ role: 'user', content: currentText })
+    return result
+  }
 
   // 持久化对话记录到 localStorage（防抖 500ms，避免频繁写入）
   useEffect(() => {
@@ -1699,18 +1759,9 @@ export const VibeCodePage = () => {
 
       // ----- Plan Mode 阶段 1：生成 plan（不创建 AI 占位消息，等 plan 事件） -----
       if (planMode && !plan) {
-        const messagesToSend: Array<{ role: 'user' | 'assistant'; content: string }> = []
-        setMessages((prev) => {
-          for (const m of prev) {
-            if (m.role === 'user' || m.role === 'assistant') {
-              if (m.content || (m.toolCalls && m.toolCalls.length > 0)) {
-                messagesToSend.push({ role: m.role, content: m.content })
-              }
-            }
-          }
-          messagesToSend.push({ role: 'user', content: trimmed })
-          return [...prev, userMsg]
-        })
+        // 使用 messagesRef 直接读取最新 messages，避免 setMessages updater 副作用
+        const messagesToSend = collectMessagesForBackend(messagesRef.current, trimmed)
+        setMessages((prev) => [...prev, userMsg])
 
         setIsLoading(true)
 
@@ -1786,21 +1837,11 @@ export const VibeCodePage = () => {
         isStreaming: true,
       }
 
-      // 本地 messages 快照（含新增的 user 消息），用于发送给后端
-      const messagesToSend: Array<{ role: 'user' | 'assistant'; content: string }> = []
-
-      setMessages((prev) => {
-        for (const m of prev) {
-          if (m.role === 'user' || m.role === 'assistant') {
-            // 跳过空内容的 assistant 占位
-            if (m.content || (m.toolCalls && m.toolCalls.length > 0)) {
-              messagesToSend.push({ role: m.role, content: m.content })
-            }
-          }
-        }
-        messagesToSend.push({ role: 'user', content: trimmed })
-        return [...prev, userMsg, aiMsg]
-      })
+      // 使用 messagesRef 直接读取最新 messages，避免 setMessages updater 副作用
+      // 重要修复：把上一次 assistant 的 writeFile 工具调用结果（即写入的代码）
+      // 也作为上下文一起发给后端，让 AI 看到自己写过的代码
+      const messagesToSend = collectMessagesForBackend(messagesRef.current, trimmed)
+      setMessages((prev) => [...prev, userMsg, aiMsg])
 
       setIsLoading(true)
 
@@ -2732,7 +2773,7 @@ export const VibeCodePage = () => {
           ref={conversationRef}
           className="flex-1 overflow-y-auto scrollbar-thin"
         >
-          <div className="mx-auto max-w-full space-y-3 px-3 py-4">
+          <div className="mx-auto w-full max-w-3xl space-y-3 px-3 py-4">
             <ThreadPrimitive.Empty>
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Bot className="mb-2 h-10 w-10 text-gray-300 dark:text-gray-600" />
@@ -2800,7 +2841,7 @@ export const VibeCodePage = () => {
       </ThreadPrimitive.Root>
 
       {/* 历史项目 */}
-      <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 p-3 max-h-48 overflow-y-auto scrollbar-thin">
+      <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 p-3 max-h-48 overflow-y-auto scrollbar-thin mx-auto w-full max-w-3xl">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400">我的项目</h3>
           {projects.length > 0 && (
